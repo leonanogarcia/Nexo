@@ -2283,17 +2283,17 @@ class App(tk.Tk):
 
         def add_item(oy, text, img, cmd, active=True):
             text_col = fg if active else self.colors['muted']
-            hitbox = c.create_rectangle(1, oy, w-1, oy+35, fill='', outline='', tags=(f'item_{oy}',))
+            hitbox = c.create_rectangle(1, oy, w-1, oy+35, fill=bg, outline='', tags=(f'item_{oy}',))
             if img:
-                c.create_image(24, oy+17, image=img, anchor='center')
-            c.create_text(42, oy+17, text=text, fill=text_col, font=('Segoe UI', 10), anchor='w')
+                c.create_image(24, oy+17, image=img, anchor='center', tags=(f'item_{oy}',))
+            c.create_text(42, oy+17, text=text, fill=text_col, font=('Segoe UI', 10), anchor='w', tags=(f'item_{oy}',))
             
             if active:
                 def on_click(e, c_cmd=cmd):
                     menu.destroy()
                     c_cmd()
                 c.tag_bind(f'item_{oy}', '<Enter>', lambda e: c.itemconfig(hitbox, fill=hover))
-                c.tag_bind(f'item_{oy}', '<Leave>', lambda e: c.itemconfig(hitbox, fill=''))
+                c.tag_bind(f'item_{oy}', '<Leave>', lambda e: c.itemconfig(hitbox, fill=bg))
                 c.tag_bind(f'item_{oy}', '<Button-1>', on_click)
                 c.tag_bind(f'item_{oy}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
                 c.tag_bind(f'item_{oy}', '<Leave>', lambda e: c.config(cursor='arrow'), add='+')
@@ -2322,7 +2322,12 @@ class App(tk.Tk):
         ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
         ov_left.place(relx=0, x=0, y=y_off, width=cw0, relheight=1.0, height=-y_off, anchor='nw')
         
-        kind = 'material' if 'mat' in str(tree) else ('recipe' if 'rec' in str(tree) else 'product')
+        if tree == getattr(self, 'mat_tree', None):
+            kind = 'material'
+        elif tree == getattr(self, 'rec_tree', None):
+            kind = 'recipe'
+        else:
+            kind = 'product'
 
         def _redraw_overlay(*_):
             ov.delete('all')
