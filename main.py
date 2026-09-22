@@ -2224,7 +2224,7 @@ class App(tk.Tk):
             transparent_bg = bg
             menu.configure(bg=bg)
         
-        w, h = 180, 115
+        w, h = 180, 145
         menu.geometry(f'{w}x{h}+{x-w+10}+{y+5}')
         
         c = tk.Canvas(menu, bg=transparent_bg, bd=0, highlightthickness=0)
@@ -2247,7 +2247,7 @@ class App(tk.Tk):
         c.create_arc(0, h-2*r-1, 2*r, h-1, start=180, extent=90, style='arc', outline=border)
         c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
         
-        c.create_line(16, h-45, w-16, h-45, fill=border)
+        c.create_line(16, 72, w-16, 72, fill=border)
         
         try:
             from PIL import Image, ImageDraw, ImageTk
@@ -2300,11 +2300,8 @@ class App(tk.Tk):
 
         add_item(5, 'Editar' if is_active else 'Editar (Desativado)', img_e, edit_cmd, is_active)
         add_item(35, 'Excluir', img_d, delete_cmd)
-        
-        if is_active:
-            add_item(75, 'Desativar', img_p, lambda: self._toggle_active(kind, iid, True))
-        else:
-            add_item(75, 'Ativar', img_pl, lambda: self._toggle_active(kind, iid, False))
+        add_item(75, 'Ativar', img_pl, lambda: self._toggle_active(kind, iid, False), not is_active)
+        add_item(105, 'Desativar', img_p, lambda: self._toggle_active(kind, iid, True), is_active)
             
         menu.grab_set()
         def on_click_anywhere(e):
