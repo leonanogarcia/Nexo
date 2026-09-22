@@ -1594,7 +1594,7 @@ class App(tk.Tk):
         if getattr(self,'current_page',None) == key:
             return
         for f in self._pages.values(): f.pack_forget()
-        self._pages[key].pack(fill='both',expand=True,padx=0,pady=(0,8))
+        self._pages[key].pack(fill='both',expand=True,padx=(0, 24),pady=(0,8))
         self.current_page=key
         titles={
             'Geral':('Início','Visão geral do seu negócio'),
@@ -1919,6 +1919,15 @@ class App(tk.Tk):
             tree.item(item, text='☑' if item==iid else '☐')
         tree.selection_set(iid)
         self._update_action_states()
+        
+        children = tree.get_children()
+        is_all_checked = len(self._checked_rows[key]) == len(children) and len(children) > 0
+        if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
+            self._redraw_mat_header()
+        else:
+            tree.heading('#0', text='☑' if is_all_checked else '☐')
+            
+        tree.event_generate('<<TreeviewSelect>>')
 
     def _toggle_checkbox(self, tree, iid):
         key=str(tree); checked=self._checked_rows.setdefault(key,set())
@@ -2190,7 +2199,7 @@ class App(tk.Tk):
         self.notify(f"Item {'desativado' if current_active else 'ativado'} com sucesso.")
 
     def _show_row_menu(self, tree, kind, iid, x, y, edit_cmd, delete_cmd):
-        tree.selection_set(iid)
+        self._set_single_checked(tree, iid)
         is_active = 'inactive' not in tree.item(iid, 'tags')
         
         dark = getattr(self, '_dark', False)
