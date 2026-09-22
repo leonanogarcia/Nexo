@@ -1165,41 +1165,55 @@ class NavItem(tk.Frame):
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.attributes('-topmost', True)
+        try: tip.attributes('-transparentcolor', '#FF00FF')
+        except: pass
+        tip.configure(bg='#FF00FF')
         
-        trans_color = '#FF00FF'
+        tx = int(self.winfo_rootx() + self.winfo_width() + 2)
+        ty = int(self.winfo_rooty() + max(0, (self.winfo_height() - 32) // 2))
+        
+        tip_w = len(self._text) * 8 + 24
+        tip_h = 32
+        tip.geometry(f'{tip_w}x{tip_h}+{tx}+{ty}')
+        
+        from PIL import Image, ImageDraw, ImageTk, ImageFont
+        
+        mask = Image.new('1', (tip_w, tip_h), 0)
+        md = ImageDraw.Draw(mask)
+        md.rounded_rectangle((0, 0, tip_w-1, tip_h-1), radius=14, fill=1)
+        
+        capsule = Image.new('RGBA', (tip_w, tip_h), '#101A33')
+        cd = ImageDraw.Draw(capsule)
+        
         try:
-            tip.attributes('-transparentcolor', trans_color)
+            fnt = ImageFont.truetype('segoeuib.ttf', 12)
         except Exception:
-            pass
-        tip.configure(bg=trans_color)
+            try:
+                fnt = ImageFont.truetype('arialbd.ttf', 12)
+            except Exception:
+                fnt = ImageFont.load_default()
+                
+        cd.text((tip_w/2, tip_h/2 - 1), self._text, fill='#FFFFFF', font=fnt, anchor='mm')
         
-        # Closer to sidebar
-        x_pos = int(self.winfo_rootx() + self.winfo_width() + 4)
-        y_pos = int(self.winfo_rooty() + max(0, (self.winfo_height() - 32) // 2))
-        tip.geometry(f'+{x_pos}+{y_pos}')
+        im = Image.new('RGBA', (tip_w, tip_h), '#FF00FF')
+        im.paste(capsule, (0, 0), mask)
         
-        w_c = len(self._text) * 8 + 24
-        h_c = 32
-        r_c = 14
+        img_tk = ImageTk.PhotoImage(im)
         
-        cv = tk.Canvas(tip, width=w_c, height=h_c, bg=trans_color, bd=0, highlightthickness=0)
-        cv.pack()
-        
-        fill_color = '#101A33'
-        cv.create_rectangle(r_c, 0, w_c-r_c, h_c, fill=fill_color, outline='')
-        cv.create_rectangle(0, r_c, w_c, h_c-r_c, fill=fill_color, outline='')
-        for bx, by, start in ((0,0,90), (w_c-2*r_c,0,0), (0,h_c-2*r_c,180), (w_c-2*r_c,h_c-2*r_c,270)):
-            cv.create_arc(bx, by, bx+2*r_c, by+2*r_c, start=start, extent=90, fill=fill_color, outline=fill_color)
-            
-        cv.create_text(w_c/2, h_c/2, text=self._text, fill='#FFFFFF', font=('Segoe UI', 10, 'bold'))
+        lbl = tk.Label(tip, image=img_tk, bg='#FF00FF', bd=0, highlightthickness=0)
+        lbl.image = img_tk
+        lbl.pack(fill='both', expand=True)
         self._tooltip = tip
 
-    def _hide_tooltip(self):
-        if self._tooltip is not None:
+    def _hide_tooltip(self, event=None):
+        if getattr(self, '_tooltip', None):
             try:
-                self._tooltip.destroy()
-            except Exception:
-                pass
+                if isinstance(self._tooltip, tk.Toplevel):
+                    self._tooltip.destroy()
+                else:
+                    self._tooltip.place_forget()
+                    self._tooltip.destroy()
+            except Exception: pass
             self._tooltip=None
 
     def set_active(self,active):
@@ -1243,46 +1257,70 @@ class ReferenceSidebar(tk.Canvas):
     def _load_assets(self):
         self._buttons={k:self._load_photo(f'{slug}.png') for k,slug in self._asset_slug.items()}
 
-    def _draw_pil_shape(self, x, y, w, h, radius, fill, outline='', line_width=1, tag=''):
-        from PIL import Image, ImageDraw, ImageTk
+    def _draw_pil_shape(self, x, y, w, h, radius, fill, outline='', line_width=1, tag='', blur=0):
+        from PIL import Image, ImageDraw, ImageTk, ImageFilter
         scale = 4
-        sw, sh = int(w * scale), int(h * scale)
-        im = Image.new('RGBA', (sw, sh), (0,0,0,0))
-        d = ImageDraw.Draw(im)
-        r = int(radius * scale)
-        if outline:
-            lw = int(line_width * scale)
-            d.rounded_rectangle((lw/2, lw/2, sw - lw/2 - 1, sh - lw/2 - 1), radius=r, fill=fill, outline=outline, width=lw)
-        else:
-            d.rounded_rectangle((0, 0, sw - 1, sh - 1), radius=r, fill=fill)
         
-        im = im.resize((int(w), int(h)), Image.Resampling.LANCZOS)
-        img_tk = ImageTk.PhotoImage(im)
-        self._image_refs[f"shape_{tag}_{x}_{y}_{w}_{h}_{fill}"] = img_tk
-        self.create_image(x, y, image=img_tk, anchor='nw', tags=tag)
+        if blur > 0:
+            pad = blur * 2
+            sw, sh = int((w + pad*2) * scale), int((h + pad*2) * scale)
+            def hex_to_rgba(h_str, alpha=0):
+                h_str = h_str.lstrip('#')
+                return tuple(int(h_str[i:i+2], 16) for i in (0, 2, 4)) + (alpha,)
+            
+            im = Image.new('RGBA', (sw, sh), hex_to_rgba(fill, 0))
+            d = ImageDraw.Draw(im)
+            r = int(radius * scale)
+            d.rounded_rectangle((pad*scale, pad*scale, sw - pad*scale - 1, sh - pad*scale - 1), radius=r, fill=fill)
+            im = im.filter(ImageFilter.GaussianBlur(blur * scale))
+            im = im.resize((int(w + pad*2), int(h + pad*2)), Image.Resampling.LANCZOS)
+            img_tk = ImageTk.PhotoImage(im)
+            self._image_refs[f"shape_{tag}_{x}_{y}_{w}_{h}_{fill}"] = img_tk
+            self.create_image(x - pad, y - pad, image=img_tk, anchor='nw', tags=tag)
+        else:
+            sw, sh = int(w * scale), int(h * scale)
+            im = Image.new('RGBA', (sw, sh), (0,0,0,0))
+            d = ImageDraw.Draw(im)
+            r = int(radius * scale)
+            if outline:
+                lw = int(line_width * scale)
+                d.rounded_rectangle((lw/2, lw/2, sw - lw/2 - 1, sh - lw/2 - 1), radius=r, fill=fill, outline=outline, width=lw)
+            else:
+                d.rounded_rectangle((0, 0, sw - 1, sh - 1), radius=r, fill=fill)
+            
+            im = im.resize((int(w), int(h)), Image.Resampling.LANCZOS)
+            img_tk = ImageTk.PhotoImage(im)
+            self._image_refs[f"shape_{tag}_{x}_{y}_{w}_{h}_{fill}"] = img_tk
+            self.create_image(x, y, image=img_tk, anchor='nw', tags=tag)
 
     def _get_centers(self):
         W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
         y=188
         bottom = H - 32
         h=max(300,bottom-y)
-        spacing = (h - 140) / 4
-        return [y + 70 + i * spacing for i in range(5)]
+        if h > 540:
+            spacing = (h - 130) / 4
+            return [y + 65 + i * spacing for i in range(5)]
+        else:
+            return [y+65, y+170, y+275, y+380, y+485]
 
     def _redraw(self):
         self.delete('all'); self._button_items.clear()
         self._image_refs = {}
-        W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
-        side_w=min(68, max(64, int(W*0.055)))
-        x=29 if W >= 600 else 8
-        y=188
+        H=max(self.winfo_height(),650)
+        
+        # O espaçamento fixo na esquerda do Nexo é 150px
+        available_w = 150
+        side_w = 68
+        x = (available_w - side_w) // 2
+        y = 188
         bottom = H - 32
         h=max(300,bottom-y); r=side_w/2
         sidebar='#111C30' if not self._dark else '#F28C28'
         shadow='#D8E1EE' if not self._dark else '#0A0A0A'
         outline='#A9BFE0' if not self._dark else '#F6A24B'
         
-        self._draw_pil_shape(x+2, y+4, side_w, h, r, shadow, tag='shadow')
+        self._draw_pil_shape(x, y+4, side_w, h, r, shadow, tag='shadow', blur=6)
         self._draw_pil_shape(x, y, side_w, h, r, sidebar, outline=outline, line_width=1, tag='sidebar')
         
         centers = self._get_centers()
@@ -1329,50 +1367,68 @@ class ReferenceSidebar(tk.Canvas):
         self._hide_tooltip()
         labels={'Geral':'Início','Cadastro':'Cadastro','Receitas':'Receitas','Produtos':'Produtos','Configurações':'Configurações'}
         text = labels.get(key, key)
-        W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
-        side_w=min(84, max(78, int(W*0.064))); sx=29 if W>=600 else 8
+        
+        available_w = 150
+        side_w = 68
+        x = (available_w - side_w) // 2
+        
         centers_map=dict(zip(self._asset_slug.keys(), self._get_centers()))
         cy = centers_map.get(key, event.y)
 
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.attributes('-topmost', True)
+        try: tip.attributes('-transparentcolor', '#FF00FF')
+        except: pass
+        tip.configure(bg='#FF00FF')
         
-        trans_color = '#FF00FF'
+        tx = int(self.winfo_rootx() + x + side_w + 2)
+        ty = int(self.winfo_rooty() + cy - 16)
+        
+        tip_w = len(text) * 8 + 24
+        tip_h = 32
+        tip.geometry(f'{tip_w}x{tip_h}+{tx}+{ty}')
+        
+        from PIL import Image, ImageDraw, ImageTk, ImageFont
+        
+        mask = Image.new('1', (tip_w, tip_h), 0)
+        md = ImageDraw.Draw(mask)
+        md.rounded_rectangle((0, 0, tip_w-1, tip_h-1), radius=14, fill=1)
+        
+        fill_c = '#101A33' if not self._dark else '#2A3B5C'
+        capsule = Image.new('RGBA', (tip_w, tip_h), fill_c)
+        cd = ImageDraw.Draw(capsule)
+        
         try:
-            tip.attributes('-transparentcolor', trans_color)
+            fnt = ImageFont.truetype('segoeuib.ttf', 12)
         except Exception:
-            pass
-        tip.configure(bg=trans_color)
+            try:
+                fnt = ImageFont.truetype('arialbd.ttf', 12)
+            except Exception:
+                fnt = ImageFont.load_default()
+                
+        cd.text((tip_w/2, tip_h/2 - 1), text, fill='#FFFFFF', font=fnt, anchor='mm')
         
-        # Closer distance
-        abs_x = int(self.winfo_rootx() + sx + side_w + 4)
-        abs_y = int(self.winfo_rooty() + cy - 17)
-        tip.geometry(f'+{abs_x}+{abs_y}')
+        im = Image.new('RGBA', (tip_w, tip_h), '#FF00FF')
+        im.paste(capsule, (0, 0), mask)
         
-        w_c = len(text) * 8 + 24
-        h_c = 32
-        r_c = 14
+        img_tk = ImageTk.PhotoImage(im)
         
-        cv = tk.Canvas(tip, width=w_c, height=h_c, bg=trans_color, bd=0, highlightthickness=0)
-        cv.pack()
-        
-        fill_color = '#101A33'
-        cv.create_rectangle(r_c, 0, w_c-r_c, h_c, fill=fill_color, outline='')
-        cv.create_rectangle(0, r_c, w_c, h_c-r_c, fill=fill_color, outline='')
-        for bx, by, start in ((0,0,90), (w_c-2*r_c,0,0), (0,h_c-2*r_c,180), (w_c-2*r_c,h_c-2*r_c,270)):
-            cv.create_arc(bx, by, bx+2*r_c, by+2*r_c, start=start, extent=90, fill=fill_color, outline=fill_color)
-            
-        cv.create_text(w_c/2, h_c/2, text=text, fill='#FFFFFF', font=('Segoe UI', 10, 'bold'))
+        lbl = tk.Label(tip, image=img_tk, bg='#FF00FF', bd=0, highlightthickness=0)
+        lbl.image = img_tk
+        lbl.pack(fill='both', expand=True)
         self._tooltip_win = tip
 
     def _hide_tooltip(self):
-        if hasattr(self, '_tooltip_win') and self._tooltip_win:
+        if getattr(self, '_tooltip_win', None):
             try:
-                self._tooltip_win.destroy()
-            except Exception:
-                pass
-            self._tooltip_win = None
+                if isinstance(self._tooltip_win, tk.Toplevel):
+                    self._tooltip_win.destroy()
+                else:
+                    self._tooltip_win.place_forget()
+                    self._tooltip_win.destroy()
+            except Exception: pass
+            self._tooltip_win=None
 
     def set_active(self,key):
         self._active=key; self._redraw()
