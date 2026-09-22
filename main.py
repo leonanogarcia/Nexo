@@ -1933,6 +1933,40 @@ class App(tk.Tk):
         else:
             tree.selection_remove(tree.selection())
         self._update_action_states()
+        
+        children = tree.get_children()
+        is_all_checked = len(checked) == len(children) and len(children) > 0
+        if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
+            self._redraw_mat_header()
+        else:
+            tree.heading('#0', text='☑' if is_all_checked else '☐')
+            
+        tree.event_generate('<<TreeviewSelect>>')
+
+    def _toggle_all_checkboxes(self, tree):
+        key = str(tree)
+        checked = self._checked_rows.setdefault(key, set())
+        children = tree.get_children()
+        if not children: return
+        
+        if len(checked) == len(children):
+            checked.clear()
+            tree.selection_remove(tree.selection())
+        else:
+            checked.update(children)
+            tree.selection_set(children)
+            
+        for item in children:
+            tree.item(item, text='☑' if item in checked else '☐')
+            
+        self._update_action_states()
+        tree.event_generate('<<TreeviewSelect>>')
+        
+        if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
+            self._redraw_mat_header()
+        else:
+            is_all_checked = len(checked) == len(children)
+            tree.heading('#0', text='☑' if is_all_checked else '☐')
 
     def _update_action_states(self):
         for tree, cfg in getattr(self, '_action_buttons', {}).items():
@@ -1944,8 +1978,9 @@ class App(tk.Tk):
                     try: b.pack_forget()
                     except Exception: pass
                 for b in bulk:
+                    try: b.configure(state='normal')
+                    except Exception: pass
                     try:
-                        b.configure(state='normal')
                         if not b.winfo_ismapped(): b.pack(side='left', padx=6)
                     except Exception: pass
             else:
@@ -1970,6 +2005,10 @@ class App(tk.Tk):
     def _reset_checked(self, tree):
         self._checked_rows[str(tree)] = set()
         for iid in tree.get_children(): tree.item(iid,text='☐')
+        if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
+            self._redraw_mat_header()
+        else:
+            tree.heading('#0', text='☐')
         self._update_action_states()
 
     def _action_photo(self, slug):
@@ -1981,7 +2020,13 @@ class App(tk.Tk):
         return self._action_photo_refs[slug]
 
     def _tree_click(self, event, tree, kind):
-        iid=tree.identify_row(event.y); col=tree.identify_column(event.x)
+        region = tree.identify_region(event.x, event.y)
+        col = tree.identify_column(event.x)
+        if region == 'heading' and col == '#0':
+            self._toggle_all_checkboxes(tree)
+            return 'break'
+            
+        iid=tree.identify_row(event.y)
         if not iid or tree.parent(iid): return
         # Action columns are identified by their fixed position, so image-only
         # headers remain clickable even when the heading text is intentionally blank.
@@ -2148,22 +2193,117 @@ class App(tk.Tk):
         tree.selection_set(iid)
         is_active = 'inactive' not in tree.item(iid, 'tags')
         
-        m = tk.Menu(self.winfo_toplevel(), tearoff=0, bg=self.colors['panel'], fg=self.colors['text'], font=('Segoe UI', 10), bd=1)
+        dark = getattr(self, '_dark', False)
+        bg = self.colors['panel']
+        fg = self.colors['text']
+        hover = '#20375F' if dark else '#F4F7FC'
+        border = self.colors['line']
+        
+        if hasattr(self, '_current_menu') and self._current_menu.winfo_exists():
+            self._current_menu.destroy()
+
+        menu = tk.Toplevel(self)
+        menu.overrideredirect(True)
+        menu.attributes('-topmost', True)
+        self._current_menu = menu
+        
+        try:
+            menu.configure(bg='#000001')
+            menu.wm_attributes('-transparentcolor', '#000001')
+            transparent_bg = '#000001'
+        except Exception:
+            transparent_bg = bg
+            menu.configure(bg=bg)
+        
+        w, h = 180, 115
+        menu.geometry(f'{w}x{h}+{x-w+10}+{y+5}')
+        
+        c = tk.Canvas(menu, bg=transparent_bg, bd=0, highlightthickness=0)
+        c.pack(fill='both', expand=True)
+        
+        r = 8
+        c.create_rectangle(r, 0, w-r, h, fill=bg, outline='')
+        c.create_rectangle(0, r, w, h-r, fill=bg, outline='')
+        c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=bg, outline='')
+        c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=bg, outline='')
+        c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=bg, outline='')
+        c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=bg, outline='')
+        
+        c.create_line(r, 0, w-r, 0, fill=border)
+        c.create_line(r, h-1, w-r, h-1, fill=border)
+        c.create_line(0, r, 0, h-r, fill=border)
+        c.create_line(w-1, r, w-1, h-r, fill=border)
+        c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, style='arc', outline=border)
+        c.create_arc(w-2*r-1, 0, w-1, 2*r, start=0, extent=90, style='arc', outline=border)
+        c.create_arc(0, h-2*r-1, 2*r, h-1, start=180, extent=90, style='arc', outline=border)
+        c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
+        
+        c.create_line(16, h-45, w-16, h-45, fill=border)
+        
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+            import pathlib
+            UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
+            im_e = Image.open(UI_ASSETS / 'action_edit_reference_exact.png').convert('RGBA').resize((16, 16), Image.Resampling.LANCZOS)
+            im_d = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA').resize((16, 16), Image.Resampling.LANCZOS)
+            
+            icon_color = '#AFC0E2' if dark else '#687796'
+            
+            im_pause = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(im_pause)
+            draw.rectangle([4, 2, 6, 14], fill=icon_color)
+            draw.rectangle([10, 2, 12, 14], fill=icon_color)
+            
+            im_play = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(im_play)
+            draw.polygon([5, 2, 5, 14, 13, 8], fill=icon_color)
+            
+            if not hasattr(self, '_menu_icons'):
+                self._menu_icons = {}
+            self._menu_icons['edit'] = ImageTk.PhotoImage(im_e)
+            self._menu_icons['delete'] = ImageTk.PhotoImage(im_d)
+            self._menu_icons['pause'] = ImageTk.PhotoImage(im_pause)
+            self._menu_icons['play'] = ImageTk.PhotoImage(im_play)
+            
+            img_e = self._menu_icons['edit']
+            img_d = self._menu_icons['delete']
+            img_p = self._menu_icons['pause']
+            img_pl = self._menu_icons['play']
+        except Exception:
+            img_e = img_d = img_p = img_pl = None
+
+        def add_item(oy, text, img, cmd, active=True):
+            text_col = fg if active else self.colors['muted']
+            hitbox = c.create_rectangle(1, oy, w-1, oy+35, fill='', outline='', tags=(f'item_{oy}',))
+            if img:
+                c.create_image(24, oy+17, image=img, anchor='center')
+            c.create_text(42, oy+17, text=text, fill=text_col, font=('Segoe UI', 10), anchor='w')
+            
+            if active:
+                def on_click(e, c_cmd=cmd):
+                    menu.destroy()
+                    c_cmd()
+                c.tag_bind(f'item_{oy}', '<Enter>', lambda e: c.itemconfig(hitbox, fill=hover))
+                c.tag_bind(f'item_{oy}', '<Leave>', lambda e: c.itemconfig(hitbox, fill=''))
+                c.tag_bind(f'item_{oy}', '<Button-1>', on_click)
+                c.tag_bind(f'item_{oy}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
+                c.tag_bind(f'item_{oy}', '<Leave>', lambda e: c.config(cursor='arrow'), add='+')
+
+        add_item(5, 'Editar' if is_active else 'Editar (Desativado)', img_e, edit_cmd, is_active)
+        add_item(35, 'Excluir', img_d, delete_cmd)
         
         if is_active:
-            m.add_command(label='✏ Editar', command=lambda: edit_cmd())
+            add_item(75, 'Desativar', img_p, lambda: self._toggle_active(kind, iid, True))
         else:
-            m.add_command(label='✏ Editar (Desabilitado)', state='disabled')
+            add_item(75, 'Ativar', img_pl, lambda: self._toggle_active(kind, iid, False))
             
-        m.add_command(label='<delete> Excluir', command=lambda: delete_cmd())
-        m.add_separator()
-        
-        if is_active:
-            m.add_command(label='⏸ Desativar', command=lambda: self._toggle_active(kind, iid, True))
-        else:
-            m.add_command(label='▶ Ativar', command=lambda: self._toggle_active(kind, iid, False))
-            
-        m.post(x, y)
+        menu.grab_set()
+        def on_click_anywhere(e):
+            x_root, y_root = e.x_root, e.y_root
+            rx, ry, rw, rh = menu.winfo_rootx(), menu.winfo_rooty(), menu.winfo_width(), menu.winfo_height()
+            if not (rx <= x_root <= rx+rw and ry <= y_root <= ry+rh):
+                menu.destroy()
+        menu.bind('<Button-1>', on_click_anywhere, add='+')
 
     def _attach_row_icon_overlay(self, tree, table_host, edit_col_idx, delete_col_idx, edit_cmd, delete_cmd):
         ov = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
@@ -2203,13 +2343,14 @@ class App(tk.Tk):
                 # Checkbox Overlay Drawing (Left)
                 bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
                 
-                ov_left.create_rectangle(0, ry, cw0, ry + rh, fill=bg_color, outline='')
+                ov_left.create_rectangle(0, ry, cw0, ry + rh, fill=bg_color, outline='', tags=(f'c_{iid}',))
                 
                 tags = tree.item(iid, 'tags')
                 is_active = 'inactive' not in tags
-                txt = '☑' if 'checked' in tags else '☐'
-                color = '#2B3D55' if 'checked' in tags else '#A0ABB9'
-                if getattr(self, '_dark', False): color = '#FFFFFF' if 'checked' in tags else '#60769D'
+                is_checked = iid in self._checked_rows.get(str(tree), set())
+                txt = '☑' if is_checked else '☐'
+                color = '#2B3D55' if is_checked else '#A0ABB9'
+                if getattr(self, '_dark', False): color = '#FFFFFF' if is_checked else '#60769D'
                 
                 cy = ry + rh // 2
                 ov_left.create_text(cw0/2, cy, text=txt, fill=color, font=f_chk, anchor='center', tags=(f'c_{iid}',))
@@ -2239,9 +2380,10 @@ class App(tk.Tk):
                     ov.tag_bind(f'd_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
                     
                 dot_c = self.colors.get('text', '#333333')
-                ov.create_oval(ox-1.5, cy-5.5, ox+1.5, cy-2.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
-                ov.create_oval(ox-1.5, cy-1.5, ox+1.5, cy+1.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
-                ov.create_oval(ox-1.5, cy+2.5, ox+1.5, cy+5.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1, cy-5, ox+1, cy-3, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1, cy-1, ox+1, cy+1, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1, cy+3, ox+1, cy+5, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_rectangle(ox-8, cy-10, ox+8, cy+10, fill='', outline='', tags=(f'o_{iid}',))
                 
                 ov.tag_bind(f'o_{iid}', '<Button-1>', lambda ev, i=iid: self._show_row_menu(tree, kind, i, ev.x_root, ev.y_root, edit_cmd, delete_cmd))
                 ov.tag_bind(f'o_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
@@ -2269,7 +2411,7 @@ class App(tk.Tk):
         mat_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.mat_tree, self.material_history_dialog), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
         mat_history.pack(side='left', padx=(8, 0))
         
-        self.mat_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self._run_normal_action(self.mat_tree, self.delete_selected_materials), width=120, height=49, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
+        self.mat_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.mat_tree, self.delete_selected_materials), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
         
         self.mat_search=tk.StringVar(); self.mat_search.trace_add('write',lambda *a:self.refresh_materials())
         
@@ -2371,6 +2513,20 @@ class App(tk.Tk):
                 c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
                 c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
                 c.create_line(cw0, 6, cw0, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                
+                # Draw "Select All" checkbox
+                key = str(self.mat_tree)
+                checked = self._checked_rows.get(key, set())
+                children = self.mat_tree.get_children()
+                is_all_checked = len(checked) == len(children) and len(children) > 0
+                
+                txt_chk = '☑' if is_all_checked else '☐'
+                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
+                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
+                
+                chk_id = c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                hitbox_id = c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
+                c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.mat_tree))
                 
             # Draw RIGHT fixed cover
             try:
@@ -2663,7 +2819,7 @@ class App(tk.Tk):
     def recipes_page(self, f):
         _, bar=self._build_page_toolbar(f)
         rec_add=RoundedActionButton(bar,'＋  Nova Receita',lambda: self._run_normal_action(self.rec_tree, self.new_recipe),width=150,height=40,fill='#2F67B1',hover='#255894'); rec_add.pack(side='left')
-        self.rec_bulk_delete_btn=ttk.Button(bar,text='<delete> Excluir',command=self.delete_selected_recipes,state='disabled',style='Soft.TButton')
+        self.rec_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.rec_tree, self.delete_selected_recipes), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
         rec_import=RoundedActionButton(bar,'Importar Word/PDF',lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document),width=155,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_import.pack(side='left',padx=10)
         rec_export=RoundedActionButton(bar,'Exportar Receita',lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe),width=145,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_export.pack(side='left',padx=10)
         rec_original=RoundedActionButton(bar,'Documento original',lambda: self._run_normal_action(self.rec_tree, self.open_original_document),width=165,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_original.pack(side='left',padx=10)
@@ -2918,7 +3074,7 @@ class App(tk.Tk):
     def products_page(self,f):
         _, bar=self._build_page_toolbar(f)
         prod_add=RoundedActionButton(bar,'＋  Novo Produto',lambda: self._run_normal_action(self.prod_tree, self.new_product),width=150,height=40,fill='#2F67B1',hover='#255894'); prod_add.pack(side='left')
-        self.prod_bulk_delete_btn=ttk.Button(bar,text='<delete> Excluir',command=self.delete_selected_products,state='disabled',style='Soft.TButton')
+        self.prod_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.prod_tree, self.delete_selected_products), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
         prod_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); prod_history.pack(side='left',padx=10)
         _, table_host = self._build_page_table_panel(f)
         self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','edit','delete','dummy'),show='tree headings')
