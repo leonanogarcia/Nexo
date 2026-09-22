@@ -861,6 +861,7 @@ class PillScrollbar(tk.Canvas):
         else:
             if not self.winfo_ismapped():
                 self.pack(side='bottom', fill='x', pady=(0, 4), padx=20)
+            self.tk.call('raise', self._w)
         self._redraw()
 
     def _redraw(self, e=None):
@@ -869,13 +870,15 @@ class PillScrollbar(tk.Canvas):
         self.delete('all')
         first, last = self._pos
         if first <= 0.001 and last >= 0.999: return
-        x1 = max(0, first * w)
-        x2 = min(w, last * w)
+        r = h / 2
+        x1 = max(r, first * w)
+        x2 = min(w - r, last * w)
         if x2 - x1 < 20:
             mid = (x1 + x2) / 2
             x1, x2 = mid - 10, mid + 10
-        r = h / 2
-        self.create_line(x1 + r, h / 2, x2 - r, h / 2, fill='#A0ABB9', width=h, capstyle='round')
+            x1 = max(r, x1)
+            x2 = min(w - r, max(x1+20, x2))
+        self.create_line(x1, h / 2, x2, h / 2, fill='#A0ABB9', width=h, capstyle='round')
 
     def _on_press(self, e):
         w = self.winfo_width()
@@ -1612,6 +1615,14 @@ class App(tk.Tk):
         self.refresh_products()
         self.refresh_settings()
 
+    def notify(self, message):
+        self.toast_label.config(text=message)
+        self.toast_frame.place(relx=0.5, y=30, anchor='n')
+        self.toast_frame.lift()
+        if hasattr(self, '_toast_after'):
+            self.after_cancel(self._toast_after)
+        self._toast_after = self.after(3000, self.toast_frame.place_forget)
+
     # ---------- Geral ----------
     def general(self, f):
         # Dashboard principal inspirado diretamente no layout de referência.
@@ -1986,7 +1997,7 @@ class App(tk.Tk):
             return 'break'
         if col==delete_col:
             self._set_single_checked(tree,iid)
-            {'material':self.delete_selected_material,'recipe':self.delete_selected_recipe,'product':self.delete_selected_product}[kind]()
+            {'material':self.delete_selected_materials,'recipe':self.delete_selected_recipes,'product':self.delete_selected_products}[kind]()
             return 'break'
         # Expand/collapse indicator always wins and never changes selection.
         if col=='#0':
@@ -2026,12 +2037,59 @@ class App(tk.Tk):
         wrap.pack(side='right',padx=(14,0),fill='none',expand=False)
         return wrap
 
+    def _auto_size_tree_column(self, tree, col):
+        import tkinter.font as tkfont
+        f = tkfont.Font(family='Segoe UI', size=10)
+        max_w = 40
+        txt = tree.heading(col, 'text')
+        if txt: max_w = max(max_w, f.measure(txt) + 24)
+        
+        if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_mat_header_specs'):
+            if str(col).startswith('#'):
+                try:
+                    idx = int(col[1:])
+                    if idx > 0:
+                        txt = self._mat_header_specs[idx-1][1]
+                        if txt: max_w = max(max_w, f.measure(txt) + 24)
+                except Exception: pass
+
+        c_idx = -1
+        if str(col).startswith('#'):
+            try: c_idx = int(col[1:]) - 1
+            except Exception: pass
+        else:
+            cols = list(tree['columns'])
+            if col in cols: c_idx = cols.index(col)
+        
+        for iid in tree.get_children():
+            if col == '#0' or c_idx == -1:
+                v = tree.item(iid, 'text')
+            else:
+                vals = tree.item(iid, 'values')
+                v = str(vals[c_idx]) if c_idx < len(vals) else ''
+            max_w = max(max_w, f.measure(v) + 24)
+            
+        tree.column(col, width=min(max_w, 600))
+
+    def _on_native_tree_double_click(self, e, tree, default_action):
+        if tree.identify_region(e.x, e.y) == 'separator':
+            col = tree.identify_column(e.x)
+            if col and col != 'dummy' and 'edit' not in col and 'delete' not in col:
+                self._auto_size_tree_column(tree, col)
+            return 'break'
+        if default_action: default_action()
+
     def _setup_canvas_header_drag(self, canvas, tree, fixed_cols, redraw_cmd, state_key):
         canvas._drag_col = None
         canvas._drag_start_x = 0
         canvas._drag_start_w = 0
         def get_col_edge(x):
-            cx = 0; cols = ['#0'] + list(tree['columns'])
+            total_w = sum(int(tree.column(c, 'width')) for c in ['#0'] + list(tree['columns']))
+            try: x_offset = float(tree.xview()[0]) * total_w
+            except Exception: x_offset = 0
+            
+            cx = -x_offset
+            cols = ['#0'] + list(tree['columns'])
             for col in cols:
                 cw = int(tree.column(col, 'width'))
                 cx += cw
@@ -2048,18 +2106,20 @@ class App(tk.Tk):
                 delta = e.x - canvas._drag_start_x
                 new_w = max(40, canvas._drag_start_w + delta)
                 tree.column(canvas._drag_col, width=new_w)
-                redraw_cmd()
+                canvas.after_idle(redraw_cmd)
         def on_motion(e):
             canvas.config(cursor='sb_h_double_arrow' if get_col_edge(e.x) and get_col_edge(e.x) not in fixed_cols else 'arrow')
         def on_double_click(e):
             col = get_col_edge(e.x)
-            if col and col not in fixed_cols:
+            if col and col not in fixed_cols and col != 'dummy':
                 setattr(self, f'_{state_key}_user_resized', False)
-                self.winfo_toplevel().event_generate('<Configure>')
+                self._auto_size_tree_column(tree, col)
+                canvas.after_idle(redraw_cmd)
+        
         canvas.bind('<Button-1>', on_press)
         canvas.bind('<B1-Motion>', on_drag)
         canvas.bind('<Motion>', on_motion)
-        canvas.bind('<Double-Button-1>', on_double_click)
+        canvas.bind('<Double-1>', on_double_click)
 
     def _make_row_icon(self, kind):
         try:
@@ -2072,7 +2132,7 @@ class App(tk.Tk):
                 im = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA')
             else:
                 return None
-            im = im.resize((24, 24), Image.Resampling.LANCZOS)
+            im = im.resize((16, 16), Image.Resampling.LANCZOS)
             return ImageTk.PhotoImage(im)
         except Exception: return None
 
@@ -2107,26 +2167,59 @@ class App(tk.Tk):
 
     def _attach_row_icon_overlay(self, tree, table_host, edit_col_idx, delete_col_idx, edit_cmd, delete_cmd):
         ov = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
-        ov.place(relx=1.0, x=0, y=36, width=120, relheight=1.0, height=-36, anchor='ne')
+        ov.place(relx=1.0, x=0, y=36, width=90, relheight=1.0, height=-36, anchor='ne')
         ov._icon_refs = []
+        
+        is_mat = tree == getattr(self, 'mat_tree', None)
+        cw0 = int(tree.column('#0', 'width'))
+        y_off = 36 if is_mat else 0
+        ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+        ov_left.place(relx=0, x=0, y=y_off, width=cw0, relheight=1.0, height=-y_off, anchor='nw')
+        
         kind = 'material' if 'mat' in str(tree) else ('recipe' if 'rec' in str(tree) else 'product')
 
         def _redraw_overlay(*_):
             ov.delete('all')
+            ov_left.delete('all')
             ov._icon_refs.clear()
+            
+            if not is_mat:
+                header_bg = '#142544' if getattr(self, '_dark', False) else '#E8EEF8'
+                ov_left.create_rectangle(0, 0, cw0, 38, fill=header_bg, outline='')
+                
             img_e = self._make_row_icon('edit')
             img_d = self._make_row_icon('delete')
-            ex, dx, ox = 20, 60, 100
+            ex, dx, ox = 15, 45, 75
             selected = set(tree.selection())
+            
+            from tkinter.font import Font
+            f_chk = Font(family='Segoe UI', size=13)
+            
             for iid in tree.get_children():
                 bb = tree.bbox(iid)
                 if not bb: continue
                 _, ry, _, rh = bb
-                bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
-                ov.create_rectangle(0, ry, 120, ry + rh, fill=bg_color, outline='')
-                cy = ry + rh // 2
                 
-                is_active = 'inactive' not in tree.item(iid, 'tags')
+                # Checkbox Overlay Drawing (Left)
+                bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
+                
+                ov_left.create_rectangle(0, ry, cw0, ry + rh, fill=bg_color, outline='')
+                
+                tags = tree.item(iid, 'tags')
+                is_active = 'inactive' not in tags
+                txt = '☑' if 'checked' in tags else '☐'
+                color = '#2B3D55' if 'checked' in tags else '#A0ABB9'
+                if getattr(self, '_dark', False): color = '#FFFFFF' if 'checked' in tags else '#60769D'
+                
+                cy = ry + rh // 2
+                ov_left.create_text(cw0/2, cy, text=txt, fill=color, font=f_chk, anchor='center', tags=(f'c_{iid}',))
+                
+                ov_left.tag_bind(f'c_{iid}', '<Button-1>', lambda ev, i=iid: self._toggle_checkbox(tree, i))
+                ov_left.tag_bind(f'c_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
+                ov_left.tag_bind(f'c_{iid}', '<Leave>', lambda ev, i=iid: ov_left.config(cursor='arrow'))
+                
+                # Action Buttons Overlay Drawing (Right)
+                ov.create_rectangle(0, ry, 90, ry + rh, fill=bg_color, outline='')
                 
                 if img_e:
                     ov._icon_refs.append(img_e)
@@ -2146,20 +2239,25 @@ class App(tk.Tk):
                     ov.tag_bind(f'd_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
                     
                 dot_c = self.colors.get('text', '#333333')
-                ov.create_oval(ox-2, cy-6, ox+2, cy-2, fill=dot_c, outline='', tags=(f'o_{iid}',))
-                ov.create_oval(ox-2, cy-1, ox+2, cy+3, fill=dot_c, outline='', tags=(f'o_{iid}',))
-                ov.create_oval(ox-2, cy+4, ox+2, cy+8, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1.5, cy-5.5, ox+1.5, cy-2.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1.5, cy-1.5, ox+1.5, cy+1.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
+                ov.create_oval(ox-1.5, cy+2.5, ox+1.5, cy+5.5, fill=dot_c, outline='', tags=(f'o_{iid}',))
                 
                 ov.tag_bind(f'o_{iid}', '<Button-1>', lambda ev, i=iid: self._show_row_menu(tree, kind, i, ev.x_root, ev.y_root, edit_cmd, delete_cmd))
                 ov.tag_bind(f'o_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
                 ov.tag_bind(f'o_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
 
-        def _sync_scroll(*_):
-            ov.yview_moveto(tree.yview()[0])
-            
         tree.bind('<Configure>', _redraw_overlay, add='+')
         tree.bind('<<TreeviewSelect>>', _redraw_overlay, add='+')
+        
+        orig_yscroll = tree.cget('yscrollcommand')
+        def _on_yscroll(first, last):
+            if orig_yscroll: tree.tk.call(orig_yscroll, first, last)
+            tree.after_idle(_redraw_overlay)
+        tree.configure(yscrollcommand=_on_yscroll)
+        
         ov._redraw = _redraw_overlay
+        tree._ov_left = ov_left
         return ov
 
     def cadastro(self, f):
@@ -2208,55 +2306,101 @@ class App(tk.Tk):
         self.mat_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
         self.mat_header.pack(fill='x',padx=2,pady=(0,0))
         
-        self.mat_tree=ttk.Treeview(table_host,columns=('code','name','brand','qty','unit','value','category','date','mod_date','status','edit','delete','options'),show='tree')
+        self.mat_tree=ttk.Treeview(table_host,columns=('code','name','brand','qty','unit','value','category','date','mod_date','status','edit','delete','options','dummy'),show='tree')
         self.mat_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.mat_tree.column('#0',width=60,minwidth=60,stretch=False)
         
-        for k,w in [('code',100),('name',220),('brand',150),('qty',110),('unit',65),('value',100),('category',130),('date',135),('mod_date',135),('status',90),('edit',40),('delete',40),('options',40)]:
-            self.mat_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('qty','unit','value','category','date','mod_date','status') else 'w',stretch=(k=='name'))
+        for k,w in [('code',100),('name',220),('brand',150),('qty',110),('unit',65),('value',100),('category',130),('date',135),('mod_date',135),('status',90),('edit',30),('delete',30),('options',30)]:
+            self.mat_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('qty','unit','value','category','date','mod_date','status') else 'w',stretch=False)
+        self.mat_tree.column('dummy', width=0, minwidth=0, stretch=True)
             
         self.mat_hsb = PillScrollbar(table_host, self.mat_tree)
+        original_scroll = self.mat_hsb._on_scroll
+        def hsb_scroll(first, last):
+            original_scroll(first, last)
+            self.after_idle(self._redraw_mat_header) if hasattr(self, '_redraw_mat_header') else None
+        self.mat_tree.configure(xscrollcommand=hsb_scroll)
+        
         self.mat_tree.pack(fill='both',expand=True)
 
-        self._mat_header_specs=[('code','Código',100),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('edit','',40),('delete','',40),('options','',40)]
+        self._mat_header_specs=[('code','Código',100),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('edit','',30),('delete','',30),('options','',30)]
         self._mat_header_imgs={}
         
         def redraw_mat_header(_event=None):
             c=self.mat_header; c.delete('all')
             w=max(c.winfo_width(),2); h=max(c.winfo_height(),2)
             r=min(h/2,18); fill='#EEF4FB'
+            
             c.create_rectangle(r,0,w-r,h,fill=fill,outline='')
             c.create_rectangle(0,r,w,h-r,fill=fill,outline='')
             c.create_arc(0,0,2*r,2*r,start=90,extent=90,fill=fill,outline=fill)
             c.create_arc(w-2*r,0,w,2*r,start=0,extent=90,fill=fill,outline=fill)
             c.create_arc(0,h-2*r,2*r,h,start=180,extent=90,fill=fill,outline=fill)
             c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
-            x0=0
+            
+            try:
+                total_w = sum(int(self.mat_tree.column(col, 'width')) for col in ['#0'] + list(self.mat_tree['columns']))
+                x_offset = float(self.mat_tree.xview()[0]) * total_w
+            except Exception:
+                x_offset = 0
+            
+            x0 = -x_offset
+            
             cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._mat_header_specs,1)]
             for idx,(col,txt) in enumerate(cols):
                 try: cw=int(self.mat_tree.column(col,'width'))
                 except Exception: cw=0
-                if col=='#0':
-                    x0+=cw; continue
-                if col=='#11':
-                    img=self._mat_header_imgs.get('edit')
-                    if img: c.create_image(x0+cw/2,h/2,image=img,anchor='center')
-                elif col=='#12':
-                    img=self._mat_header_imgs.get('delete')
-                    if img: c.create_image(x0+cw/2,h/2,image=img,anchor='center')
-                elif col=='#13':
-                    pass
-                else:
-                    align = 'w' if col in ('#1', '#2', '#3') else 'center'
-                    anchor_x = x0+12 if align == 'w' else x0+cw/2
-                    c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
                 
-                if col not in ('#0', '#11', '#12', '#13'):
-                    c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                # We skip drawing fixed columns inside the scrolling loop
+                if col in ('#0', '#11', '#12', '#13'):
+                    x0+=cw; continue
+                
+                align = 'w' if col in ('#1', '#2', '#3') else 'center'
+                anchor_x = x0+12 if align == 'w' else x0+cw/2
+                c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
                 x0+=cw
+                
+            # Draw LEFT fixed cover
+            try: cw0=int(self.mat_tree.column('#0','width'))
+            except Exception: cw0=60
+            if cw0 > 0:
+                # Cover the left area, but leave top-left and bottom-left corners empty!
+                c.create_rectangle(r, 0, cw0, h, fill=fill, outline='')
+                c.create_rectangle(0, r, cw0, h-r, fill=fill, outline='')
+                c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+                c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+                c.create_line(cw0, 6, cw0, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                
+            # Draw RIGHT fixed cover
+            try:
+                cw11 = int(self.mat_tree.column('#11','width'))
+                cw12 = int(self.mat_tree.column('#12','width'))
+                cw13 = int(self.mat_tree.column('#13','width'))
+                fixed_right_w = cw11 + cw12 + cw13
+            except Exception:
+                fixed_right_w = 120
+            
+            if fixed_right_w > 0:
+                start_x = w - fixed_right_w
+                # Cover the right area, but leave top-right and bottom-right corners empty!
+                c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
+                c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
+                c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+                c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+                c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                
+                cx = start_x
+                if cw11 > 0:
+                    img=self._mat_header_imgs.get('edit')
+                    if img: c.create_image(cx+cw11/2, h/2, image=img, anchor='center')
+                    cx += cw11
+                if cw12 > 0:
+                    img=self._mat_header_imgs.get('delete')
+                    if img: c.create_image(cx+cw12/2, h/2, image=img, anchor='center')
         self._redraw_mat_header=redraw_mat_header
-        self.mat_header.bind('<Configure>',redraw_mat_header)
-        self.mat_tree.bind('<Configure>',lambda e:redraw_mat_header())
+        self.mat_header.bind('<Configure>', redraw_mat_header)
+        self.mat_tree.bind('<Configure>', lambda e: self.mat_tree.after_idle(redraw_mat_header))
         self.after_idle(redraw_mat_header)
         
         self._setup_canvas_header_drag(self.mat_header, self.mat_tree, ['edit','delete','options'], redraw_mat_header, 'mat')
@@ -2269,7 +2413,14 @@ class App(tk.Tk):
             self.edit_selected_material, self.delete_selected_material)
             
         self._action_buttons[self.mat_tree]={'normal':[mat_add,mat_history],'bulk':[self.mat_bulk_delete_btn]}
-        self.mat_empty_overlay = tk.Label(table_host, text='Nenhum insumo encontrado.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
+        
+        try:
+            from PIL import Image, ImageTk
+            img_path = UI_ASSETS / 'empty_state_reference_exact.png'
+            self._mat_empty_img = ImageTk.PhotoImage(Image.open(img_path))
+            self.mat_empty_overlay = tk.Label(table_host, image=self._mat_empty_img, text='Nenhum insumo encontrado.', compound='top', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10), pady=10)
+        except Exception:
+            self.mat_empty_overlay = tk.Label(table_host, text='Nenhum insumo encontrado.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
 
     def material_form(self, edit_id=None):
         is_edit = edit_id is not None
@@ -2518,15 +2669,17 @@ class App(tk.Tk):
         rec_original=RoundedActionButton(bar,'Documento original',lambda: self._run_normal_action(self.rec_tree, self.open_original_document),width=165,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_original.pack(side='left',padx=10)
         rec_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.rec_tree, self.recipe_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_history.pack(side='left',padx=10)
         _, table_host = self._build_page_table_panel(f)
-        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','edit','delete'),show='tree headings')
+        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','edit','delete','dummy'),show='tree headings')
         self.rec_tree.column('#0',width=44,minwidth=44,stretch=False);self.rec_tree.heading('#0',text='')
-        for k,t,w in [('code','Código',95),('name','Receita',280),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('edit','',42),('delete','',42)]:
+        for k,t,w in [('code','Código',95),('name','Receita',280),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('edit','',30),('delete','',30)]:
             kw={'text':t}
             if k=='edit': kw['image']=self._action_photo('action_edit_small.png')
             if k=='delete': kw['image']=self._action_photo('action_delete_small.png')
-            self.rec_tree.heading(k,**kw);self.rec_tree.column(k,width=w)
+            self.rec_tree.heading(k,**kw)
+            self.rec_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('yield','unit','cost') else 'w',stretch=False)
+        self.rec_tree.column('dummy', width=0, minwidth=0, stretch=True); self.rec_tree.heading('dummy', text='')
         self.rec_tree.pack(fill='both',expand=True)
-        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk':[self.rec_bulk_delete_btn]};self.rec_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.rec_tree,'recipe'));self.rec_tree.bind('<Double-1>',lambda e:self.edit_selected_recipe());self._update_action_states()
+        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk':[self.rec_bulk_delete_btn]};self.rec_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.rec_tree,'recipe'));self.rec_tree.bind('<Double-1>',lambda e:self._on_native_tree_double_click(e,self.rec_tree,self.edit_selected_recipe));self._update_action_states()
 
     def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
         is_edit=edit_id is not None
@@ -2768,15 +2921,17 @@ class App(tk.Tk):
         self.prod_bulk_delete_btn=ttk.Button(bar,text='<delete> Excluir',command=self.delete_selected_products,state='disabled',style='Soft.TButton')
         prod_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); prod_history.pack(side='left',padx=10)
         _, table_host = self._build_page_table_panel(f)
-        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','edit','delete'),show='tree headings')
+        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','edit','delete','dummy'),show='tree headings')
         self.prod_tree.column('#0',width=44,minwidth=44,stretch=False);self.prod_tree.heading('#0',text='')
-        for k,t,w in [('code','Código',95),('name','Produto',300),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('edit','',42),('delete','',42)]:
+        for k,t,w in [('code','Código',95),('name','Produto',300),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('edit','',30),('delete','',30)]:
             kw={'text':t}
             if k=='edit': kw['image']=self._action_photo('action_edit_small.png')
             if k=='delete': kw['image']=self._action_photo('action_delete_small.png')
-            self.prod_tree.heading(k,**kw);self.prod_tree.column(k,width=w)
+            self.prod_tree.heading(k,**kw)
+            self.prod_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('weight','cost','price','margin') else 'w',stretch=False)
+        self.prod_tree.column('dummy', width=0, minwidth=0, stretch=True); self.prod_tree.heading('dummy', text='')
         self.prod_tree.pack(fill='both',expand=True)
-        self._action_buttons[self.prod_tree]={'normal':[prod_add,prod_history],'bulk':[self.prod_bulk_delete_btn]};self.prod_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.prod_tree,'product'));self.prod_tree.bind('<Double-1>',lambda e:self.edit_selected_product());self._update_action_states()
+        self._action_buttons[self.prod_tree]={'normal':[prod_add,prod_history],'bulk':[self.prod_bulk_delete_btn]};self.prod_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.prod_tree,'product'));self.prod_tree.bind('<Double-1>',lambda e:self._on_native_tree_double_click(e,self.prod_tree,self.edit_selected_product));self._update_action_states()
 
     def product_form(self, edit_id=None):
         is_edit=edit_id is not None
