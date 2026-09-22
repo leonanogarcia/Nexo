@@ -1,0 +1,9 @@
+NEXO v0.7.4 — CORREÇÕES VISUAIS PONTUAIS
+
+- Sidebar tratado como elemento flutuante, com cápsula mais curta e estreita.
+- Ícones do Sidebar reduzidos sem alteração do desenho dos ícones oficiais.
+- Logo reposicionado para permanecer totalmente visível; versão limpa sem textos pequenos ilegíveis.
+- Campos de texto/númericos dos formulários passaram a usar controle visualmente integrado à cápsula arredondada, sem retângulo interno aparente.
+- Criados assets próprios e nítidos para as ações Editar e Excluir, sem moldura, reutilizados nas janelas e cabeçalhos de ação.
+- Reduzida a aparência de baixa resolução dos assets visuais usados pela navegação.
+- Nenhuma funcionalidade de negócio foi alterada nesta revisão.

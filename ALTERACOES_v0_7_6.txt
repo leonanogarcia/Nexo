@@ -1,0 +1,1 @@
+Nexo v0.7.6 — correções visuais e refinamento do layout de referência.

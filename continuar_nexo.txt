@@ -1,0 +1,104 @@
+NEXO — CONTINUIDADE / REGRAS CONSOLIDADAS
+Versão desta build: v0.7.0
+Base: v0.6.10
+
+REGRA DE VERSIONAMENTO
+- Revisão: usada quando a alteração permanece dentro do conceito atual do software.
+- Nova versão de conceito: usada quando a evolução é significativa o suficiente para representar uma mudança relevante na forma como o software é concebido, apresentado ou funciona.
+- Não é obrigatório mudar a função para abrir uma nova versão de conceito. Uma alteração grande de design/apresentação também pode ser significativa.
+- Exemplo: mesma peça e mesma função = revisão; mudança significativa de fabricação, função ou alteração física = novo conceito.
+- No Nexo, uma mudança grande no conceito de design visual é significativa e pode abrir nova versão.
+- Correções/revisões seguem o último número; mudança significativa segue o número do meio e zera o último.
+- A versão 0.7.7 do amigo é somente referência e não entra na sequência do Nexo.
+- Só após uma versão ser realmente aprovada nasce a 1.0.0.
+
+IDENTIDADE VISUAL
+- Os ícones oficiais de navegação da referência do amigo são imutáveis.
+- Nunca redesenhar, substituir ou alterar esses ícones sem autorização explícita.
+- Se houver sugestão de melhoria de ícone, sugerir antes; não implementar automaticamente.
+- Sidebar mais estreito, sem reduzir o tamanho dos ícones.
+- Ícones de navegação ficam diretamente no Sidebar, sem caixa no estado normal.
+- Ao selecionar, aparece somente um destaque/caixa muito sutil.
+- Modo claro: Sidebar preto.
+- Modo escuro: Sidebar laranja.
+- O logo completo Nexo existente no ZIP fica FORA do Sidebar. O Sidebar contém somente os itens de navegação.
+- No modo claro, o fundo preto do arquivo do logo deve ser removido/transparentado; no modo escuro pode permanecer.
+- O logo deve aparecer com tamanho adequado e nitidez.
+
+MODO CLARO / ESCURO
+- Modo claro é o padrão.
+- Modo claro não deve ter grandes áreas pretas. Exceção: Sidebar preto.
+- Modo escuro continua disponível e usa Sidebar laranja.
+- Preferência de tema deve persistir.
+- Gráficos permanecem com fundo branco nos dois temas.
+
+JANELAS / MODAIS
+- Modal acima da janela principal, com foco, no mesmo monitor e dentro da área útil do Windows.
+- Nunca pode ser comido pela barra de tarefas ou cortar campos/botões.
+- Ações inferiores devem ficar sempre visíveis na abertura.
+- Editar e Excluir ficam juntos à esquerda.
+- Salvar/OK e Cancelar ficam juntos à direita.
+- Todos na mesma linha.
+- Salvar/Cancelar mantêm o formato e cores já aprovados.
+- Não depender de hover para revelar os botões.
+- Referência visual do posicionamento: ícones à esquerda e Salvar/Cancelar à direita na mesma faixa inferior do modal.
+
+ÍCONE DE EDITAR / EXCLUIR
+- Editar deve ser exatamente o emoji colorido ✏️.
+- Excluir deve usar a cor do emoji 🗑️ e o formato da lixeira da referência fornecida pelo usuário.
+- Sem borda, moldura ou botão quadrado ao redor dos ícones.
+- Os ícones ficam diretamente na janela/modal.
+- O mesmo padrão deve ser usado globalmente em todos os lugares de editar/excluir.
+
+CAMPOS
+- Campos visuais devem usar formato oblongo/cantos arredondados como padrão.
+- Checkbox atual está aprovado e não deve ser reduzido.
+- Quantidade e Rendimento aceitam somente entrada numérica.
+- Caracteres não numéricos devem ser bloqueados no próprio campo, sem mensagem de erro.
+- Unidade do Novo Item inicia sem valor preenchido.
+- Campos obrigatórios continuam marcados com *.
+- Quando um campo obrigatório não for preenchido, usar mensagem genérica e profissional, não indicar um campo específico na mensagem:
+  “Não foi possível salvar. Existem campos obrigatórios que precisam ser preenchidos.”
+  Para ações de finalização, usar “Não foi possível finalizar. Existem campos obrigatórios que precisam ser preenchidos.”
+
+CADASTRO
+- Central de itens comprados: alimentos, materiais, embalagens e outros itens usados no custo.
+- Alteração de tamanho/unidade que represente nova especificação não destrói histórico; cria novo item.
+- Histórico não deve ser apagado.
+- Motivo de edição deve ser registrado.
+- Categoria Doação permite preço zero; demais categorias exigem valor válido diferente de zero.
+
+RECEITA
+- Tela visível chama-se Receita.
+- Receita é componente reutilizável.
+- Conversões são matemáticas reais, não apenas texto.
+- Origem de itens e custos devem ser preservadas corretamente.
+
+PRODUTOS
+- Produto é montagem final e pode usar Insumo, Receita, Produto e demais componentes permitidos.
+- Edição deve abrir preenchida com todos os dados existentes.
+- Não existe botão Produzir.
+
+SELEÇÃO / MULTISSELEÇÃO
+- Clique na linha seleciona apenas aquele item.
+- Clique na linha de outro item não inicia multisseleção.
+- Multisseleção começa somente pelo checkbox de um segundo item.
+- Com 2 ou mais checkboxes selecionados, aparecem somente Adicionar e Excluir na barra.
+- Excluir em massa só existe nesse estado.
+- Adicionar durante multisseleção encerra a seleção múltipla, limpa checkboxes e segue para adicionar.
+- Seta de expandir/recolher funciona no primeiro clique e não altera seleção.
+- Vale para Cadastro, Receita e Produtos.
+
+PREPARO / ALOCAMENTO — REMOVIDO DEFINITIVAMENTE
+- O conceito “Preparo/Alocamento” foi eliminado.
+- Não deve existir botão, tela, campo, menu, fluxo, referência visual, referência funcional ou lógica relacionada a esse conceito no script do software.
+- Não recriar ou substituir esse conceito sem solicitação explícita do usuário.
+
+IMAGENS
+- O Nexo não corrige, reconstrói ou faz upscale automático de imagem ruim enviada pelo usuário.
+- A qualidade do arquivo fornecido é responsabilidade do usuário.
+
+BUILD ATUAL
+- Esta build é v0.7.0.
+- O “.1” no nome do ZIP enviado anteriormente foi somente um identificador do arquivo e não fazia parte da versão do software.
+- Não gerar ZIP automaticamente durante análise; gerar somente quando o usuário autorizar.

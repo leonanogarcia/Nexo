@@ -1,0 +1,8 @@
+NEXO — CONTINUIDADE v0.6.8
+
+Versão atual: v0.6.8.
+Esta revisão é focada no redesign visual: interface escura, sidebar cápsula flutuante com gradiente azul/roxo, navegação por ícones, cards e dashboard inspirados diretamente na referência enviada. A identidade continua sendo do Nexo.
+
+A estrutura funcional existente foi preservada, incluindo regras de seleção/multisseleção, ações individuais, modais, dropdowns, Cadastro, Receita, Produtos, Configurações, BI e banco SQLite.
+
+Próxima revisão sequencial: v0.6.9.

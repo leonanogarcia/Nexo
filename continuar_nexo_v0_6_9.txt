@@ -1,0 +1,6 @@
+NEXO v0.6.9 — revisão visual
+- Mantida a estrutura e as regras consolidadas do Nexo.
+- Os botões da navegação lateral usam os mesmos assets PNG da build Nexo_v0_7_7_icon_fix enviada pelo usuário.
+- Estados normal, hover e active usam os assets correspondentes.
+- Mantido tooltip no hover e Configurações na parte inferior.
+- Não foram usados novos desenhos vetoriais para substituir os ícones aprovados.

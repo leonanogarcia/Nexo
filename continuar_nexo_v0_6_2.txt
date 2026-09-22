@@ -1,0 +1,55 @@
+NEXO — CONTINUIDADE v0.6.5
+
+Versão atual: v0.6.5
+Próxima iteração, independentemente do tipo de alteração: v0.6.5.
+
+DIREÇÃO VISUAL
+- Nexo mantém identidade própria; referências do Power Apps servem apenas como conceito visual.
+- Interface moderna, fluida, colorida e limpa.
+- Paleta baseada no logo Nexo: carvão, branco, laranja, âmbar, creme e variações suaves.
+- Sidebar em carvão, com ícones coloridos por função.
+- Cabeçalho centralizado, ícone grande e colorido, título abaixo e área suave de cor.
+- Cards arredondados e coloridos no Início.
+- Divisões visuais devem evitar bordas duras e aparência de planilha antiga.
+- Seleções usam tons de laranja do Nexo.
+- Gráficos compactos e com fundo sempre branco, inclusive no modo escuro.
+
+NOMENCLATURA
+- Geral -> Início.
+- Receita Base -> Receita em toda a interface.
+- Início é a única tela cujo cabeçalho principal mostra o nome da empresa.
+
+LOGO
+- Área do logo integrada ao designer, sem moldura/margem visual desnecessária.
+- Não corrigir, reconstruir ou melhorar artificialmente imagem ruim.
+- Preservar proporção e qualidade original; não ampliar de forma que fique borrada.
+- Configurações informa extensões aceitas: PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO.
+- Mínimo recomendado: 500 px no menor lado; abaixo disso apenas avisar, não bloquear.
+
+SELEÇÃO / MULTISSELEÇÃO
+- Aplicável a Cadastro, Receita e Produtos.
+- Clique em qualquer lugar da linha = seleção única e checkbox daquele item obrigatoriamente marcado.
+- Clique na linha de outro item = desmarca o anterior e marca somente o novo.
+- Clique diretamente no checkbox do primeiro item = seleção única.
+- Clique diretamente no checkbox de outro item enquanto já existe um selecionado = entra em multisseleção.
+- Botão Excluir no topo só existe com 2+ itens selecionados.
+- Editar e excluir individuais ficam na linha como lápis/lixeira coloridos.
+- Checkbox maior e consistente.
+
+AÇÕES / LAYOUT
+- Ícones de editar/excluir somente ícone, coloridos.
+- Salvar e Cancelar na mesma linha quando aplicável.
+- Nenhum controle pode ficar cortado ou atrás da taskbar.
+- Janelas secundárias sobre a principal, mesmo monitor e dentro da área útil.
+- Dropdown abre ao clicar em qualquer ponto do campo.
+
+OUTROS
+- Campos de texto manual capitalizam a primeira letra.
+- Hover escuro com fundo branco usa texto/ícone preto.
+- Rodinha do mouse funciona no Início.
+- BI usa os dados disponíveis e evolui conforme o histórico.
+- Rodapé: status do banco + Nexo — Gestão de Custos e Precificação · v0.6.5.
+
+REGRA DE VERSIONAMENTO
+- Não usar o objetivo da modificação para decidir a versão.
+- A versão segue a sequência definida. Depois de v0.6.0, esta iteração é v0.6.5.

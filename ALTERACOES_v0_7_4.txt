@@ -1,0 +1,13 @@
+NEXO v0.7.4 — CORREÇÃO VISUAL
+
+Esta versão é uma revisão patch da 0.7.3.
+
+- Reestruturação visual do shell para seguir fielmente a referência aprovada.
+- Sidebar flutuante, fino e em formato de cápsula vertical.
+- Ícones oficiais do Sidebar preservados e apenas reduzidos na exibição.
+- Logo limpo, sem textos minúsculos, fora do Sidebar.
+- Barra de ações e campo de pesquisa com linguagem visual em cápsula.
+- Campo de pesquisa sem moldura externa adicional.
+- Ícones de ação Editar/Excluir mantidos como assets próprios, sem molduras.
+- Abertura inicial no Cadastro para reproduzir a tela de referência.
+- Nenhuma alteração deliberada na lógica de negócio nesta revisão.

@@ -1,0 +1,41 @@
+NEXO — CONTINUIDADE v0.6.2
+
+Base: Nexo_v0_5_3.zip
+Versão atual: v0.6.2
+
+CORREÇÕES IMPLEMENTADAS NESTA VERSÃO
+1. Campos de texto manuais: primeira letra é normalizada para maiúscula durante a digitação/foco/Enter.
+2. Dark mode: hover dos botões usa texto preto quando o fundo fica branco, evitando texto branco sobre branco.
+3. Identidade: nome da empresa é o destaque principal; Nexo + versão atual ficam no rodapé.
+4. Rodapé: mostra “Nexo — Gestão de Custos e Precificação · v0.6.2” e status do banco.
+5. Banco: Configurações e rodapé mostram Conectado ✓ / Desconectado ✕.
+6. Janelas secundárias: modais ficam associados à janela principal, acima dela, com foco, no mesmo monitor e dentro da área útil do monitor (respeitando a barra de tarefas).
+7. Tamanho/posição de modais: geometria é limitada à área útil do monitor para evitar abrir fora da tela.
+8. Produtos: removidos os botões gerais Editar/Excluir. Ações Editar/Excluir continuam na linha do item. Exclusão em massa aparece somente com 2 ou mais itens selecionados.
+9. Exclusão em massa de Produtos: se houver vínculos/histórico, pergunta se deve inativar; se a pessoa não aceitar, a operação inteira é cancelada. Produtos inativados deixam de aparecer nas seleções normais.
+10. Ícones: lápis e lixeira usam variação de emoji colorida (✏️ / 🗑️) onde o sistema operacional suportar.
+11. Edição de Produto: preservado o carregamento da composição existente para iniciar a edição já preenchida.
+12. BI: gráficos passam a ser efetivamente desenhados. Mesmo sem histórico, o BI mostra o retrato atual quando houver dados; com histórico, usa a evolução registrada e atualiza após alterações.
+13. Imagens: seletor aceita PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO, além de todos os arquivos. Arquivo inválido não é reparado pelo Nexo.
+
+REGRAS PRESERVADAS
+- Versionamento por impacto do produto: 0.5.x para correções/refinamentos; 0.6.0 para evolução significativa de forma/funcionalidade/experiência.
+- Versão sempre acompanha a versão atual em toda identificação do software.
+- Nome da empresa é a identidade central da interface.
+- Nexo pode aparecer com sua identidade própria em Configurações/Sobre.
+- Histórico e auditoria não devem ser destruídos por edições; correções registram motivo.
+- Conversões e custos usam os dados atuais do Cadastro.
+- Custos operacionais continuam separados das compras de insumos.
+- Nexo não é sistema de estoque.
+
+OBSERVAÇÃO TÉCNICA
+- O projeto é Python/Tkinter + SQLite e mantém os scripts de execução/compilação existentes.
+- A migração adiciona o campo active aos Produtos, preservando produtos existentes como ativos.
+
+
+ATUALIZAÇÃO v0.6.2
+- Designer reforçado com paleta derivada do logo Nexo (laranja, âmbar, creme, carvão e variações suaves).
+- Sidebar em carvão com ícones coloridos individualmente.
+- Cabeçalho centralizado com ícone grande e título em bloco de cor suave.
+- Cards do Início com cores suaves derivadas da paleta Nexo e cantos arredondados.
+- Divisões visuais priorizam painéis sem bordas duras e cartões arredondados onde o designer controla a área.

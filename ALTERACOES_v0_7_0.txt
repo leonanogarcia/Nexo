@@ -1,0 +1,22 @@
+NEXO v0.7.0 — ALTERAÇÕES CONSOLIDADAS
+
+Base: v0.6.10
+
+- Modo claro realmente claro; grandes áreas pretas removidas, mantendo Sidebar preto.
+- Modo escuro mantém Sidebar laranja.
+- Sidebar mais estreito sem reduzir os ícones oficiais.
+- Ícones oficiais de navegação preservados e usados diretamente, sem caixas permanentes.
+- Destaque do item ativo do Sidebar é sutil.
+- Logo completo Nexo do ZIP movido para fora do Sidebar; versão clara usa fundo transparente e versão escura preserva o fundo escuro.
+- Modais respeitam a área útil do Windows e reservam a barra de ações inferior desde a abertura.
+- Campos de entrada passaram a ter aparência oblonga/arredondada nos formulários principais.
+- Quantidade/Rendimento restringem a entrada a números; caracteres inválidos são bloqueados sem mensagem.
+- Unidade do Novo Item começa vazia.
+- Mensagens de campos obrigatórios são genéricas e profissionais.
+- Editar usa exatamente o emoji ✏️ e Excluir usa 🗑️, sem borda/moldura, juntos à esquerda nos modais.
+- Salvar e Cancelar ficam juntos à direita, na mesma linha dos ícones, sempre visíveis.
+- Botões Salvar/Cancelar mantêm formato e cores aprovados.
+- Removidas do script todas as referências funcionais ao conceito Preparo/Alocamento.
+- Botão Preparos/Alocamento removido da Receita.
+- O botão Produzir continua removido de Produtos.
+- Versão da build: 0.7.0.

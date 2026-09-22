@@ -1,0 +1,10 @@
+NEXO v0.6.9
+- Nova revisão baseada na build enviada pelo usuário como referência dos botões.
+- Assets de navegação copiados da build Nexo_v0_7_7_icon_fix:
+  btn_home_normal/hover/active.png
+  btn_cadastro_normal/hover/active.png
+  btn_receitas_normal/hover/active.png
+  btn_produtos_normal/hover/active.png
+  btn_settings_normal/hover/active.png
+- A navegação mantém tooltip, seleção ativa e configuração na parte inferior.
+- A lógica e a estrutura funcional da v0.6.8 foram preservadas.

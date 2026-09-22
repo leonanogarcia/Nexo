@@ -1,0 +1,28 @@
+NEXO — CONTINUIDADE v0.6.5
+
+Versão atual: v0.6.5
+Próxima iteração, independentemente do tipo de alteração: v0.6.5.
+
+DIREÇÃO VISUAL v0.6.x
+- Layout inspirado diretamente no conceito da referência fornecida pelo usuário: sidebar estreito com ícones grandes, tooltip ao passar o mouse, cards arredondados, dashboard em blocos, hierarquia visual e bastante uso de cor.
+- Nexo mantém identidade própria e usa a paleta do próprio logo: carvão, branco, laranja, âmbar e creme.
+- Sidebar não mostra os nomes das telas abaixo dos ícones; o nome aparece em tooltip no hover.
+- Ícones de seção: Início = casa, Cadastro = folha com check, Receita = bolo, Produtos = cupcake, Configurações = engrenagem. Esses ícones não aparecem dentro das telas que representam.
+- Início usa logo + nome da empresa no cabeçalho; as demais telas mostram apenas o título centralizado.
+- Logo padrão do Nexo é usado quando não há logo personalizado.
+- Gráficos compactos e sempre com fundo branco.
+
+REGRAS CONSOLIDADAS
+- Receita Base -> Receita.
+- Multisseleção em Cadastro, Receita e Produtos: clique na linha = seleção única; checkbox de outro item = multisseleção; botão Excluir no topo só com 2+ selecionados.
+- Barra normal mantém todos os botões funcionais da tela; em multisseleção desaparecem os normais e ficam somente Adicionar + Excluir. Adicionar encerra a multisseleção.
+- Editar/excluir individual ficam na linha como lápis/lixeira coloridos.
+- Logo: extensões PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO; mínimo recomendado 500 px no menor lado, somente aviso; não corrigir nem ampliar artificialmente.
+- Rodinha do mouse funciona no Início.
+- Janelas secundárias dentro da área útil, no mesmo monitor e acima da principal.
+- Dropdown abre clicando em qualquer parte do campo.
+- Campos de texto manual capitalizam a primeira letra.
+- Footer com status do banco + Nexo — Gestão de Custos e Precificação · v0.6.5.
+
+REGRA DE VERSIONAMENTO
+- O número da versão segue a sequência; o tipo ou objetivo da alteração não define o número.

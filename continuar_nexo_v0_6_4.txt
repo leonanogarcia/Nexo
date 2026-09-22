@@ -1,0 +1,29 @@
+NEXO v0.6.5 — CONTINUIDADE
+
+Objetivo desta revisão: refinar o layout visual do Nexo seguindo diretamente o mockup de referência aprovado pelo usuário, mantendo a identidade visual própria do Nexo e a paleta derivada do logo.
+
+Layout:
+- Sidebar vertical estreito, flutuante e arredondado.
+- Sidebar sem nomes fixos abaixo dos ícones; nomes aparecem em tooltip ao passar o mouse.
+- Logo e nome Nexo no topo do sidebar quando não houver logo próprio configurado.
+- Ícones grandes e coloridos.
+- Início: título e visão geral do negócio.
+- Demais telas: título da própria tela, sem ícone decorativo representando a tela dentro do conteúdo.
+- Dashboard do Início organizado em cards compactos, gráfico principal + indicador, dois blocos inferiores e últimas movimentações.
+- Cards e áreas com cantos arredondados, espaçamento e sombras/contraste suaves.
+- Paleta baseada no logo Nexo: carvão, laranja, creme e variações suaves.
+- Gráficos permanecem com fundo branco.
+
+Ícones do sidebar:
+- Início: símbolo de início.
+- Cadastro: folha/documento com item marcado.
+- Receita: bolinho de aniversário.
+- Produtos: cupcake.
+- Configurações: engrenagem.
+
+Regras já definidas:
+- Versionamento sequencial: após v0.6.3, esta revisão é v0.6.5, independentemente do tipo de alteração.
+- Não perder botões funcionais. Em Cadastro, Receita e Produtos: normal/1 seleção mantém os botões normais; 2+ checkboxes entram em multisseleção e deixam apenas Adicionar + Excluir; Adicionar cancela a multisseleção.
+- Editar/Excluir gerais não existem; ações individuais ficam na linha.
+- Checkbox maior; clique na linha = seleção única; segundo item só entra em multisseleção se o usuário clicar diretamente no checkbox.
+- Logo ruim não é corrigido artificialmente. Mínimo recomendado: 500 px no menor lado; aviso, não bloqueio.
