@@ -1165,6 +1165,7 @@ class NavItem(tk.Frame):
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.attributes('-topmost', True)
+        
         trans_color = '#FF00FF'
         try:
             tip.attributes('-transparentcolor', trans_color)
@@ -1172,8 +1173,9 @@ class NavItem(tk.Frame):
             pass
         tip.configure(bg=trans_color)
         
-        x_pos = self.winfo_rootx() + self.winfo_width() + 12
-        y_pos = self.winfo_rooty() + max(0, (self.winfo_height() - 32) // 2)
+        # Closer to sidebar
+        x_pos = int(self.winfo_rootx() + self.winfo_width() + 4)
+        y_pos = int(self.winfo_rooty() + max(0, (self.winfo_height() - 32) // 2))
         tip.geometry(f'+{x_pos}+{y_pos}')
         
         w_c = len(self._text) * 8 + 24
@@ -1241,53 +1243,67 @@ class ReferenceSidebar(tk.Canvas):
     def _load_assets(self):
         self._buttons={k:self._load_photo(f'{slug}.png') for k,slug in self._asset_slug.items()}
 
-    def _rounded(self, x,y,w,h,r,fill,outline='',width=0,tag='shape'):
-        self.create_round_rect(x,y,x+w,y+h,r,fill=fill,outline=outline,width=width,tags=tag)
-
-    def create_round_rect(self,x1,y1,x2,y2,r,fill='',outline='',width=0,tags=None):
-        # Polígono suavizado por arcos/retângulos do Canvas.
-        self.create_rectangle(x1+r,y1,x2-r,y2,fill=fill,outline='',tags=tags)
-        self.create_rectangle(x1,y1+r,x2,y2-r,fill=fill,outline='',tags=tags)
-        for bx,by,start in ((x1,y1,90),(x2-2*r,y1,0),(x1,y2-2*r,180),(x2-2*r,y2-2*r,270)):
-            self.create_arc(bx,by,bx+2*r,by+2*r,start=start,extent=90,fill=fill,outline=fill,tags=tags)
+    def _draw_pil_shape(self, x, y, w, h, radius, fill, outline='', line_width=1, tag=''):
+        from PIL import Image, ImageDraw, ImageTk
+        scale = 4
+        sw, sh = int(w * scale), int(h * scale)
+        im = Image.new('RGBA', (sw, sh), (0,0,0,0))
+        d = ImageDraw.Draw(im)
+        r = int(radius * scale)
         if outline:
-            self.create_line(x1+r,y1,x2-r,y1,fill=outline,width=width,tags=tags)
-            self.create_line(x1+r,y2,x2-r,y2,fill=outline,width=width,tags=tags)
-            self.create_line(x1,y1+r,x1,y2-r,fill=outline,width=width,tags=tags)
-            self.create_line(x2,y1+r,x2,y2-r,fill=outline,width=width,tags=tags)
-            for bx,by,start in ((x1,y1,90),(x2-2*r,y1,0),(x1,y2-2*r,180),(x2-2*r,y2-2*r,270)):
-                self.create_arc(bx,by,bx+2*r,by+2*r,start=start,extent=90,style='arc',outline=outline,width=width,tags=tags)
+            lw = int(line_width * scale)
+            d.rounded_rectangle((lw/2, lw/2, sw - lw/2 - 1, sh - lw/2 - 1), radius=r, fill=fill, outline=outline, width=lw)
+        else:
+            d.rounded_rectangle((0, 0, sw - 1, sh - 1), radius=r, fill=fill)
+        
+        im = im.resize((int(w), int(h)), Image.Resampling.LANCZOS)
+        img_tk = ImageTk.PhotoImage(im)
+        self._image_refs[f"shape_{tag}_{x}_{y}_{w}_{h}_{fill}"] = img_tk
+        self.create_image(x, y, image=img_tk, anchor='nw', tags=tag)
+
+    def _get_centers(self):
+        W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
+        y=188
+        bottom = H - 32
+        h=max(300,bottom-y)
+        spacing = (h - 140) / 4
+        return [y + 70 + i * spacing for i in range(5)]
 
     def _redraw(self):
         self.delete('all'); self._button_items.clear()
+        self._image_refs = {}
         W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
-        # Geometria proporcional à referência: cápsula fina e flutuante.
-        side_w=min(84, max(78, int(W*0.064)))
+        side_w=min(68, max(64, int(W*0.055)))
         x=29 if W >= 600 else 8
-        y=188 if H >= 780 else 150
-        bottom=min(H-42, y+580)
+        y=188
+        bottom = H - 32
         h=max(300,bottom-y); r=side_w/2
         sidebar='#111C30' if not self._dark else '#F28C28'
         shadow='#D8E1EE' if not self._dark else '#0A0A0A'
         outline='#A9BFE0' if not self._dark else '#F6A24B'
-        self._rounded(x+2,y+4,side_w,h,r,shadow,tag='shadow')
-        self._rounded(x,y,side_w,h,r,sidebar,outline=outline,width=1,tag='sidebar')
-        centers=[y+70,y+180,y+290,y+400,y+510]
+        
+        self._draw_pil_shape(x+2, y+4, side_w, h, r, shadow, tag='shadow')
+        self._draw_pil_shape(x, y, side_w, h, r, sidebar, outline=outline, line_width=1, tag='sidebar')
+        
+        centers = self._get_centers()
         for key,cy in zip(self._asset_slug.keys(),centers):
             if key==self._active:
-                self._rounded(x+14,cy-30,side_w-28,60,20,'#304763' if not self._dark else '#F6A45A',tag='selection')
+                sel_w = side_w - 24
+                sel_h = 60
+                sel_r = 20
+                sel_fill = '#304763' if not self._dark else '#F6A45A'
+                self._draw_pil_shape(x+12, cy-sel_h/2, sel_w, sel_h, sel_r, sel_fill, tag='selection')
             img=self._buttons.get(key)
             if img:
-                # Os assets oficiais permanecem inalterados; só a exibição é reduzida.
                 item=self.create_image(x+side_w/2,cy,image=img,anchor='center',tags=('nav',key))
                 self._button_items[key]=item
 
     def _hit_key(self,x,y):
         W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
-        side_w=min(84, max(78, int(W*0.064))); sx=29 if W>=600 else 8
+        side_w=min(68, max(64, int(W*0.055))); sx=29 if W>=600 else 8
         if not (sx <= x <= sx+side_w): return None
-        y0=188 if H>=780 else 150
-        for key,cy in zip(self._asset_slug.keys(),[y0+70,y0+180,y0+290,y0+400,y0+510]):
+        centers = self._get_centers()
+        for key,cy in zip(self._asset_slug.keys(), centers):
             if abs(y-cy)<=42: return key
         return None
 
@@ -1315,12 +1331,13 @@ class ReferenceSidebar(tk.Canvas):
         text = labels.get(key, key)
         W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
         side_w=min(84, max(78, int(W*0.064))); sx=29 if W>=600 else 8
-        y0=188 if H>=780 else 150
-        centers_map=dict(zip(self._asset_slug.keys(),[y0+70,y0+180,y0+290,y0+400,y0+510]))
+        centers_map=dict(zip(self._asset_slug.keys(), self._get_centers()))
         cy = centers_map.get(key, event.y)
+
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.attributes('-topmost', True)
+        
         trans_color = '#FF00FF'
         try:
             tip.attributes('-transparentcolor', trans_color)
@@ -1328,8 +1345,9 @@ class ReferenceSidebar(tk.Canvas):
             pass
         tip.configure(bg=trans_color)
         
-        abs_x = self.winfo_rootx() + sx + side_w + 12
-        abs_y = self.winfo_rooty() + cy - 17
+        # Closer distance
+        abs_x = int(self.winfo_rootx() + sx + side_w + 4)
+        abs_y = int(self.winfo_rooty() + cy - 17)
         tip.geometry(f'+{abs_x}+{abs_y}')
         
         w_c = len(text) * 8 + 24
@@ -1501,7 +1519,7 @@ class App(tk.Tk):
             img=img.resize((max(1,int(img.width*scale)),max(1,int(img.height*scale))),Image.Resampling.LANCZOS)
             self._nexo_brand_img=ImageTk.PhotoImage(img)
             self.nexo_brand_label=tk.Label(root,image=self._nexo_brand_img,bg=self.colors['bg'],bd=0,highlightthickness=0)
-            self.nexo_brand_label.place(x=29,y=54,width=135,height=105)
+            self.nexo_brand_label.place(x=10,y=54,width=135,height=105)
         except Exception:
             self.nexo_brand_label=None
 
