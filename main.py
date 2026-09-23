@@ -909,7 +909,7 @@ class PillScrollbar(tk.Canvas):
         self.tree.xview_moveto(new_first)
 
 class RoundedActionButton(tk.Frame):
-    """Botão cápsula com renderização antialias e ícones vetoriais leves."""
+    """Botão cápsula com renderização antialias perfeita e ícones desenhados com supersampling."""
     def __init__(self,parent,text,command,width=150,height=42,fill='#2F67B1',hover='#255894',fg='#FFFFFF',font=('Segoe UI',10,'bold'),**kwargs):
         super().__init__(parent,bg=parent.cget('bg'),bd=0,highlightthickness=0,width=width,height=height,cursor='hand2',**kwargs)
         self.pack_propagate(False); self._fill=fill; self._hover=hover; self._fg=fg; self._text=text; self._command=command; self._font=font
@@ -932,56 +932,92 @@ class RoundedActionButton(tk.Frame):
             text = text.replace(token, '')
         return ' '.join(text.split())
 
-    def _make(self,fill):
+    def _make(self,fill, icon=None, start_x=0, cy=0):
         try:
             from PIL import Image,ImageDraw,ImageTk
-            w=max(2,self.winfo_width()); h=max(2,self.winfo_height()); scale=4
-            im=Image.new('RGBA',(w*scale,h*scale),(0,0,0,0)); d=ImageDraw.Draw(im)
-            d.rounded_rectangle((scale,scale,w*scale-scale-1,h*scale-scale-1),radius=(h*scale)//2,fill=fill)
+            w=max(2,self.winfo_width()); h=max(2,self.winfo_height()); scale=8
+            
+            # Draw on a solid background matching the parent to avoid dark alpha halos
+            parent_bg = self.cget('bg')
+            im=Image.new('RGB',(w*scale,h*scale), parent_bg); d=ImageDraw.Draw(im)
+            d.rounded_rectangle((0,0,w*scale-1,h*scale-1),radius=(h*scale)//2,fill=fill)
+            
+            if icon:
+                col = self._fg
+                cx = start_x * scale
+                c_y = cy * scale
+                cw = max(2, int(1.8 * scale))
+                
+                def line(pts):
+                    d.line(pts, fill=col, width=cw)
+                    for i in range(0, len(pts), 2):
+                        x, y = pts[i], pts[i+1]
+                        d.ellipse((x-cw/2, y-cw/2, x+cw/2, y+cw/2), fill=col)
+                        
+                if icon=='plus':
+                    line([cx-7*scale, c_y, cx+7*scale, c_y])
+                    line([cx, c_y-7*scale, cx, c_y+7*scale])
+                elif icon=='clock':
+                    outer = 7 * scale
+                    inner = outer - cw
+                    d.ellipse((cx-outer, c_y-outer, cx+outer, c_y+outer), fill=col)
+                    d.ellipse((cx-inner, c_y-inner, cx+inner, c_y+inner), fill=fill)
+                    line([cx, c_y, cx, c_y-4.5*scale])
+                    line([cx, c_y, cx+4*scale, c_y+2.5*scale])
+                elif icon=='convert':
+                    line([cx-8*scale, c_y-3*scale, cx+6*scale, c_y-3*scale])
+                    line([cx+3*scale, c_y-6*scale, cx+6*scale, c_y-3*scale, cx+3*scale, c_y])
+                    line([cx+8*scale, c_y+3*scale, cx-6*scale, c_y+3*scale])
+                    line([cx-3*scale, c_y, cx-6*scale, c_y+3*scale, cx-3*scale, c_y+6*scale])
+                elif icon=='delete':
+                    import pathlib
+                    UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
+                    try:
+                        icon_img = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA')
+                        # Resize to fit nicely (about 14x16 at 1x)
+                        icon_img = icon_img.resize((int(14*scale), int(16*scale)), Image.Resampling.LANCZOS)
+                        
+                        # Recolor the icon to match self._fg exactly
+                        r_c, g_c, b_c = self.winfo_rgb(col)
+                        r_c, g_c, b_c = r_c//256, g_c//256, b_c//256
+                        data = icon_img.getdata()
+                        new_data = [(r_c, g_c, b_c, item[3]) for item in data]
+                        icon_img.putdata(new_data)
+                        
+                        # Paste centered
+                        im.paste(icon_img, (int(cx - 7*scale), int(c_y - 8*scale)), icon_img)
+                    except Exception:
+                        line([cx-5*scale, c_y-5*scale, cx+5*scale, c_y-5*scale])
+                    
             im=im.resize((w,h),Image.Resampling.LANCZOS); return ImageTk.PhotoImage(im)
         except Exception:return None
-
-    def _draw_icon(self,kind,cx,cy,col):
-        w=1.8
-        if kind=='plus':
-            self._canvas.create_line(cx-7,cy,cx+7,cy,fill=col,width=w,capstyle='round')
-            self._canvas.create_line(cx,cy-7,cx,cy+7,fill=col,width=w,capstyle='round')
-        elif kind=='clock':
-            self._canvas.create_oval(cx-7,cy-7,cx+7,cy+7,outline=col,width=w)
-            self._canvas.create_line(cx,cy,cx,cy-4.5,fill=col,width=w,capstyle='round')
-            self._canvas.create_line(cx,cy,cx+4,cy+2.5,fill=col,width=w,capstyle='round')
-        elif kind=='convert':
-            self._canvas.create_line(cx-8,cy-3,cx+6,cy-3,fill=col,width=w,capstyle='round')
-            self._canvas.create_line(cx+3,cy-6,cx+6,cy-3,cx+3,cy,fill=col,width=w,capstyle='round',joinstyle='round')
-            self._canvas.create_line(cx+8,cy+3,cx-6,cy+3,fill=col,width=w,capstyle='round')
-            self._canvas.create_line(cx-3,cy,cx-6,cy+3,cx-3,cy+6,fill=col,width=w,capstyle='round',joinstyle='round')
-
-    def _redraw(self):
-        self._canvas.delete('all')
-        img=self._make(self._fill); self._img_ref=img
-        if img:self._canvas.create_image(0,0,image=img,anchor='nw')
-        w=max(2,self.winfo_width()); h=max(2,self.winfo_height()); cy=h/2
-        # Centraliza o conjunto ícone + texto como um único bloco.
-        # Isso evita a sobreposição que ocorria especialmente em
-        # "Conversões do item", mantendo o visual da referência.
-        if self._icon:
-            try:
-                text_w=self._font.measure(self._label)
-            except Exception:
-                text_w=max(40,len(self._label)*7)
-            icon_w=16
-            gap=10
-            group_w=icon_w+gap+text_w
-            start=max(0,(w-group_w)/2)
-            self._draw_icon(self._icon,start+icon_w/2,cy,self._fg)
-            self._canvas.create_text(start+icon_w+gap,cy,text=self._label,fill=self._fg,font=self._font,anchor='w')
-        else:
-            self._canvas.create_text(w/2,cy,text=self._label,fill=self._fg,font=self._font,anchor='center')
 
     def _on_enter(self,e): self._fill0=self._fill; self._fill=self._hover; self._redraw()
     def _on_leave(self,e): self._fill=getattr(self,'_fill0',self._fill); self._redraw()
     def _click(self,e=None): self._command()
 
+    def _redraw(self):
+        self._canvas.delete('all')
+        w=max(2,self.winfo_width()); h=max(2,self.winfo_height()); cy=h/2
+        
+        start = 0
+        icon_w = 16
+        gap = 10
+        if self._icon:
+            try: text_w=self._font.measure(self._label)
+            except Exception: text_w=max(40,len(self._label)*7)
+            group_w=icon_w+gap+text_w
+            start=max(0,(w-group_w)/2)
+        
+        img=self._make(self._fill, icon=self._icon, start_x=start+icon_w/2, cy=cy)
+        self._img_ref=img
+        
+        if img:self._canvas.create_image(0,0,image=img,anchor='nw')
+        
+        if self._icon:
+            self._canvas.create_text(start+icon_w+gap,cy,text=self._label,fill=self._fg,font=self._font,anchor='w')
+        else:
+            self._canvas.create_text(w/2,cy,text=self._label,fill=self._fg,font=self._font,anchor='center')
 
 class RoundedEntry(tk.Frame):
     def __init__(self,parent,textvariable,width=280,height=40,placeholder='Pesquisar',**kwargs):
@@ -1672,7 +1708,7 @@ class App(tk.Tk):
         main=tk.Frame(root,bg=bg); main.place(x=150,y=0,relwidth=1.0,width=-150,relheight=1.0); self._content=main
 
         # Cabeçalho limpo, sem faixa laranja.
-        head=tk.Frame(main,bg=bg); head.pack(fill='x',padx=18,pady=(58,14)); self._header=head
+        head=tk.Frame(main,bg=bg); head.pack(fill='x',padx=18,pady=(32,14)); self._header=head
         self.header_accent=tk.Frame(head,bg=bg,height=1,width=1); self.header_accent.pack_forget()
         self.header_identity=tk.Frame(head,bg=bg); self.header_identity.pack(anchor='w')
         self.header_logo=tk.Label(self.header_identity,text='',bg=bg,bd=0)
@@ -1707,7 +1743,7 @@ class App(tk.Tk):
             img=img.resize((max(1,int(img.width*scale)),max(1,int(img.height*scale))),Image.Resampling.LANCZOS)
             self._nexo_brand_img=ImageTk.PhotoImage(img)
             self.nexo_brand_label=tk.Label(root,image=self._nexo_brand_img,bg=self.colors['bg'],bd=0,highlightthickness=0)
-            self.nexo_brand_label.place(x=10,y=54,width=135,height=105)
+            self.nexo_brand_label.place(x=10,y=26,width=135,height=105)
         except Exception:
             self.nexo_brand_label=None
 
@@ -2565,7 +2601,7 @@ class App(tk.Tk):
         mat_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.mat_tree, self.material_history_dialog), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
         mat_history.pack(side='left', padx=(8, 0))
         
-        self.mat_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.mat_tree, self.delete_selected_materials), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
+        self.mat_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_materials(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         
         self.mat_search=tk.StringVar(); self.mat_search.trace_add('write',lambda *a:self.refresh_materials())
         
@@ -3003,7 +3039,7 @@ class App(tk.Tk):
     def recipes_page(self, f):
         _, bar=self._build_page_toolbar(f)
         rec_add=RoundedActionButton(bar,'＋  Nova Receita',lambda: self._run_normal_action(self.rec_tree, self.new_recipe),width=150,height=40,fill='#2F67B1',hover='#255894'); rec_add.pack(side='left')
-        self.rec_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.rec_tree, self.delete_selected_recipes), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
+        self.rec_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_recipes(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         rec_import=RoundedActionButton(bar,'Importar Word/PDF',lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document),width=155,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_import.pack(side='left',padx=10)
         rec_export=RoundedActionButton(bar,'Exportar Receita',lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe),width=145,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_export.pack(side='left',padx=10)
         rec_original=RoundedActionButton(bar,'Documento original',lambda: self._run_normal_action(self.rec_tree, self.open_original_document),width=165,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_original.pack(side='left',padx=10)
@@ -3264,7 +3300,7 @@ class App(tk.Tk):
     def products_page(self,f):
         _, bar=self._build_page_toolbar(f)
         prod_add=RoundedActionButton(bar,'＋  Novo Produto',lambda: self._run_normal_action(self.prod_tree, self.new_product),width=150,height=40,fill='#2F67B1',hover='#255894'); prod_add.pack(side='left')
-        self.prod_bulk_delete_btn=RoundedActionButton(bar, '🗑 Excluir', lambda: self._run_normal_action(self.prod_tree, self.delete_selected_products), width=120, height=40, fill='#FCE8E8', hover='#F9D1D1', fg='#D93838')
+        self.prod_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_products(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         prod_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); prod_history.pack(side='left',padx=10)
         _, table_host = self._build_page_table_panel(f)
         self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','edit','delete','dummy'),show='tree headings')
