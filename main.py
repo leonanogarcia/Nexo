@@ -372,10 +372,13 @@ def init_db():
         add_col('materials', 'updated_at', 'TEXT')
         add_col('products', 'active', 'INTEGER NOT NULL DEFAULT 1')
         add_col('materials', 'active', 'INTEGER NOT NULL DEFAULT 1')
+        add_col('materials', 'archived', 'BOOLEAN NOT NULL DEFAULT 0')
         add_col('base_recipes', 'active', 'INTEGER NOT NULL DEFAULT 1')
+        add_col('base_recipes', 'archived', 'BOOLEAN NOT NULL DEFAULT 0')
         add_col('base_recipes', 'code', 'TEXT')
         add_col('base_recipes', 'updated_at', 'TEXT')
         add_col('products', 'code', 'TEXT')
+        add_col('products', 'archived', 'BOOLEAN NOT NULL DEFAULT 0')
         add_col('products', 'weight_qty', 'REAL')
         add_col('products', 'weight_unit', 'TEXT')
         add_col('products', 'notes', 'TEXT')
@@ -1443,6 +1446,132 @@ class ReferenceSidebar(tk.Canvas):
         pass
 
 
+
+class RoundedDropdown(tk.Frame):
+    def __init__(self, parent, textvariable, options, width=120, height=40, **kwargs):
+        super().__init__(parent, bg=parent.cget('bg'), bd=0, highlightthickness=0, width=width, height=height, cursor='hand2', **kwargs)
+        self.pack_propagate(False); self.grid_propagate(False)
+        self.config(width=width, height=height)
+        self._var = textvariable
+        self._opts = options
+        self._bg = '#FFFFFF'
+        self._hover = '#F8FAFC'
+        self._line = '#E2EAF5'
+        self._fg = '#18223A'
+        self._canvas = tk.Canvas(self, bg=self.cget('bg'), bd=0, highlightthickness=0)
+        self._canvas.place(relwidth=1, relheight=1)
+        self._is_hover = False
+        self._canvas.bind('<Enter>', lambda e: self._on_enter())
+        self._canvas.bind('<Leave>', lambda e: self._on_leave())
+        self._canvas.bind('<Button-1>', lambda e: self._open_dropdown())
+        self._var.trace_add('write', lambda *a: self._redraw())
+        self.bind('<Configure>', lambda e: self._redraw())
+        self.after_idle(self._redraw)
+
+    def _on_enter(self): self._is_hover = True; self._redraw()
+    def _on_leave(self): self._is_hover = False; self._redraw()
+
+    def _redraw(self):
+        w = max(2, self.winfo_width()); h = max(2, self.winfo_height()); r = h/2
+        if w < 10: return
+        self._canvas.delete('all')
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+            scale = 4; im = Image.new('RGBA', (w*scale, h*scale), (0,0,0,0)); d = ImageDraw.Draw(im)
+            fill_col = self._hover if self._is_hover else self._bg
+            d.rounded_rectangle((scale, scale, w*scale-scale, h*scale-scale), radius=r*scale, fill=fill_col, outline=self._line, width=scale)
+            im = im.resize((w, h), Image.Resampling.LANCZOS); self._img = ImageTk.PhotoImage(im)
+            self._canvas.create_image(0, 0, image=self._img, anchor='nw')
+        except Exception: pass
+        
+        txt = self._var.get()
+        self._canvas.create_text(w/2 - 6, h/2, text=txt, fill=self._fg, font=('Segoe UI', 10, 'bold'), anchor='center')
+        # Draw chevron
+        cx = w - 18; cy = h/2 - 2
+        self._canvas.create_line(cx-4, cy, cx, cy+4, cx+4, cy, fill='#687796', width=2, capstyle='round', joinstyle='round')
+
+    def _open_dropdown(self):
+        w = self.winfo_width()
+        h_menu = len(self._opts)*36
+        x = self.winfo_rootx()
+        y = self.winfo_rooty() + self.winfo_height() + 4
+        
+        top = tk.Toplevel(self)
+        top.overrideredirect(True)
+        top.attributes('-topmost', True)
+        top.geometry(f'{w}x{h_menu}+{x}+{y}')
+        
+        # Use the app's background color as the transparent key to prevent halos!
+        try: bg_color = self.winfo_toplevel().cget('bg')
+        except: bg_color = '#F4F7FC'
+        
+        try:
+            top.configure(bg=bg_color)
+            top.wm_attributes('-transparentcolor', bg_color)
+        except Exception: pass
+        
+        c = tk.Canvas(top, bg=bg_color, bd=0, highlightthickness=0)
+        c.pack(fill='both', expand=True)
+        
+        # Draw perfectly anti-aliased rounded rectangle in PIL matching the background
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+            scale = 4; tw = w*scale; th = h_menu*scale
+            # Background matches the transparent key so resizing blends beautifully
+            im = Image.new('RGB', (tw, th), bg_color)
+            d = ImageDraw.Draw(im)
+            d.rounded_rectangle((0, 0, tw-1, th-1), radius=10*scale, fill='#FFFFFF', outline='#E2EAF5', width=scale)
+            im = im.resize((w, h_menu), Image.Resampling.LANCZOS)
+            self._menu_bg = ImageTk.PhotoImage(im)
+            c.create_image(0, 0, image=self._menu_bg, anchor='nw')
+        except Exception:
+            c.create_rectangle(0,0,w,h_menu, fill='#FFFFFF', outline='#E2EAF5')
+
+        for i, opt in enumerate(self._opts):
+            oy = i*36
+            # Use a slightly inset hitbox so we don't cover the rounded corners
+            hb = c.create_rectangle(2, oy+2 if i==0 else oy, w-2, oy+34 if i==len(self._opts)-1 else oy+36, fill='#FFFFFF', outline='', tags=f'opt_{i}')
+            col = '#2F67B1' if opt == self._var.get() else '#18223A'
+            fnt = ('Segoe UI', 10, 'bold') if opt == self._var.get() else ('Segoe UI', 10)
+            c.create_text(w/2, oy+18, text=opt, fill=col, font=fnt, anchor='center', tags=f'opt_{i}')
+            
+            def on_enter(e, idx=i, hb_id=hb): c.itemconfig(hb_id, fill='#F8FAFC')
+            def on_leave(e, idx=i, hb_id=hb): c.itemconfig(hb_id, fill='#FFFFFF')
+            def on_click(e, o=opt):
+                self._var.set(o)
+                root.unbind('<Button-1>', bind_id)
+                top.destroy()
+                
+            c.tag_bind(f'opt_{i}', '<Enter>', on_enter)
+            c.tag_bind(f'opt_{i}', '<Leave>', on_leave)
+            c.tag_bind(f'opt_{i}', '<Button-1>', on_click)
+            
+        root = self.winfo_toplevel()
+        def check_click(e):
+            if not top.winfo_exists(): return
+            rx, ry = top.winfo_pointerxy()
+            tx = top.winfo_rootx(); ty = top.winfo_rooty()
+            tw = top.winfo_width(); th = top.winfo_height()
+            
+            if (tx <= rx <= tx+tw and ty <= ry <= ty+th):
+                pass
+            else:
+                try:
+                    root.unbind('<Button-1>', bind_id)
+                    top.destroy()
+                except Exception: pass
+
+        bind_id = root.bind('<Button-1>', check_click, add='+')
+        
+        def on_focus_out(e):
+            if e.widget == top:
+                try:
+                    root.unbind('<Button-1>', bind_id)
+                    top.destroy()
+                except Exception: pass
+                
+        top.bind('<FocusOut>', on_focus_out)
+        top.focus_set()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -2440,33 +2569,12 @@ class App(tk.Tk):
         
         self.mat_search=tk.StringVar(); self.mat_search.trace_add('write',lambda *a:self.refresh_materials())
         
+        self.mat_search_wrap=self._styled_search_entry(bar,self.mat_search,280)
+        
         self.mat_status = tk.StringVar(value='Ativos')
-        self.mat_status_wrap = tk.Canvas(bar, bg=self.colors['panel'], bd=0, highlightthickness=0, width=110, height=40, cursor='hand2')
+        self.mat_status.trace_add('write', lambda *a: self.refresh_materials())
+        self.mat_status_wrap = RoundedDropdown(bar, self.mat_status, ['Ativos', 'Inativos', 'Todos'], width=110)
         self.mat_status_wrap.pack(side='right', padx=14)
-        def _draw_status(text):
-            self.mat_status_wrap.delete('all')
-            w = 110; h = 40
-            self.mat_status_wrap.create_arc(2, 2, 38, 38, start=90, extent=180, fill='#FFFFFF', outline='#E2EAF5', style='pieslice')
-            self.mat_status_wrap.create_arc(2, 2, 38, 38, start=90, extent=180, fill='#FFFFFF', outline='#E2EAF5', style='arc')
-            self.mat_status_wrap.create_arc(w-38, 2, w-2, 38, start=-90, extent=180, fill='#FFFFFF', outline='#E2EAF5', style='pieslice')
-            self.mat_status_wrap.create_arc(w-38, 2, w-2, 38, start=-90, extent=180, fill='#FFFFFF', outline='#E2EAF5', style='arc')
-            self.mat_status_wrap.create_rectangle(20, 2, w-20, 38, fill='#FFFFFF', outline='')
-            self.mat_status_wrap.create_line(20, 2, w-20, 2, fill='#E2EAF5')
-            self.mat_status_wrap.create_line(20, 38, w-20, 38, fill='#E2EAF5')
-            self.mat_status_wrap.create_text(45, 20, text=text, fill=self.colors['text'], font=('Segoe UI', 10, 'bold'), anchor='center')
-            self.mat_status_wrap.create_text(90, 20, text='▼', fill=self.colors['muted'], font=('Segoe UI', 8), anchor='center')
-        
-        _draw_status(self.mat_status.get())
-        
-        def _open_status_menu(e):
-            m = tk.Menu(self.winfo_toplevel(), tearoff=0, bg=self.colors['panel'], fg=self.colors['text'], font=('Segoe UI', 10), activebackground=self.colors['accent_soft'], activeforeground=self.colors['accent'], bd=1)
-            for opt in ['Ativos', 'Inativos', 'Todos']:
-                m.add_command(label=opt, command=lambda o=opt: (self.mat_status.set(o), _draw_status(o), self.refresh_materials()))
-            m.post(e.x_root, e.y_root)
-            
-        self.mat_status_wrap.bind('<Button-1>', _open_status_menu)
-        
-        self.mat_search_wrap=self._styled_search_entry(bar,self.mat_search,22)
 
         _,table_host=self._build_page_table_panel(f)
         
@@ -2719,13 +2827,17 @@ class App(tk.Tk):
 
     def _bulk_delete_list(self, tree, kind):
         checked=getattr(self,'_checked_rows',{}).get(str(tree),set())
-        if len(checked)<2: return
+        if not checked:
+            s = tree.selection()
+            if s: checked = {s[0]}
+            else: return
+            
         table={'material':'materials','recipe':'base_recipes','product':'products'}[kind]
         rows=[]
         with db() as c:
             for iid in checked:
                 vals=tree.item(iid,'values'); code=vals[0] if vals else ''
-                r=c.execute(f'SELECT id,name FROM {table} WHERE code=?',(code,)).fetchone()
+                r=c.execute(f'SELECT id,name,COALESCE(active,1) as active FROM {table} WHERE code=?',(code,)).fetchone()
                 if r: rows.append(r)
         if not rows:return
         
@@ -2743,9 +2855,40 @@ class App(tk.Tk):
                 if refs > 0: linked.append(r)
                 else: unlinked.append(r)
         
+        if len(rows) == 1:
+            r = rows[0]
+            if unlinked:
+                if not messagebox.askyesno('Confirmar exclusão', f"Tem certeza que deseja excluir permanentemente '{r['name']}'?", parent=self): return
+                with db() as c:
+                    if kind == 'material':
+                        c.execute('DELETE FROM purchases WHERE material_id=?', (r['id'],))
+                        c.execute("DELETE FROM cost_history WHERE entity_type='MATERIAL' AND entity_id=?", (r['id'],))
+                        c.execute('DELETE FROM custom_units WHERE material_id=?', (r['id'],))
+                    elif kind == 'recipe':
+                        c.execute("DELETE FROM cost_history WHERE entity_type='RECIPE_BASE' AND entity_id=?", (r['id'],))
+                    elif kind == 'product':
+                        c.execute("DELETE FROM cost_history WHERE entity_type='PRODUCT' AND entity_id=?", (r['id'],))
+                    c.execute(f'DELETE FROM {table} WHERE id=?',(r['id'],))
+                self.refresh_all()
+                self.notify(f"Item '{r['name']}' excluído permanentemente.")
+                return
+            else:
+                if r['active'] == 1:
+                    if not messagebox.askyesno('Confirmar inativação', f"O item '{r['name']}' possui vínculos/dependências em receitas ou produtos e não pode ser apagado sem quebrar os custos.\n\nDeseja INATIVAR este item em vez disso?", parent=self): return
+                    with db() as c: c.execute(f'UPDATE {table} SET active=0, updated_at=? WHERE id=?', (now_iso(), r['id']))
+                    self.refresh_all()
+                    self.notify(f"Item '{r['name']}' inativado.")
+                    return
+                else:
+                    if not messagebox.askyesno('Exclusão Fantasma', f"O item '{r['name']}' já está inativo, mas ainda possui vínculos com receitas/produtos.\n\nDeseja OCULTÁ-LO definitivamente do sistema?\n\nEle desaparecerá das listas, mas aparecerá com um alerta ⚠️ nas receitas até ser substituído.", parent=self): return
+                    with db() as c: c.execute(f'UPDATE {table} SET archived=1, updated_at=? WHERE id=?', (now_iso(), r['id']))
+                    self.refresh_all()
+                    self.notify(f"Item '{r['name']}' ocultado definitivamente.")
+                    return
+        
         msg = f'Você selecionou {len(rows)} itens.\n'
         if linked:
-            msg += f'\n{len(linked)} itens possuem vínculos/dependências e serão INATIVADOS:\n'
+            msg += f'\n{len(linked)} itens possuem vínculos/dependências e serão INATIVADOS/OCULTADOS:\n'
             msg += '\n'.join('  - ' + r['name'] for r in linked) + '\n'
         if unlinked:
             msg += f'\nOs outros {len(unlinked)} itens (sem vínculos) serão EXCLUÍDOS permanentemente.\n'
@@ -2767,10 +2910,13 @@ class App(tk.Tk):
                 c.execute(f'DELETE FROM {table} WHERE id=?',(r['id'],))
             
             for r in linked:
-                c.execute(f'UPDATE {table} SET active=0, updated_at=? WHERE id=?', (now_iso(), r['id']))
+                if r['active'] == 1:
+                    c.execute(f'UPDATE {table} SET active=0, updated_at=? WHERE id=?', (now_iso(), r['id']))
+                else:
+                    c.execute(f'UPDATE {table} SET archived=1, updated_at=? WHERE id=?', (now_iso(), r['id']))
                 
         self.refresh_all()
-        self.notify(f'{len(unlinked)} excluídos, {len(linked)} inativados.')
+        self.notify(f'{len(unlinked)} excluídos, {len(linked)} inativados/ocultados.')
 
     def edit_selected_material(self):
         s = self.mat_tree.selection()
@@ -2791,7 +2937,7 @@ class App(tk.Tk):
         for x in self.mat_tree.get_children(): self.mat_tree.delete(x)
         query = '%'+self.mat_search.get().strip()+'%' if hasattr(self,'mat_search') else '%'
         status_filter = self.mat_status.get() if hasattr(self, 'mat_status') else 'Ativos'
-        status_cond = "COALESCE(active,1)=1" if status_filter == 'Ativos' else ("COALESCE(active,1)=0" if status_filter == 'Inativos' else "1=1")
+        status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
         with db() as c:
             rows = c.execute(f'''SELECT code,name,COALESCE(brand,''),purchase_qty,purchase_unit,purchase_value,category,
                                        substr(created_at,1,10), substr(COALESCE(updated_at,created_at),1,10), COALESCE(active,1), id
@@ -3010,15 +3156,21 @@ class App(tk.Tk):
     def refresh_recipes(self):
         if not hasattr(self,'rec_tree'):return
         for x in self.rec_tree.get_children():self.rec_tree.delete(x)
-        with db() as c:rows=c.execute('SELECT id,code,name,yield_qty,yield_unit FROM base_recipes WHERE COALESCE(active,1)=1 ORDER BY name').fetchall()
+        with db() as c:rows=c.execute('SELECT id,code,name,yield_qty,yield_unit FROM base_recipes WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0 ORDER BY name').fetchall()
         for r in rows:
             try:cost=recipe_cost(r['id'])
             except Exception:cost=0
-            iid=self.rec_tree.insert('','end',text='☐',values=(r['code'],r['name'],fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(cost),'✏️','🗑️'))
+            
             with db() as c:
-                comps=c.execute('SELECT m.name,bri.qty,bri.unit FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
+                comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
+            
+            has_arc = any(comp['arc'] for comp in comps)
+            name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
+            
+            iid=self.rec_tree.insert('','end',text='☐',values=(r['code'],name_disp,fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(cost),'✏️','🗑️'))
             for comp in comps:
-                self.rec_tree.insert(iid,'end',text='  ',values=('',f'↳ {comp[0]}',fmt_num(comp[1]),comp[2],'-','',''))
+                comp_name = f"{comp['name']} (⚠️ Excluído)" if comp['arc'] else comp['name']
+                self.rec_tree.insert(iid,'end',text='  ',values=('',f'↳ {comp_name}',fmt_num(comp['qty']),comp['unit'],'-','',''))
         self._reset_checked(self.rec_tree)
 
     def import_recipe_document(self):
@@ -3301,20 +3453,40 @@ class App(tk.Tk):
     def refresh_products(self):
         if not hasattr(self,'prod_tree'):return
         for x in self.prod_tree.get_children():self.prod_tree.delete(x)
-        with db() as c:rows=c.execute('SELECT id,code,name,weight_qty,weight_unit,sale_price FROM products WHERE COALESCE(active,1)=1 ORDER BY name').fetchall()
+        with db() as c:rows=c.execute('SELECT id,code,name,weight_qty,weight_unit,sale_price FROM products WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0 ORDER BY name').fetchall()
         for r in rows:
             try:cost=product_unit_cost(r['id'])
             except Exception:cost=0
             margin=((r['sale_price']-cost)/r['sale_price']*100) if r['sale_price'] else None
-            iid=self.prod_tree.insert('','end',text='☐',values=(r['code'],r['name'],(fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-',fmt(cost),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-','✏️','🗑️'))
+            
             with db() as c:
                 comps=c.execute('SELECT item_type,ref_id,qty_per_unit AS qty,unit FROM product_items WHERE product_id=? ORDER BY id',(r['id'],)).fetchall()
+                
+                has_arc = False
+                disp_comps = []
                 for comp in comps:
-                    if comp['item_type']=='MATERIAL': row=c.execute('SELECT name FROM materials WHERE id=?',(comp['ref_id'],)).fetchone(); label='Insumo'
-                    elif comp['item_type']=='RECIPE_BASE': row=c.execute('SELECT name FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone(); label='Receita'
-                    else: row=c.execute('SELECT name FROM products WHERE id=?',(comp['ref_id'],)).fetchone(); label='Produto'
-                    name=row['name'] if row else '?'
-                    self.prod_tree.insert(iid,'end',text='  ',values=('',f'↳ {label}: {name}',fmt_num(comp['qty']),comp['unit'],'','','',''))
+                    if comp['item_type'] == 'MATERIAL':
+                        m = c.execute('SELECT name, COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
+                        if m:
+                            n = m['name']
+                            if m['arc']:
+                                has_arc = True
+                                n += " (⚠️ Excluído)"
+                            disp_comps.append((n, comp['qty'], comp['unit']))
+                    else:
+                        m = c.execute('SELECT name, COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
+                        if m:
+                            n = m['name']
+                            if m['arc']:
+                                has_arc = True
+                                n += " (⚠️ Excluído)"
+                            disp_comps.append((f"[Receita] {n}", comp['qty'], comp['unit']))
+
+            name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
+            
+            iid=self.prod_tree.insert('','end',text='☐',values=(r['code'],name_disp,(fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-',fmt(cost),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-','✏️','🗑️'))
+            for n, q, u in disp_comps:
+                self.prod_tree.insert(iid,'end',text='  ',values=('',f'↳ {n}',fmt_num(q),u,'-','-','',''))
         self._reset_checked(self.prod_tree)
 
     def product_history_dialog(self):
