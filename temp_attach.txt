@@ -1,0 +1,54 @@
+﻿
+>     def _attach_row_icon_overlay(self, tree, table_host, edit_col_idx, delete_col_idx, edit_cmd, delete_cmd):
+          ov = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+          ov.place(relx=1.0, x=0, y=36, width=90, relheight=1.0, height=-36, anchor='ne')
+          ov._icon_refs = []
+          
+          is_mat = tree == getattr(self, 'mat_tree', None)
+          cw0 = int(tree.column('#0', 'width'))
+          y_off = 36 if is_mat else 0
+          ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+          ov_left.place(relx=0, x=0, y=y_off, width=cw0, relheight=1.0, height=-y_off, anchor='nw')
+          
+          if tree == getattr(self, 'mat_tree', None):
+              kind = 'material'
+          elif tree == getattr(self, 'rec_tree', None):
+              kind = 'recipe'
+          else:
+              kind = 'product'
+  
+          def _redraw_overlay(*_):
+              ov.delete('all')
+              ov_left.delete('all')
+              ov._icon_refs.clear()
+              
+              if not is_mat:
+                  header_bg = '#142544' if getattr(self, '_dark', False) else '#E8EEF8'
+                  ov_left.create_rectangle(0, 0, cw0, 38, fill=header_bg, outline='')
+                  
+              img_e = self._make_row_icon('edit')
+              img_d = self._make_row_icon('delete')
+              ex, dx, ox = 15, 45, 75
+              selected = set(tree.selection())
+              
+              from tkinter.font import Font
+              f_chk = Font(family='Segoe UI', size=13)
+              
+              for iid in tree.get_children():
+                  bb = tree.bbox(iid)
+                  if not bb: continue
+                  _, ry, _, rh = bb
+                  
+                  # Checkbox Overlay Drawing (Left)
+                  bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
+                  
+                  ov_left.create_rectangle(0, ry, cw0, ry + rh, fill=bg_color, outline='', tags=(f'c_{iid}',))
+                  
+                  tags = tree.item(iid, 'tags')
+                  is_active = 'inactive' not in tags
+                  is_checked = iid in self._checked_rows.get(str(tree), set())
+                  txt = 'â˜‘' if is_checked else 'â˜'
+                  color = '#D96F0B' if is_checked else '#A0ABB9'
+                  if getattr(self, '_dark', False): color = '#FFFFFF' if is_checked else '#60769D'
+
+

@@ -1,0 +1,314 @@
+﻿
+>     def recipes_page(self, f):
+          _, bar=self._build_page_toolbar(f)
+          rec_add=RoundedActionButton(bar,'ï¼‹  Nova Receita',lambda: self._run_normal_action(self.rec_tree, 
+self.new_recipe),width=150,height=40,fill='#F28C28',hover='#D96F0B'); rec_add.pack(side='left')
+          self.rec_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: 
+self.delete_selected_recipes(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
+          rec_import=RoundedActionButton(bar,'Importar Word/PDF',lambda: self._run_normal_action(self.rec_tree, 
+self.import_recipe_document),width=155,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); 
+rec_import.pack(side='left',padx=10)
+          rec_export=RoundedActionButton(bar,'Exportar Receita',lambda: self._run_normal_action(self.rec_tree, 
+self.export_selected_recipe),width=145,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); 
+rec_export.pack(side='left',padx=10)
+          rec_original=RoundedActionButton(bar,'Documento original',lambda: self._run_normal_action(self.rec_tree, 
+self.open_original_document),width=165,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); 
+rec_original.pack(side='left',padx=10)
+          rec_history=RoundedActionButton(bar,'HistÃ³rico',lambda: self._run_normal_action(self.rec_tree, 
+self.recipe_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); 
+rec_history.pack(side='left',padx=10)
+          _, table_host = self._build_page_table_panel(f)
+          
+self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','edit','delete','dummy'),show='tree 
+headings')
+          self.rec_tree.column('#0',width=44,minwidth=44,stretch=False);self.rec_tree.heading('#0',text='')
+          for k,t,w in 
+[('code','CÃ³digo',95),('name','Receita',280),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo 
+total',120),('edit','',30),('delete','',30)]:
+              kw={'text':t}
+              if k=='edit': kw['image']=self._action_photo('action_edit_small.png')
+              if k=='delete': kw['image']=self._action_photo('action_delete_small.png')
+              self.rec_tree.heading(k,**kw)
+              self.rec_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('yield','unit','cost') else 
+'w',stretch=False)
+          self.rec_tree.column('dummy', width=0, minwidth=0, stretch=True); self.rec_tree.heading('dummy', text='')
+          self.rec_tree.pack(fill='both',expand=True)
+          self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk'
+:[self.rec_bulk_delete_btn]};self.rec_tree.bind('<Button-1>',lambda 
+e:self._tree_click(e,self.rec_tree,'recipe'));self.rec_tree.bind('<Double-1>',lambda 
+e:self._on_native_tree_double_click(e,self.rec_tree,self.edit_selected_recipe));self._update_action_states()
+  
+      def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
+          is_edit=edit_id is not None
+          with db() as c:
+              existing=c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone() if is_edit else None
+              current_items=c.execute('SELECT material_id,qty,unit FROM base_recipe_items WHERE 
+recipe_id=?',(edit_id,)).fetchall() if is_edit else []
+          d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','900x760')
+          name=tk.StringVar(value=existing['name'] if existing else '')
+          yield_qty=tk.StringVar(value=fmt_num(existing['yield_qty']) if existing and existing['yield_qty'] is not 
+None else '')
+          yield_unit=tk.StringVar(value=existing['yield_unit'] if existing and existing['yield_unit'] else 'g')
+          notes=tk.StringVar(value=existing['notes'] or '' if existing else '')
+          top=ttk.Frame(d,padding=16);top.pack(fill='x')
+          ttk.Label(top,text='Nome 
+*').grid(row=0,column=0,sticky='w');rounded_entry(top,name,width=30)[0].grid(row=1,column=0,padx=(0,8),sticky='ew')
+          ttk.Label(top,text='Rendimento').grid(row=0,column=1,sticky='w');numeric_entry(top,yield_qty,width=16).grid(r
+ow=1,column=1,padx=8)
+          ttk.Label(top,text='Unidade').grid(row=0,column=2,sticky='w');ttk.Combobox(top,textvariable=yield_unit,values
+=UNITS,state='readonly',width=10).grid(row=1,column=2,padx=8)
+          ttk.Label(top,text='ObservaÃ§Ãµes').grid(row=0,column=3,sticky='w');rounded_entry(top,notes,width=30)[0].grid
+(row=1,column=3,padx=8,sticky='ew')
+          box=ttk.LabelFrame(d,text='ComposiÃ§Ã£o â€” somente itens do 
+Cadastro',padding=12);box.pack(fill='both',expand=True,padx=16,pady=10)
+          material_var=tk.StringVar();qty_var=tk.StringVar();unit_var=tk.StringVar(value='g')
+          ttk.Label(box,text='Insumo').grid(row=0,column=0,sticky='w'); 
+material_cb=ttk.Combobox(box,textvariable=material_var,width=40)
+          material_cb.grid(row=1,column=0,padx=(0,6),sticky='ew')
+          ttk.Label(box,text='Quantidade').grid(row=0,column=1,sticky='w');numeric_entry(box,qty_var,width=14).grid(row
+=1,column=1,padx=6)
+          ttk.Label(box,text='Unidade').grid(row=0,column=2,sticky='w');unit_cb=ttk.Combobox(box,textvariable=unit_var,
+values=UNITS,state='readonly',width=12);unit_cb.grid(row=1,column=2,padx=6)
+          items=[]
+          if current_items:
+              for r in current_items:
+                  with db() as c: m=c.execute('SELECT id,code,name FROM materials WHERE 
+id=?',(r['material_id'],)).fetchone()
+                  if m: items.append((m['id'],m['name'],r['qty'],r['unit']))
+          if imported_items:
+              items.extend(imported_items)
+          tree=ttk.Treeview(box,columns=('item','qty','unit','cost'),show='headings')
+          for k,t,w in [('item','Item',360),('qty','Quantidade',100),('unit','Un.',70),('cost','Custo',110)]:tree.headi
+ng(k,text=t);tree.column(k,width=w)
+          tree.grid(row=2,column=0,columnspan=4,sticky='nsew',pady=12);box.rowconfigure(2,weight=1);box.columnconfigure
+(0,weight=1)
+          def load_materials(*_):
+              vals=[f'{r["id"]} â€” {r["name"]} ({r["code"]})' for r in list_names('materials')]
+              material_cb['values']=vals
+          def load_units(*_):
+              if 'â€”' not in material_var.get(): unit_cb['values']=UNITS; return
+              mid=int(material_var.get().split(' â€” ')[0]); custom=[r['name'] for r in 
+custom_units_for_material(mid)]; unit_cb['values']=UNITS+tuple(custom)
+          material_cb.bind('<<ComboboxSelected>>',load_units)
+          def refresh_items():
+              for x in tree.get_children():tree.delete(x)
+              for mid,n,q,u in items:
+                  try: cst=material_cost(mid,q,u)
+                  except Exception as e: cst=f'Erro'
+                  tree.insert('','end',values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
+          def add_item():
+              try:
+                  if 'â€”' not in material_var.get(): raise ValueError('Selecione um Insumo do Cadastro.')
+                  mid=int(material_var.get().split(' â€” 
+')[0]);q=to_float(qty_var.get(),'Quantidade');u=unit_var.get().strip()
+                  if q<=0:raise ValueError('A Quantidade deve ser maior que zero.')
+                  items.append((mid,material_var.get().split(' â€” ')[1].split(' 
+(')[0],q,u));material_var.set('');qty_var.set('');refresh_items()
+              except Exception as e:safe_error(d,'NÃ£o foi possÃ­vel adicionar o item',e)
+          ttk.Button(box,text='Adicionar',command=add_item).grid(row=1,column=3,padx=8)
+          edit_item_btn=ttk.Button(box,text='âœ',command=lambda: edit_item(),width=3)
+          delete_item_btn=ttk.Button(box,text='ðŸ—‘',command=lambda: delete_item(),width=3)
+          edit_item_btn.grid(row=3,column=0,sticky='w',pady=(0,4))
+          delete_item_btn.grid(row=3,column=1,sticky='w',pady=(0,4))
+          def edit_item():
+              sel=tree.selection()
+              if not sel:
+                  messagebox.showwarning('Receita','Selecione um item da composiÃ§Ã£o para editar.',parent=d); return
+              idx=tree.index(sel[0]); mid,n,q,u=items[idx]
+              material_var.set(f'{mid} â€” {n}')
+              load_units()
+              qty_var.set(fmt_num(q)); unit_var.set(u)
+              items.pop(idx); refresh_items()
+  
+          def delete_item():
+              sel=tree.selection()
+              if not sel:
+                  messagebox.showwarning('Receita','Selecione um item da composiÃ§Ã£o para excluir.',parent=d); return
+              idx=tree.index(sel[0]); items.pop(idx); refresh_items()
+  
+          tree.bind('<Double-1>',lambda e: edit_item())
+          def save():
+              try:
+                  n=name.get().strip()
+                  if not n: raise ValueError('O campo "Nome" Ã© obrigatÃ³rio.')
+                  y=optional_float(yield_qty.get()); yu=yield_unit.get().strip() if y is not None else None
+                  if y is not None and y<=0: raise ValueError('O Rendimento deve ser maior que zero.')
+                  if not items: raise ValueError('Adicione pelo menos um Insumo Ã  receita.')
+                  if is_edit:
+                      with db() as c: before=dict(c.execute('SELECT * FROM base_recipes WHERE 
+id=?',(edit_id,)).fetchone())
+                      self.ask_edit_reason('RECEITA_BASE',edit_id,before,{'name':n,'yield_qty':y,'yield_unit':yu,'notes
+':notes.get().strip(),'items':[(m,q,u) for m,_,q,u in items]})
+                  with db() as c:
+                      if is_edit:
+                          rid=edit_id
+                          c.execute('UPDATE base_recipes SET name=?,yield_qty=?,yield_unit=?,notes=?,updated_at=? 
+WHERE id=?',(n,y,yu,notes.get().strip(),now_iso(),edit_id))
+                          c.execute('DELETE FROM base_recipe_items WHERE recipe_id=?',(rid,))
+                      else:
+                          code=next_code('base_recipes','RB');cur=c.execute('INSERT INTO 
+base_recipes(code,name,yield_qty,yield_unit,notes,updated_at) 
+VALUES(?,?,?,?,?,?)',(code,n,y,yu,notes.get().strip(),now_iso()));rid=cur.lastrowid
+                      for mid,_,q,u in items:c.execute('INSERT INTO base_recipe_items(recipe_id,material_id,qty,unit) 
+VALUES(?,?,?,?)',(rid,mid,q,u))
+                  if imported_source:
+                      save_uploaded_document('RECIPE_BASE', rid, imported_source)
+                  snapshot_costs();d.destroy();self.refresh_all();self.notify('Receita salva com sucesso.')
+              except Exception as e:safe_error(d,'NÃ£o foi possÃ­vel salvar a Receita',e)
+          ttk.Label(d,text='* campo obrigatÃ³rio; Rendimento pode ser definido depois.').pack(anchor='w',padx=16)
+          act=d.action_host
+          left=tk.Frame(act,bg=d.cget('bg'));left.pack(side='left',fill='y')
+          FlatEmojiButton(left,'âœï¸',edit_item).pack(side='left',padx=(0,8),pady=7)
+          FlatEmojiButton(left,'ðŸ—‘ï¸',delete_item).pack(side='left',pady=7)
+          right=tk.Frame(act,bg=d.cget('bg'));right.pack(side='right',fill='y')
+          RoundedActionButton(right,'Salvar',save,width=92,height=38,fill='#F28C28',hover='#D96F0B').pack(side='left',p
+adx=(6,0),pady=7)
+          RoundedActionButton(right,'Cancelar',d.destroy,width=92,height=38,fill='#6B7280',hover='#4B5563').pack(side='
+left',padx=(6,0),pady=7)
+          load_materials();refresh_items()
+  
+      def new_recipe(self): self.recipe_form()
+  
+      def edit_selected_recipe(self):
+          s=self.rec_tree.selection()
+          if not s:return
+          code=self.rec_tree.item(s[0])['values'][0]
+          with db() as c:r=c.execute('SELECT id FROM base_recipes WHERE code=?',(code,)).fetchone()
+          if r:self.recipe_form(r['id'])
+  
+      def delete_selected_recipe(self):
+          s=self.rec_tree.selection()
+          if not s:return
+          code=self.rec_tree.item(s[0])['values'][0]
+          with db() as c:r=c.execute('SELECT id,name FROM base_recipes WHERE code=?',(code,)).fetchone()
+          if not r:return
+          with db() as c:
+              refs=0
+              prodrefs=c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='RECIPE_BASE' AND 
+ref_id=?",(r['id'],)).fetchone()['n']
+          if refs or prodrefs:
+              if messagebox.askyesno('Receita vinculada','Esta Receita possui vÃnculos e nÃ£o pode ser excluÃda sem 
+quebrar o histÃ³rico. Deseja inativÃ¡-la?',parent=self):
+                  with db() as c:c.execute('UPDATE base_recipes SET active=0,updated_at=? WHERE 
+id=?',(now_iso(),r['id']))
+                  self.refresh_all();self.notify('Receita inativada com sucesso.')
+              return
+          if not messagebox.askyesno('Excluir Receita',f'Excluir "{r["name"]}"? Esta aÃ§Ã£o remove o registro e sua 
+composiÃ§Ã£o.',parent=self):return
+          with db() as c:c.execute('DELETE FROM base_recipes WHERE id=?',(r['id'],))
+          self.refresh_all()
+  
+      def refresh_recipes(self):
+          if not hasattr(self,'rec_tree'):return
+          for x in self.rec_tree.get_children():self.rec_tree.delete(x)
+          with db() as c:rows=c.execute('SELECT id,code,name,yield_qty,yield_unit FROM base_recipes WHERE 
+COALESCE(active,1)=1 AND COALESCE(archived,0)=0 ORDER BY name').fetchall()
+          for r in rows:
+              try:cost=recipe_cost(r['id'])
+              except Exception:cost=0
+              
+              with db() as c:
+                  comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items 
+bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
+              
+              has_arc = any(comp['arc'] for comp in comps)
+              name_disp = f"âš ï¸ {r['name']}" if has_arc else r['name']
+              
+              
+iid=self.rec_tree.insert('','end',text='â˜',values=(r['code'],name_disp,fmt_num(r['yield_qty']),r['yield_unit'] or 
+'-',fmt(cost),'âœï¸','ðŸ—‘ï¸'))
+              for comp in comps:
+                  comp_name = f"{comp['name']} (âš ï¸ ExcluÃ­do)" if comp['arc'] else comp['name']
+                  self.rec_tree.insert(iid,'end',text='  ',values=('',f'â†³ 
+{comp_name}',fmt_num(comp['qty']),comp['unit'],'-','',''))
+          self._reset_checked(self.rec_tree)
+  
+      def import_recipe_document(self):
+          path=filedialog.askopenfilename(parent=self,filetypes=[('Word','*.docx'),('PDF','*.pdf')])
+          if not path:return
+          try:
+              text=extract_docx_text(path) if path.lower().endswith('.docx') else extract_pdf_text(path)
+              parsed=parse_recipe_lines(text)
+              if not parsed:
+                  raise ValueError('NÃ£o consegui identificar linhas de ingredientes automaticamente. O documento foi 
+lido, mas nada serÃ¡ inventado.')
+              items=[]
+              unresolved=[]
+              with db() as c:
+                  materials=c.execute('SELECT id,name FROM materials').fetchall()
+              for name,qty,unit in parsed:
+                  matches=[m for m in materials if m['name'].strip().lower()==name.strip().lower()]
+                  if matches:
+                      items.append((matches[0]['id'],matches[0]['name'],qty,unit))
+                  else:
+                      unresolved.append((name,qty,unit))
+              d=self.recipe_form(imported_items=items, imported_source=path)
+              if unresolved:
+                  messagebox.showwarning('ImportaÃ§Ã£o', 'Alguns itens nÃ£o foram associados porque nÃ£o existem no 
+Cadastro:\n\n'+'\n'.join(f'- {n} ({q} {u})' for n,q,u in unresolved)+'\n\nCadastre-os e adicione-os manualmente.', 
+parent=self)
+          except Exception as e:safe_error(self,'NÃ£o foi possÃ­vel importar o documento',e)
+  
+      def export_selected_recipe(self):
+          s=self.rec_tree.selection()
+          if not s:return
+          code=self.rec_tree.item(s[0])['values'][0]
+          with db() as c:r=c.execute('SELECT id,name,yield_qty,yield_unit,notes FROM base_recipes WHERE 
+code=?',(code,)).fetchone()
+          if not r:return
+          path=filedialog.asksaveasfilename(parent=self,defaultextension='.txt',filetypes=[('Documento de 
+texto','*.txt'),('Word','*.docx'),('PDF','*.pdf')],initialfile=f'{r["name"]}.txt')
+          if not path:return
+          text=self.recipe_export_text(r['id'])
+          try:
+              if path.lower().endswith('.txt'):
+                  Path(path).write_text(text,encoding='utf-8')
+              elif path.lower().endswith('.docx'):
+                  try:
+                      from docx import Document
+                  except ImportError: raise RuntimeError('Para exportar Word, instale "python-docx".')
+                  doc=Document();doc.add_heading(r['name'],0)
+                  for line in text.splitlines():doc.add_paragraph(line)
+                  doc.save(path)
+              else:
+                  try:
+                      from reportlab.pdfgen import canvas
+                  except ImportError: raise RuntimeError('Para exportar PDF, instale "reportlab".')
+                  c=canvas.Canvas(path);y=800
+                  for line in text.splitlines():
+                      c.drawString(40,y,line[:110]);y-=16
+                      if y<50:c.showPage();y=800
+                  c.save()
+              messagebox.showinfo('ExportaÃ§Ã£o','Receita exportada com sucesso.',parent=self)
+          except Exception as e:safe_error(self,'NÃ£o foi possÃ­vel exportar a receita',e)
+  
+      def recipe_export_text(self,rid):
+          with db() as c:
+              r=c.execute('SELECT * FROM base_recipes WHERE id=?',(rid,)).fetchone()
+              rows=c.execute('''SELECT m.id,m.name,bri.qty,bri.unit FROM base_recipe_items bri JOIN materials m ON 
+m.id=bri.material_id WHERE bri.recipe_id=?''',(rid,)).fetchall()
+          lines=[r['name'],'',f'Rendimento: {fmt_num(r["yield_qty"])} {r["yield_unit"] or 
+""}'.strip(),'','ComposiÃ§Ã£o:']
+          for x in rows:
+              try:cst=material_cost(x['id'],x['qty'],x['unit'])
+              except Exception:cst=0
+              lines.append(f'- {x["name"]}: {fmt_num(x["qty"])} {x["unit"]} â€” {fmt(cst)}')
+          lines += ['',f'Custo total: {fmt(recipe_cost(rid))}']
+          return '\n'.join(lines)
+  
+      def _material_id_by_name(self,name):
+          with db() as c:return c.execute('SELECT id FROM materials WHERE name=?',(name,)).fetchone()['id']
+  
+      def recipe_history_dialog(self):
+          s=self.rec_tree.selection()
+          if not s:return
+          code=self.rec_tree.item(s[0])['values'][0]
+          with db() as c:r=c.execute('SELECT id FROM base_recipes WHERE code=?',(code,)).fetchone()
+          if not r:return
+          with db() as c:rows=c.execute("SELECT substr(recorded_at,1,7),cost,recorded_at FROM cost_history WHERE 
+entity_type='RECIPE_BASE' AND entity_id=? ORDER BY id DESC",(r['id'],)).fetchall()
+          ListDialog(self,'HistÃ³rico de custo da 
+Receita',(('mes','MÃªs',100),('custo','Custo',120),('registro','Registro',180)),rows)
+  
+
+

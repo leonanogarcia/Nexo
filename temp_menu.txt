@@ -1,0 +1,66 @@
+﻿
+>     def _show_row_menu(self, tree, kind, iid, x, y, edit_cmd, delete_cmd):
+          self._set_single_checked(tree, iid)
+          is_active = 'inactive' not in tree.item(iid, 'tags')
+          
+          dark = getattr(self, '_dark', False)
+          bg = self.colors['panel']
+          fg = self.colors['text']
+          hover = '#20375F' if dark else '#F4F7FC'
+          border = self.colors['line']
+          
+          if hasattr(self, '_current_menu') and self._current_menu.winfo_exists():
+              self._current_menu.destroy()
+  
+          menu = tk.Toplevel(self)
+          menu.overrideredirect(True)
+          menu.attributes('-topmost', True)
+          self._current_menu = menu
+          
+          try:
+              menu.configure(bg='#000001')
+              menu.wm_attributes('-transparentcolor', '#000001')
+              transparent_bg = '#000001'
+          except Exception:
+              transparent_bg = bg
+              menu.configure(bg=bg)
+          
+          w, h = 180, 145
+          menu.geometry(f'{w}x{h}+{x-w+10}+{y+5}')
+          
+          c = tk.Canvas(menu, bg=transparent_bg, bd=0, highlightthickness=0)
+          c.pack(fill='both', expand=True)
+          
+          r = 8
+          c.create_rectangle(r, 0, w-r, h, fill=bg, outline='')
+          c.create_rectangle(0, r, w, h-r, fill=bg, outline='')
+          c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=bg, outline='')
+          c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=bg, outline='')
+          c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=bg, outline='')
+          c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=bg, outline='')
+          
+          c.create_line(r, 0, w-r, 0, fill=border)
+          c.create_line(r, h-1, w-r, h-1, fill=border)
+          c.create_line(0, r, 0, h-r, fill=border)
+          c.create_line(w-1, r, w-1, h-r, fill=border)
+          c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, style='arc', outline=border)
+          c.create_arc(w-2*r-1, 0, w-1, 2*r, start=0, extent=90, style='arc', outline=border)
+          c.create_arc(0, h-2*r-1, 2*r, h-1, start=180, extent=90, style='arc', outline=border)
+          c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
+          
+          c.create_line(16, 72, w-16, 72, fill=border)
+          
+          try:
+              from PIL import Image, ImageDraw, ImageTk
+              import pathlib
+              UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
+              im_e = Image.open(UI_ASSETS / 'action_edit_reference_exact.png').convert('RGBA').resize((16, 16), 
+Image.Resampling.LANCZOS)
+              im_d = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA').resize((16, 16), 
+Image.Resampling.LANCZOS)
+              
+              icon_color = '#AFC0E2' if dark else '#687796'
+              dis_color = '#4A5568' if dark else '#C5CEDB'
+              
+
+

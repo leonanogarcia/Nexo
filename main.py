@@ -2496,8 +2496,8 @@ class App(tk.Tk):
         ov._icon_refs = []
         
         is_mat = tree == getattr(self, 'mat_tree', None)
-        cw0 = int(tree.column('#0', 'width'))
-        y_off = 36 if is_mat else 0
+        cw0 = 60
+        y_off = 36
         ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
         ov_left.place(relx=0, x=0, y=y_off, width=cw0, relheight=1.0, height=-y_off, anchor='nw')
         
@@ -2513,9 +2513,7 @@ class App(tk.Tk):
             ov_left.delete('all')
             ov._icon_refs.clear()
             
-            if not is_mat:
-                header_bg = '#142544' if getattr(self, '_dark', False) else '#E8EEF8'
-                ov_left.create_rectangle(0, 0, cw0, 38, fill=header_bg, outline='')
+            pass
                 
             img_e = self._make_row_icon('edit')
             img_d = self._make_row_icon('delete')
@@ -2617,7 +2615,7 @@ class App(tk.Tk):
         self.mat_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
         self.mat_header.pack(fill='x',padx=2,pady=(0,0))
         
-        self.mat_tree=ttk.Treeview(table_host,columns=('code','name','brand','qty','unit','value','category','date','mod_date','status','edit','delete','options','dummy'),show='tree')
+        self.mat_tree=ttk.Treeview(table_host,columns=('code','name','brand','qty','unit','value','category','date','mod_date','status','dummy','edit','delete','options'),show='tree')
         self.mat_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.mat_tree.column('#0',width=60,minwidth=60,stretch=False)
         
@@ -2634,7 +2632,7 @@ class App(tk.Tk):
         
         self.mat_tree.pack(fill='both',expand=True)
 
-        self._mat_header_specs=[('code','Código',100),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('edit','',30),('delete','',30),('options','',30)]
+        self._mat_header_specs=[('code','Código',100),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
         self._mat_header_imgs={}
         
         def redraw_mat_header(_event=None):
@@ -2663,7 +2661,8 @@ class App(tk.Tk):
                 except Exception: cw=0
                 
                 # We skip drawing fixed columns inside the scrolling loop
-                if col in ('#0', '#11', '#12', '#13'):
+                if col == '#0': cw = 60
+                if col in ('#0', '#12', '#13', '#14'):
                     x0+=cw; continue
                 
                 align = 'w' if col in ('#1', '#2', '#3') else 'center'
@@ -3038,24 +3037,148 @@ class App(tk.Tk):
     # ---------- Receitas ----------
     def recipes_page(self, f):
         _, bar=self._build_page_toolbar(f)
-        rec_add=RoundedActionButton(bar,'＋  Nova Receita',lambda: self._run_normal_action(self.rec_tree, self.new_recipe),width=150,height=40,fill='#F28C28',hover='#D96F0B'); rec_add.pack(side='left')
+        
+        rec_add=RoundedActionButton(bar, '+ Nova Receita', lambda: self._run_normal_action(self.rec_tree, self.new_recipe), width=130, height=49, fill='#F28C28', hover='#D96F0B')
+        rec_add.pack(side='left')
+        
         self.rec_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_recipes(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
-        rec_import=RoundedActionButton(bar,'Importar Word/PDF',lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document),width=155,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_import.pack(side='left',padx=10)
-        rec_export=RoundedActionButton(bar,'Exportar Receita',lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe),width=145,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_export.pack(side='left',padx=10)
-        rec_original=RoundedActionButton(bar,'Documento original',lambda: self._run_normal_action(self.rec_tree, self.open_original_document),width=165,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_original.pack(side='left',padx=10)
-        rec_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.rec_tree, self.recipe_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_history.pack(side='left',padx=10)
+        
+        rec_import=RoundedActionButton(bar, 'Importar', lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document), width=95, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_import.pack(side='left', padx=(8, 0))
+        
+        rec_export=RoundedActionButton(bar, 'Exportar', lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe), width=95, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_export.pack(side='left', padx=(8, 0))
+        
+        rec_original=RoundedActionButton(bar, 'Doc. Original', lambda: self._run_normal_action(self.rec_tree, self.open_original_document), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_original.pack(side='left', padx=(8, 0))
+        
+        rec_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.rec_tree, self.recipe_history_dialog), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_history.pack(side='left', padx=(8, 0))
+
+        self.rec_search = tk.StringVar()
+        self.rec_search.trace_add('write', lambda *a: self.refresh_recipes())
+        self.rec_search_wrap = self._styled_search_entry(bar, self.rec_search, 280)
+        
+        self.rec_status = tk.StringVar(value='Ativos')
+        self.rec_status.trace_add('write', lambda *a: self.refresh_recipes())
+        self.rec_status_wrap = RoundedDropdown(bar, self.rec_status, ['Ativos', 'Inativos', 'Todos'], width=110)
+        self.rec_status_wrap.pack(side='right', padx=14)
+
         _, table_host = self._build_page_table_panel(f)
-        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','edit','delete','dummy'),show='tree headings')
-        self.rec_tree.column('#0',width=44,minwidth=44,stretch=False);self.rec_tree.heading('#0',text='')
-        for k,t,w in [('code','Código',95),('name','Receita',280),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('edit','',30),('delete','',30)]:
-            kw={'text':t}
-            if k=='edit': kw['image']=self._action_photo('action_edit_small.png')
-            if k=='delete': kw['image']=self._action_photo('action_delete_small.png')
-            self.rec_tree.heading(k,**kw)
+        
+        self.rec_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
+        self.rec_header.pack(fill='x',padx=2,pady=(0,0))
+        
+        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','dummy','edit','delete'),show='tree')
+        self.rec_tree.tag_configure('inactive', foreground='#9AA9BF')
+        self.rec_tree.column('#0',width=60,minwidth=60,stretch=False)
+        
+        for k,w in [('code',100),('name',380),('yield',120),('unit',65),('cost',120),('edit',30),('delete',30)]:
             self.rec_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('yield','unit','cost') else 'w',stretch=False)
-        self.rec_tree.column('dummy', width=0, minwidth=0, stretch=True); self.rec_tree.heading('dummy', text='')
+        self.rec_tree.column('dummy', width=0, minwidth=0, stretch=True)
+        
+        self.rec_hsb = PillScrollbar(table_host, self.rec_tree)
+        original_scroll_rec = self.rec_hsb._on_scroll
+        def hsb_scroll_rec(first, last):
+            original_scroll_rec(first, last)
+            self.after_idle(self._redraw_rec_header) if hasattr(self, '_redraw_rec_header') else None
+        self.rec_tree.configure(xscrollcommand=hsb_scroll_rec)
         self.rec_tree.pack(fill='both',expand=True)
-        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk':[self.rec_bulk_delete_btn]};self.rec_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.rec_tree,'recipe'));self.rec_tree.bind('<Double-1>',lambda e:self._on_native_tree_double_click(e,self.rec_tree,self.edit_selected_recipe));self._update_action_states()
+        
+        self._rec_header_specs=[('code','Código',100),('name','Receita',380),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('dummy','',0),('edit','',30),('delete','',30)]
+        self._rec_header_imgs={}
+        
+        def redraw_rec_header(_event=None):
+            c=self.rec_header; c.delete('all')
+            w=max(c.winfo_width(),2); h=max(c.winfo_height(),2)
+            r=min(h/2,18); fill='#EEF4FB'
+            c.create_rectangle(r,0,w-r,h,fill=fill,outline='')
+            c.create_rectangle(0,r,w,h-r,fill=fill,outline='')
+            c.create_arc(0,0,2*r,2*r,start=90,extent=90,fill=fill,outline=fill)
+            c.create_arc(w-2*r,0,w,2*r,start=0,extent=90,fill=fill,outline=fill)
+            c.create_arc(0,h-2*r,2*r,h,start=180,extent=90,fill=fill,outline=fill)
+            c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
+            try:
+                total_w = sum(int(self.rec_tree.column(col, 'width')) for col in ['#0'] + list(self.rec_tree['columns']))
+                x_offset = float(self.rec_tree.xview()[0]) * total_w
+            except Exception: x_offset = 0
+            x0 = -x_offset
+            cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._rec_header_specs,1)]
+            for idx,(col,txt) in enumerate(cols):
+                try: cw=int(self.rec_tree.column(col,'width'))
+                except Exception: cw=0
+                if col == '#0': cw = 60
+                if col in ('#0', '#8', '#9'):
+                    x0+=cw; continue
+                align = 'w' if col in ('#1', '#2') else 'center'
+                anchor_x = x0+12 if align == 'w' else x0+cw/2
+                c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                x0+=cw
+            cw0 = 60
+            if cw0 > 0:
+                c.create_rectangle(r, 0, cw0, h, fill=fill, outline='')
+                c.create_rectangle(0, r, cw0, h-r, fill=fill, outline='')
+                c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+                c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+                c.create_line(cw0, 6, cw0, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                key = str(self.rec_tree)
+                checked = self._checked_rows.get(key, set())
+                children = self.rec_tree.get_children()
+                is_all_checked = len(checked) == len(children) and len(children) > 0
+                txt_chk = '☑' if is_all_checked else '☐'
+                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
+                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
+                c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
+                c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.rec_tree))
+            
+            # RIGHT side cover
+            try: cw7=int(self.rec_tree.column('#7','width'))
+            except: cw7=0
+            try: cw8=int(self.rec_tree.column('#8','width'))
+            except: cw8=0
+            total_r = cw7 + cw8
+            if total_r > 0:
+                start_x = w - total_r
+                c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
+                c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
+                c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+                c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+                c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+        
+        self._redraw_rec_header=redraw_rec_header
+        self.rec_header.bind('<Configure>', redraw_rec_header)
+        self.rec_tree.bind('<Configure>', lambda e: self.rec_tree.after_idle(redraw_rec_header))
+        self.after_idle(redraw_rec_header)
+        
+        self._setup_canvas_header_drag(self.rec_header, self.rec_tree, ['edit','delete'], redraw_rec_header, 'rec')
+
+        self.rec_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.rec_tree,'recipe'))
+        self.rec_tree.bind('<Double-1>',lambda e:self.edit_selected_recipe())
+        
+        self.rec_icon_ov=self._attach_row_icon_overlay(self.rec_tree, table_host, 6, 7, self.edit_selected_recipe, self.delete_selected_recipe)
+        try:
+            from PIL import Image, ImageTk
+            img_path = UI_ASSETS / 'empty_state_reference_exact.png'
+            self._rec_empty_img = ImageTk.PhotoImage(Image.open(img_path))
+            
+            self.rec_empty_overlay = tk.Frame(table_host, bg=self.colors['field'])
+            inner = tk.Frame(self.rec_empty_overlay, bg=self.colors['field'])
+            inner.place(relx=0.5, rely=0.5, anchor='center')
+            
+            l_img = tk.Label(inner, image=self._rec_empty_img, bg=self.colors['field'])
+            l_img.pack(pady=(0, 10))
+            
+            l_title = tk.Label(inner, text='Nenhuma receita cadastrada.', bg=self.colors['field'], fg='#687796', font=('Segoe UI', 11, 'bold'))
+            l_title.pack(pady=(0, 4))
+            
+            l_sub = tk.Label(inner, text='Clique em + Nova Receita para adicionar a primeira receita.', bg=self.colors['field'], fg='#8A99B5', font=('Segoe UI', 9))
+            l_sub.pack()
+        except Exception:
+            self.rec_empty_overlay = tk.Label(table_host, text='Nenhuma receita cadastrada.\nClique em + Nova Receita para adicionar a primeira receita.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
+        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk':[self.rec_bulk_delete_btn]}
+        self._update_action_states()
 
     def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
         is_edit=edit_id is not None
@@ -3192,22 +3315,30 @@ class App(tk.Tk):
     def refresh_recipes(self):
         if not hasattr(self,'rec_tree'):return
         for x in self.rec_tree.get_children():self.rec_tree.delete(x)
-        with db() as c:rows=c.execute('SELECT id,code,name,yield_qty,yield_unit FROM base_recipes WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0 ORDER BY name').fetchall()
+        
+        query = '%'+self.rec_search.get().strip()+'%' if hasattr(self,'rec_search') else '%'
+        status_filter = self.rec_status.get() if hasattr(self, 'rec_status') else 'Ativos'
+        status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
+        
+        with db() as c:rows=c.execute(f'SELECT id,code,name,yield_qty,yield_unit,COALESCE(active,1) as active FROM base_recipes WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
         for r in rows:
             try:cost=recipe_cost(r['id'])
             except Exception:cost=0
-            
-            with db() as c:
-                comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
-            
+            with db() as c:comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
             has_arc = any(comp['arc'] for comp in comps)
             name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
             
-            iid=self.rec_tree.insert('','end',text='☐',values=(r['code'],name_disp,fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(cost),'✏️','🗑️'))
+            is_active = r['active']
+            iid=self.rec_tree.insert('','end',text='',values=(r['code'],name_disp,fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(cost),'','',''), tags=() if is_active else ('inactive',))
             for comp in comps:
                 comp_name = f"{comp['name']} (⚠️ Excluído)" if comp['arc'] else comp['name']
-                self.rec_tree.insert(iid,'end',text='  ',values=('',f'↳ {comp_name}',fmt_num(comp['qty']),comp['unit'],'-','',''))
+                self.rec_tree.insert(iid,'end',text='',values=('',f'↳ {comp_name}',fmt_num(comp['qty']),comp['unit'],'-','','',''))
         self._reset_checked(self.rec_tree)
+        if hasattr(self, 'rec_icon_ov'): self.rec_icon_ov._redraw()
+        if hasattr(self, '_redraw_rec_header'): self._redraw_rec_header()
+        if hasattr(self, 'rec_empty_overlay'):
+            if rows: self.rec_empty_overlay.place_forget()
+            else: self.rec_empty_overlay.place(x=0, y=36, relwidth=1, relheight=1, height=-36)
 
     def import_recipe_document(self):
         path=filedialog.askopenfilename(parent=self,filetypes=[('Word','*.docx'),('PDF','*.pdf')])
@@ -3299,21 +3430,139 @@ class App(tk.Tk):
     # ---------- Produtos ----------
     def products_page(self,f):
         _, bar=self._build_page_toolbar(f)
-        prod_add=RoundedActionButton(bar,'＋  Novo Produto',lambda: self._run_normal_action(self.prod_tree, self.new_product),width=150,height=40,fill='#F28C28',hover='#D96F0B'); prod_add.pack(side='left')
+        
+        prod_add=RoundedActionButton(bar, '+ Novo Produto', lambda: self._run_normal_action(self.prod_tree, self.new_product), width=135, height=49, fill='#F28C28', hover='#D96F0B')
+        prod_add.pack(side='left')
+        
         self.prod_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_products(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
-        prod_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); prod_history.pack(side='left',padx=10)
+        
+        prod_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        prod_history.pack(side='left', padx=(8, 0))
+
+        self.prod_search = tk.StringVar()
+        self.prod_search.trace_add('write', lambda *a: self.refresh_products())
+        self.prod_search_wrap = self._styled_search_entry(bar, self.prod_search, 280)
+        
+        self.prod_status = tk.StringVar(value='Ativos')
+        self.prod_status.trace_add('write', lambda *a: self.refresh_products())
+        self.prod_status_wrap = RoundedDropdown(bar, self.prod_status, ['Ativos', 'Inativos', 'Todos'], width=110)
+        self.prod_status_wrap.pack(side='right', padx=14)
+
         _, table_host = self._build_page_table_panel(f)
-        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','edit','delete','dummy'),show='tree headings')
-        self.prod_tree.column('#0',width=44,minwidth=44,stretch=False);self.prod_tree.heading('#0',text='')
-        for k,t,w in [('code','Código',95),('name','Produto',300),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('edit','',30),('delete','',30)]:
-            kw={'text':t}
-            if k=='edit': kw['image']=self._action_photo('action_edit_small.png')
-            if k=='delete': kw['image']=self._action_photo('action_delete_small.png')
-            self.prod_tree.heading(k,**kw)
+        
+        self.prod_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
+        self.prod_header.pack(fill='x',padx=2,pady=(0,0))
+        
+        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','dummy','edit','delete'),show='tree')
+        self.prod_tree.tag_configure('inactive', foreground='#9AA9BF')
+        self.prod_tree.column('#0',width=60,minwidth=60,stretch=False)
+        
+        for k,w in [('code',100),('name',380),('weight',120),('cost',110),('price',110),('margin',90),('edit',30),('delete',30)]:
             self.prod_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('weight','cost','price','margin') else 'w',stretch=False)
-        self.prod_tree.column('dummy', width=0, minwidth=0, stretch=True); self.prod_tree.heading('dummy', text='')
+        self.prod_tree.column('dummy', width=0, minwidth=0, stretch=True)
+        
+        self.prod_hsb = PillScrollbar(table_host, self.prod_tree)
+        original_scroll_prod = self.prod_hsb._on_scroll
+        def hsb_scroll_prod(first, last):
+            original_scroll_prod(first, last)
+            self.after_idle(self._redraw_prod_header) if hasattr(self, '_redraw_prod_header') else None
+        self.prod_tree.configure(xscrollcommand=hsb_scroll_prod)
         self.prod_tree.pack(fill='both',expand=True)
-        self._action_buttons[self.prod_tree]={'normal':[prod_add,prod_history],'bulk':[self.prod_bulk_delete_btn]};self.prod_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.prod_tree,'product'));self.prod_tree.bind('<Double-1>',lambda e:self._on_native_tree_double_click(e,self.prod_tree,self.edit_selected_product));self._update_action_states()
+        
+        self._prod_header_specs=[('code','Código',100),('name','Produto',380),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('dummy','',0),('edit','',30),('delete','',30)]
+        self._prod_header_imgs={}
+        
+        def redraw_prod_header(_event=None):
+            c=self.prod_header; c.delete('all')
+            w=max(c.winfo_width(),2); h=max(c.winfo_height(),2)
+            r=min(h/2,18); fill='#EEF4FB'
+            c.create_rectangle(r,0,w-r,h,fill=fill,outline='')
+            c.create_rectangle(0,r,w,h-r,fill=fill,outline='')
+            c.create_arc(0,0,2*r,2*r,start=90,extent=90,fill=fill,outline=fill)
+            c.create_arc(w-2*r,0,w,2*r,start=0,extent=90,fill=fill,outline=fill)
+            c.create_arc(0,h-2*r,2*r,h,start=180,extent=90,fill=fill,outline=fill)
+            c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
+            try:
+                total_w = sum(int(self.prod_tree.column(col, 'width')) for col in ['#0'] + list(self.prod_tree['columns']))
+                x_offset = float(self.prod_tree.xview()[0]) * total_w
+            except Exception: x_offset = 0
+            x0 = -x_offset
+            cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._prod_header_specs,1)]
+            for idx,(col,txt) in enumerate(cols):
+                try: cw=int(self.prod_tree.column(col,'width'))
+                except Exception: cw=0
+                if col == '#0': cw = 60
+                if col in ('#0', '#8', '#9'):
+                    x0+=cw; continue
+                align = 'w' if col in ('#1', '#2') else 'center'
+                anchor_x = x0+12 if align == 'w' else x0+cw/2
+                c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                x0+=cw
+            cw0 = 60
+            if cw0 > 0:
+                c.create_rectangle(r, 0, cw0, h, fill=fill, outline='')
+                c.create_rectangle(0, r, cw0, h-r, fill=fill, outline='')
+                c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+                c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+                c.create_line(cw0, 6, cw0, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                key = str(self.prod_tree)
+                checked = self._checked_rows.get(key, set())
+                children = self.prod_tree.get_children()
+                is_all_checked = len(checked) == len(children) and len(children) > 0
+                txt_chk = '☑' if is_all_checked else '☐'
+                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
+                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
+                c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
+                c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.prod_tree))
+            
+            # RIGHT side cover
+            try: cw8=int(self.prod_tree.column('#8','width'))
+            except: cw8=0
+            try: cw9=int(self.prod_tree.column('#9','width'))
+            except: cw9=0
+            total_r = cw8 + cw9
+            if total_r > 0:
+                start_x = w - total_r
+                c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
+                c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
+                c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+                c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+                c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+        
+        self._redraw_prod_header=redraw_prod_header
+        self.prod_header.bind('<Configure>', redraw_prod_header)
+        self.prod_tree.bind('<Configure>', lambda e: self.prod_tree.after_idle(redraw_prod_header))
+        self.after_idle(redraw_prod_header)
+        
+        self._setup_canvas_header_drag(self.prod_header, self.prod_tree, ['edit','delete'], redraw_prod_header, 'prod')
+
+        self.prod_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.prod_tree,'product'))
+        self.prod_tree.bind('<Double-1>',lambda e:self.edit_selected_product())
+        
+        self.prod_icon_ov=self._attach_row_icon_overlay(self.prod_tree, table_host, 7, 8, self.edit_selected_product, self.delete_selected_product)
+        try:
+            from PIL import Image, ImageTk
+            img_path = UI_ASSETS / 'empty_state_reference_exact.png'
+            self._prod_empty_img = ImageTk.PhotoImage(Image.open(img_path))
+            
+            self.prod_empty_overlay = tk.Frame(table_host, bg=self.colors['field'])
+            inner = tk.Frame(self.prod_empty_overlay, bg=self.colors['field'])
+            inner.place(relx=0.5, rely=0.5, anchor='center')
+            
+            l_img = tk.Label(inner, image=self._prod_empty_img, bg=self.colors['field'])
+            l_img.pack(pady=(0, 10))
+            
+            l_title = tk.Label(inner, text='Nenhum produto cadastrado.', bg=self.colors['field'], fg='#687796', font=('Segoe UI', 11, 'bold'))
+            l_title.pack(pady=(0, 4))
+            
+            l_sub = tk.Label(inner, text='Clique em + Novo Produto para adicionar o primeiro produto.', bg=self.colors['field'], fg='#8A99B5', font=('Segoe UI', 9))
+            l_sub.pack()
+        except Exception:
+            self.prod_empty_overlay = tk.Label(table_host, text='Nenhum produto cadastrado.\nClique em + Novo Produto para adicionar o primeiro produto.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
+        self._action_buttons[self.prod_tree]={'normal':[prod_add,prod_history],'bulk':[self.prod_bulk_delete_btn]}
+        self._update_action_states()
 
     def product_form(self, edit_id=None):
         is_edit=edit_id is not None
@@ -3489,41 +3738,47 @@ class App(tk.Tk):
     def refresh_products(self):
         if not hasattr(self,'prod_tree'):return
         for x in self.prod_tree.get_children():self.prod_tree.delete(x)
-        with db() as c:rows=c.execute('SELECT id,code,name,weight_qty,weight_unit,sale_price FROM products WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0 ORDER BY name').fetchall()
+        
+        query = '%'+self.prod_search.get().strip()+'%' if hasattr(self,'prod_search') else '%'
+        status_filter = self.prod_status.get() if hasattr(self, 'prod_status') else 'Ativos'
+        status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
+        
+        with db() as c:rows=c.execute(f'SELECT id,code,name,weight_qty,weight_unit,sale_price,COALESCE(active,1) as active FROM products WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
         for r in rows:
             try:cost=product_unit_cost(r['id'])
             except Exception:cost=0
             margin=((r['sale_price']-cost)/r['sale_price']*100) if r['sale_price'] else None
+            with db() as c:comps=c.execute('SELECT item_type,ref_id,qty_per_unit AS qty,unit FROM product_items WHERE product_id=? ORDER BY id',(r['id'],)).fetchall()
+            has_arc = False
+            for comp in comps:
+                if comp['item_type'] == 'MATERIAL':
+                    with db() as cd: m = cd.execute('SELECT COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
+                    if m and m['arc']: has_arc = True
+                else:
+                    with db() as cd: m = cd.execute('SELECT COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
+                    if m and m['arc']: has_arc = True
             
-            with db() as c:
-                comps=c.execute('SELECT item_type,ref_id,qty_per_unit AS qty,unit FROM product_items WHERE product_id=? ORDER BY id',(r['id'],)).fetchall()
-                
-                has_arc = False
-                disp_comps = []
-                for comp in comps:
-                    if comp['item_type'] == 'MATERIAL':
-                        m = c.execute('SELECT name, COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
-                        if m:
-                            n = m['name']
-                            if m['arc']:
-                                has_arc = True
-                                n += " (⚠️ Excluído)"
-                            disp_comps.append((n, comp['qty'], comp['unit']))
-                    else:
-                        m = c.execute('SELECT name, COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
-                        if m:
-                            n = m['name']
-                            if m['arc']:
-                                has_arc = True
-                                n += " (⚠️ Excluído)"
-                            disp_comps.append((f"[Receita] {n}", comp['qty'], comp['unit']))
-
             name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
+            is_active = r['active']
             
-            iid=self.prod_tree.insert('','end',text='☐',values=(r['code'],name_disp,(fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-',fmt(cost),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-','✏️','🗑️'))
-            for n, q, u in disp_comps:
-                self.prod_tree.insert(iid,'end',text='  ',values=('',f'↳ {n}',fmt_num(q),u,'-','-','',''))
+            w_disp = (fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-'
+            iid=self.prod_tree.insert('','end',text='',values=(r['code'],name_disp,w_disp,fmt(cost),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-','','',''), tags=() if is_active else ('inactive',))
+            
+            for comp in comps:
+                if comp['item_type'] == 'MATERIAL':
+                    with db() as cd: m = cd.execute('SELECT name, COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
+                else:
+                    with db() as cd: m = cd.execute('SELECT name, COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
+                
+                if m:
+                    n = f"{m['name']} (⚠️ Excluído)" if m['arc'] else m['name']
+                    self.prod_tree.insert(iid,'end',text='',values=('',f'↳ {n}',fmt_num(comp['qty']),comp['unit'],'-','-','','',''))
         self._reset_checked(self.prod_tree)
+        if hasattr(self, 'prod_icon_ov'): self.prod_icon_ov._redraw()
+        if hasattr(self, '_redraw_prod_header'): self._redraw_prod_header()
+        if hasattr(self, 'prod_empty_overlay'):
+            if rows: self.prod_empty_overlay.place_forget()
+            else: self.prod_empty_overlay.place(x=0, y=36, relwidth=1, relheight=1, height=-36)
 
     def product_history_dialog(self):
         s=self.prod_tree.selection()
