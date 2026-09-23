@@ -1371,7 +1371,7 @@ class ReferenceSidebar(tk.Canvas):
                 sel_w = side_w - 24
                 sel_h = 60
                 sel_r = 20
-                sel_fill = '#304763' if not self._dark else '#F6A45A'
+                sel_fill = '#693A16' if not self._dark else '#F6A45A'
                 self._draw_pil_shape(x+12, cy-sel_h/2, sel_w, sel_h, sel_r, sel_fill, tag='selection')
             img=self._buttons.get(key)
             if img:
@@ -1567,7 +1567,7 @@ class RoundedDropdown(tk.Frame):
             oy = i*36
             # Use a slightly inset hitbox so we don't cover the rounded corners
             hb = c.create_rectangle(2, oy+2 if i==0 else oy, w-2, oy+34 if i==len(self._opts)-1 else oy+36, fill='#FFFFFF', outline='', tags=f'opt_{i}')
-            col = '#2F67B1' if opt == self._var.get() else '#18223A'
+            col = '#D96F0B' if opt == self._var.get() else '#18223A'
             fnt = ('Segoe UI', 10, 'bold') if opt == self._var.get() else ('Segoe UI', 10)
             c.create_text(w/2, oy+18, text=opt, fill=col, font=fnt, anchor='center', tags=f'opt_{i}')
             
@@ -2539,7 +2539,7 @@ class App(tk.Tk):
                 is_active = 'inactive' not in tags
                 is_checked = iid in self._checked_rows.get(str(tree), set())
                 txt = '☑' if is_checked else '☐'
-                color = '#2B3D55' if is_checked else '#A0ABB9'
+                color = '#D96F0B' if is_checked else '#A0ABB9'
                 if getattr(self, '_dark', False): color = '#FFFFFF' if is_checked else '#60769D'
                 
                 cy = ry + rh // 2
@@ -2595,7 +2595,7 @@ class App(tk.Tk):
     def cadastro(self, f):
         _, bar = self._build_page_toolbar(f)
         
-        mat_add=RoundedActionButton(bar, '+ Novo item', lambda: self._run_normal_action(self.mat_tree, self.new_material), width=130, height=49, fill='#2F67B1', hover='#255894')
+        mat_add=RoundedActionButton(bar, '+ Novo item', lambda: self._run_normal_action(self.mat_tree, self.new_material), width=130, height=49, fill='#F28C28', hover='#D96F0B')
         mat_add.pack(side='left')
         
         mat_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.mat_tree, self.material_history_dialog), width=120, height=49, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
@@ -3038,7 +3038,7 @@ class App(tk.Tk):
     # ---------- Receitas ----------
     def recipes_page(self, f):
         _, bar=self._build_page_toolbar(f)
-        rec_add=RoundedActionButton(bar,'＋  Nova Receita',lambda: self._run_normal_action(self.rec_tree, self.new_recipe),width=150,height=40,fill='#2F67B1',hover='#255894'); rec_add.pack(side='left')
+        rec_add=RoundedActionButton(bar,'＋  Nova Receita',lambda: self._run_normal_action(self.rec_tree, self.new_recipe),width=150,height=40,fill='#F28C28',hover='#D96F0B'); rec_add.pack(side='left')
         self.rec_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_recipes(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         rec_import=RoundedActionButton(bar,'Importar Word/PDF',lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document),width=155,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_import.pack(side='left',padx=10)
         rec_export=RoundedActionButton(bar,'Exportar Receita',lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe),width=145,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); rec_export.pack(side='left',padx=10)
@@ -3299,7 +3299,7 @@ class App(tk.Tk):
     # ---------- Produtos ----------
     def products_page(self,f):
         _, bar=self._build_page_toolbar(f)
-        prod_add=RoundedActionButton(bar,'＋  Novo Produto',lambda: self._run_normal_action(self.prod_tree, self.new_product),width=150,height=40,fill='#2F67B1',hover='#255894'); prod_add.pack(side='left')
+        prod_add=RoundedActionButton(bar,'＋  Novo Produto',lambda: self._run_normal_action(self.prod_tree, self.new_product),width=150,height=40,fill='#F28C28',hover='#D96F0B'); prod_add.pack(side='left')
         self.prod_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_products(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         prod_history=RoundedActionButton(bar,'Histórico',lambda: self._run_normal_action(self.prod_tree, self.product_history_dialog),width=125,height=40,fill='#EFF4FB',hover='#E3EBF6',fg='#1D3557'); prod_history.pack(side='left',padx=10)
         _, table_host = self._build_page_table_panel(f)
