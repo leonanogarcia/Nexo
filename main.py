@@ -2257,32 +2257,46 @@ class App(tk.Tk):
             im_d = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA').resize((16, 16), Image.Resampling.LANCZOS)
             
             icon_color = '#AFC0E2' if dark else '#687796'
+            dis_color = '#4A5568' if dark else '#C5CEDB'
             
-            im_pause = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(im_pause)
-            draw.rectangle([4, 2, 6, 14], fill=icon_color)
-            draw.rectangle([10, 2, 12, 14], fill=icon_color)
-            
-            im_play = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(im_play)
-            draw.polygon([5, 2, 5, 14, 13, 8], fill=icon_color)
+            def make_pause(color):
+                im = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+                d = ImageDraw.Draw(im)
+                d.rectangle([4, 2, 6, 14], fill=color)
+                d.rectangle([10, 2, 12, 14], fill=color)
+                return im
+                
+            def make_play(color):
+                im = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
+                ImageDraw.Draw(im).polygon([5, 2, 5, 14, 13, 8], fill=color)
+                return im
+                
+            def make_disabled_img(im):
+                im_dis = im.copy()
+                alpha = im_dis.getchannel('A')
+                alpha = alpha.point(lambda p: int(p * 0.35))
+                im_dis.putalpha(alpha)
+                return im_dis
             
             if not hasattr(self, '_menu_icons'):
                 self._menu_icons = {}
             self._menu_icons['edit'] = ImageTk.PhotoImage(im_e)
+            self._menu_icons['edit_dis'] = ImageTk.PhotoImage(make_disabled_img(im_e))
             self._menu_icons['delete'] = ImageTk.PhotoImage(im_d)
-            self._menu_icons['pause'] = ImageTk.PhotoImage(im_pause)
-            self._menu_icons['play'] = ImageTk.PhotoImage(im_play)
+            self._menu_icons['pause'] = ImageTk.PhotoImage(make_pause(icon_color))
+            self._menu_icons['pause_dis'] = ImageTk.PhotoImage(make_pause(dis_color))
+            self._menu_icons['play'] = ImageTk.PhotoImage(make_play(icon_color))
+            self._menu_icons['play_dis'] = ImageTk.PhotoImage(make_play(dis_color))
             
-            img_e = self._menu_icons['edit']
+            img_e = self._menu_icons['edit'] if is_active else self._menu_icons['edit_dis']
             img_d = self._menu_icons['delete']
-            img_p = self._menu_icons['pause']
-            img_pl = self._menu_icons['play']
+            img_p = self._menu_icons['pause'] if is_active else self._menu_icons['pause_dis']
+            img_pl = self._menu_icons['play'] if not is_active else self._menu_icons['play_dis']
         except Exception:
             img_e = img_d = img_p = img_pl = None
 
         def add_item(oy, text, img, cmd, active=True):
-            text_col = fg if active else self.colors['muted']
+            text_col = fg if active else ('#4A5568' if dark else '#C5CEDB')
             hitbox = c.create_rectangle(1, oy, w-1, oy+35, fill=bg, outline='', tags=(f'item_{oy}',))
             if img:
                 c.create_image(24, oy+17, image=img, anchor='center', tags=(f'item_{oy}',))
@@ -2585,9 +2599,22 @@ class App(tk.Tk):
             from PIL import Image, ImageTk
             img_path = UI_ASSETS / 'empty_state_reference_exact.png'
             self._mat_empty_img = ImageTk.PhotoImage(Image.open(img_path))
-            self.mat_empty_overlay = tk.Label(table_host, image=self._mat_empty_img, text='Nenhum insumo encontrado.', compound='top', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10), pady=10)
+            
+            self.mat_empty_overlay = tk.Frame(table_host, bg=self.colors['field'])
+            inner = tk.Frame(self.mat_empty_overlay, bg=self.colors['field'])
+            inner.place(relx=0.5, rely=0.5, anchor='center')
+            
+            l_img = tk.Label(inner, image=self._mat_empty_img, bg=self.colors['field'])
+            l_img.pack(pady=(0, 10))
+            
+            l_title = tk.Label(inner, text='Ainda não há registros cadastrados.', bg=self.colors['field'], fg='#687796', font=('Segoe UI', 11, 'bold'))
+            l_title.pack(pady=(0, 4))
+            
+            l_sub = tk.Label(inner, text='Clique em + Novo item para adicionar o primeiro item.', bg=self.colors['field'], fg='#8A99B5', font=('Segoe UI', 9))
+            l_sub.pack()
+            
         except Exception:
-            self.mat_empty_overlay = tk.Label(table_host, text='Nenhum insumo encontrado.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
+            self.mat_empty_overlay = tk.Label(table_host, text='Ainda não há registros cadastrados.\nClique em + Novo item para adicionar o primeiro item.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
 
     def material_form(self, edit_id=None):
         is_edit = edit_id is not None
