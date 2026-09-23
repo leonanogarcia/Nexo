@@ -78,14 +78,17 @@ def _field_palette(parent):
 
 def rounded_entry(parent, variable, **kwargs):
     field, line, panel = _field_palette(parent)
-    wrap=RoundedPanel(parent, fill=field, border='', radius=18, bg=panel)
-    # O próprio campo ocupa o corpo da cápsula; não usamos um ttk.Entry quadrado
-    # dentro dela, pois isso cria a falsa sensação de que só a borda é arredondada.
+    if not panel.startswith('#'): panel = getattr(parent.winfo_toplevel(), 'colors', {}).get('panel', '#F3F6FA')
+    w = kwargs.pop('width', 28)
+    # Estimate pixel width (tk.Entry width is in characters, roughly 8px per char)
+    px_w = w * 9 + 32
+    wrap=RoundedPanel(parent, fill=field, border='#E2EAF5', radius=20, bg=panel)
+    wrap.config(width=px_w, height=40); wrap.pack_propagate(False)
     entry_kwargs=dict(bg=field, fg=getattr(parent.winfo_toplevel(),'colors',{}).get('text','#1F2A44'),
                       insertbackground=getattr(parent.winfo_toplevel(),'colors',{}).get('text','#1F2A44'),
                       relief='flat', bd=0, highlightthickness=0, font=('Segoe UI',10), **kwargs)
     entry=tk.Entry(wrap, textvariable=variable, **entry_kwargs)
-    entry.pack(fill='both', expand=True, padx=12, pady=8)
+    entry.pack(fill='both', expand=True, padx=(16,16), pady=9)
     return wrap, entry
 
 
@@ -939,6 +942,7 @@ class RoundedActionButton(tk.Frame):
             
             # Draw on a solid background matching the parent to avoid dark alpha halos
             parent_bg = self.cget('bg')
+            if not parent_bg.startswith('#'): parent_bg = getattr(self.winfo_toplevel(), 'colors', {}).get('panel', '#F3F6FA')
             im=Image.new('RGB',(w*scale,h*scale), parent_bg); d=ImageDraw.Draw(im)
             d.rounded_rectangle((0,0,w*scale-1,h*scale-1),radius=(h*scale)//2,fill=fill)
             
@@ -1484,12 +1488,14 @@ class ReferenceSidebar(tk.Canvas):
 
 
 class RoundedDropdown(tk.Frame):
-    def __init__(self, parent, textvariable, options, width=120, height=40, **kwargs):
-        super().__init__(parent, bg=parent.cget('bg'), bd=0, highlightthickness=0, width=width, height=height, cursor='hand2', **kwargs)
+    def __init__(self, parent, textvariable, options, width=120, height=40, align='center', **kwargs):
+        bg_col = parent.cget('bg') if hasattr(parent, 'cget') and not isinstance(parent, __import__('tkinter').ttk.Widget) else getattr(parent.winfo_toplevel(), 'colors', {}).get('panel', '#F3F6FA')
+        super().__init__(parent, bg=bg_col, bd=0, highlightthickness=0, width=width, height=height, cursor='hand2', **kwargs)
         self.pack_propagate(False); self.grid_propagate(False)
         self.config(width=width, height=height)
         self._var = textvariable
         self._opts = options
+        self._align = align
         self._bg = '#FFFFFF'
         self._hover = '#F8FAFC'
         self._line = '#E2EAF5'
@@ -1521,7 +1527,10 @@ class RoundedDropdown(tk.Frame):
         except Exception: pass
         
         txt = self._var.get()
-        self._canvas.create_text(w/2 - 6, h/2, text=txt, fill=self._fg, font=('Segoe UI', 10, 'bold'), anchor='center')
+        if getattr(self, '_align', 'center') == 'left':
+            self._canvas.create_text(16, h/2, text=txt, fill=self._fg, font=('Segoe UI', 10), anchor='w')
+        else:
+            self._canvas.create_text(w/2 - 6, h/2, text=txt, fill=self._fg, font=('Segoe UI', 10, 'bold'), anchor='center')
         # Draw chevron
         cx = w - 18; cy = h/2 - 2
         self._canvas.create_line(cx-4, cy, cx, cy+4, cx+4, cy, fill='#687796', width=2, capstyle='round', joinstyle='round')
@@ -2615,7 +2624,7 @@ class App(tk.Tk):
         self.mat_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
         self.mat_header.pack(fill='x',padx=2,pady=(0,0))
         
-        self.mat_tree=ttk.Treeview(table_host,columns=('code','name','brand','qty','unit','value','category','date','mod_date','status','dummy','edit','delete','options'),show='tree')
+        self.mat_tree=ttk.Treeview(table_host,columns=('code','barcode','name','brand','qty','unit','value','category','date','mod_date','status','dummy','edit','delete','options'),show='tree')
         self.mat_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.mat_tree.column('#0',width=60,minwidth=60,stretch=False)
         
@@ -2632,7 +2641,7 @@ class App(tk.Tk):
         
         self.mat_tree.pack(fill='both',expand=True)
 
-        self._mat_header_specs=[('code','Código',100),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
+        self._mat_header_specs=[('code','Código',100),('barcode','Cód. Barras',130),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
         self._mat_header_imgs={}
         
         def redraw_mat_header(_event=None):
@@ -2764,7 +2773,7 @@ class App(tk.Tk):
         with db() as c:
             existing = c.execute('SELECT * FROM materials WHERE id=?', (edit_id,)).fetchone() if is_edit else None
         d = Modal(self, 'Editar item' if is_edit else 'Novo item', '720x500')
-        vars = {k: tk.StringVar() for k in ('name','brand','qty','unit','value','category','date')}
+        vars = {k: tk.StringVar() for k in ('name','brand','qty','unit','value','category','date','barcode')}
         if existing:
             for k in vars:
                 if k == 'date': vars[k].set(date.today().isoformat())
@@ -2774,31 +2783,32 @@ class App(tk.Tk):
                 elif k == 'category': vars[k].set(existing['category'] or 'Comestível')
                 elif k == 'name': vars[k].set(existing['name'])
                 elif k == 'brand': vars[k].set(existing['brand'] or '')
+                elif k == 'barcode': vars[k].set(existing['barcode'] or '')
         else:
             vars['unit'].set(''); vars['category'].set('Comestível'); vars['date'].set(date.today().isoformat())
         form = ttk.Frame(d, padding=18); form.pack(fill='both', expand=True)
         fields = [
             ('Nome *','name',0,0),('Marca','brand',0,1),('Quantidade *','qty',1,0),('Unidade *','unit',1,1),
-            ('Valor da compra *','value',2,0),('Categoria *','category',2,1),('Data *','date',3,0)
+            ('Valor da compra *','value',2,0),('Categoria *','category',2,1),('Data *','date',3,0),('Cód. Barras','barcode',3,1)
         ]
         for label,key,row,col in fields:
-            ttk.Label(form,text=label).grid(row=row*2,column=col,sticky='w',padx=6,pady=(4,0))
+            ttk.Label(form,text=label).grid(row=row*2,column=col,sticky='w',padx=12,pady=(1,0))
             if key == 'unit':
-                w=ttk.Combobox(form,textvariable=vars[key],values=UNITS,state='readonly',width=20)
+                w=RoundedDropdown(form, vars[key], UNITS, width=280, align='left')
             elif key == 'category':
-                w=ttk.Combobox(form,textvariable=vars[key],values=('Comestível','Não comestível','Doação'),state='readonly',width=20)
+                w=RoundedDropdown(form, vars[key], ['Comestível','Não comestível','Doação'], width=280, align='left')
             elif key == 'value':
                 w=masked_money_entry(form, vars[key], width=28)
             elif key == 'qty':
                 w=numeric_entry(form, vars[key], width=28)
             else:
                 w,_entry=rounded_entry(form, vars[key], width=28)
-            w.grid(row=row*2+1,column=col,sticky='ew',padx=6,pady=(0,8))
+            w.grid(row=row*2+1,column=col,sticky='ew',padx=12,pady=(0,8))
         form.columnconfigure(0,weight=1); form.columnconfigure(1,weight=1)
-        ttk.Label(form,text='* campo obrigatório').grid(row=8,column=0,columnspan=2,sticky='w',padx=6,pady=8)
+        
         def save():
             try:
-                name = vars['name'].get().strip(); brand = vars['brand'].get().strip(); unit = vars['unit'].get().strip(); category = vars['category'].get().strip()
+                name = vars['name'].get().strip(); brand = vars['brand'].get().strip(); unit = vars['unit'].get().strip(); category = vars['category'].get().strip(); barcode = vars['barcode'].get().strip()
                 if not name: raise ValueError('O campo "Nome" é obrigatório.')
                 if not unit: raise ValueError('O campo "Unidade" é obrigatório.')
                 if not category: raise ValueError('O campo "Categoria" é obrigatório.')
@@ -2974,16 +2984,16 @@ class App(tk.Tk):
         status_filter = self.mat_status.get() if hasattr(self, 'mat_status') else 'Ativos'
         status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
         with db() as c:
-            rows = c.execute(f'''SELECT code,name,COALESCE(brand,''),purchase_qty,purchase_unit,purchase_value,category,
+            rows = c.execute(f'''SELECT code,COALESCE(barcode,''),name,COALESCE(brand,''),purchase_qty,purchase_unit,purchase_value,category,
                                        substr(created_at,1,10), substr(COALESCE(updated_at,created_at),1,10), COALESCE(active,1), id
                                 FROM materials WHERE {status_cond} AND (name LIKE ? OR COALESCE(brand,'') LIKE ? OR code LIKE ?) ORDER BY name''', (query,query,query)).fetchall()
         for r in rows:
             r_list = list(r)
-            val = r_list[5]
+            val = r_list[6]
             val_str = f'R$ {val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-            r_list[5] = val_str
-            is_active = r_list.pop(9)
-            mat_id = r_list.pop(9)
+            r_list[6] = val_str
+            is_active = r_list.pop(10)
+            mat_id = r_list.pop(10)
             status_str = 'Ativo' if is_active else 'Inativo'
             self.mat_tree.insert('', 'end', iid=str(mat_id), text='☐', values=tuple(r_list)+(status_str, '','',''), tags=() if is_active else ('inactive',))
         self._reset_checked(self.mat_tree)
