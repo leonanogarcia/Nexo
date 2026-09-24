@@ -2608,10 +2608,18 @@ class App(tk.Tk):
         return ov
 
     def cadastro(self, f):
-        self._mat_hidden_cols = get_setting('mat_hidden_cols')
-        if self._mat_hidden_cols is None:
-            self._mat_hidden_cols = ['code']
-            set_setting('mat_hidden_cols', self._mat_hidden_cols)
+        hidden = get_setting('mat_hidden_cols')
+        if isinstance(hidden, str):
+            try:
+                import ast
+                hidden = ast.literal_eval(hidden)
+            except:
+                pass
+        if isinstance(hidden, str):
+            hidden = [hidden] if hidden else ['code']
+        elif not isinstance(hidden, list):
+            hidden = ['code']
+        self._mat_hidden_cols = hidden
         
         _, bar = self._build_page_toolbar(f)
         
@@ -2657,10 +2665,9 @@ class App(tk.Tk):
         self._mat_header_specs=[('code','Código',100),('barcode','Cód. Barras',130),('name','Item',220),('brand','Marca',150),('qty','Quantidade',110),('unit','Un.',65),('value','Valor',100),('category','Categoria',130),('date','Data de criação',135),('mod_date','Última modificação',135),('status','Status',90),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
         self._mat_header_imgs={}
         
-        # Apply hidden columns to Treeview initially
-        for idx, (key, txt, dw) in enumerate(self._mat_header_specs, 1):
-            if key in self._mat_hidden_cols:
-                self.mat_tree.column(f'#{idx}', width=0, minwidth=0, stretch=False)
+        valid_keys = [spec[0] for spec in self._mat_header_specs]
+        disp = [c for c in valid_keys if c not in self._mat_hidden_cols and c != 'dummy']
+        self.mat_tree['displaycolumns'] = disp
         
         def redraw_mat_header(_event=None):
             c=self.mat_header; c.delete('all')
@@ -2675,29 +2682,35 @@ class App(tk.Tk):
             c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
             
             try:
-                total_w = sum(int(self.mat_tree.column(col, 'width')) for col in ['#0'] + list(self.mat_tree['columns']))
+                total_w = sum(int(self.mat_tree.column(col, 'width')) for col in ['#0'] + list(self.mat_tree['displaycolumns']))
                 x_offset = float(self.mat_tree.xview()[0]) * total_w
             except Exception:
                 x_offset = 0
             
             x0 = -x_offset
             
-            cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._mat_header_specs,1)]
-            for idx,(col,txt) in enumerate(cols):
-                key = 'dummy' if idx == 0 else self._mat_header_specs[idx-1][0]
+            disp = self.mat_tree['displaycolumns']
+            if disp == ('#all',):
+                disp = self.mat_tree['columns']
+                
+            spec_dict = {key: txt for key, txt, _ in self._mat_header_specs}
+            
+            cols = [('#0', '', 'dummy')]
+            for i, col_id in enumerate(disp, 1):
+                cols.append((f'#{i}', spec_dict.get(col_id, ''), col_id))
+            
+            for idx,(col,txt,key) in enumerate(cols):
                 try: cw=int(self.mat_tree.column(col,'width'))
                 except Exception: cw=0
                 
-                # We skip drawing fixed columns inside the scrolling loop
                 if col == '#0': cw = 60
-                if col in ('#0', '#12', '#13', '#14'):
+                if key in ('dummy', 'edit', 'delete', 'options'):
                     x0+=cw; continue
                 
-                align = 'w' if col in ('#1', '#2', '#3') else 'center'
+                align = 'w' if key in ('barcode', 'name', 'brand') else 'center'
                 anchor_x = x0+12 if align == 'w' else x0+cw/2
                 tag = f'hdr_{key}'
                 
-                # Seta de ordenação
                 arrow_txt = ''
                 if getattr(self, '_mat_order_by', 'name') == key:
                     arrow_txt = ' ↑' if getattr(self, '_mat_order_dir', 'ASC') == 'ASC' else ' ↓'
@@ -2705,10 +2718,8 @@ class App(tk.Tk):
                 full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
                 tid = c.create_text(anchor_x, h/2, text=full_txt, fill='#60769D', font=('Segoe UI',9,'bold'), anchor=align, tags=(tag,))
                 
-                # Hitbox clicável
                 c.create_rectangle(x0, 0, x0+cw, h, fill='', outline='', tags=(tag,))
                 
-                # Bindings Hover & Click
                 c.tag_bind(tag, '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
                 c.tag_bind(tag, '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
                 c.tag_bind(tag, '<Button-1>', lambda e, k=key: self._sort_mat_col(k))
@@ -2718,20 +2729,17 @@ class App(tk.Tk):
                 c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
                 x0+=cw
                 
-            # Draw LEFT fixed cover
             try: cw0=int(self.mat_tree.column('#0','width'))
             except Exception: cw0=60
             if cw0 > 0:
-                # Cover the left area, but leave top-left and bottom-left corners empty!
                 c.create_rectangle(r, 0, cw0, h, fill=fill, outline='')
                 c.create_rectangle(0, r, cw0, h-r, fill=fill, outline='')
                 c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
                 c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
                 c.create_line(cw0, 6, cw0, h-6, fill=self.colors.get('line', '#E5ECF5'))
                 
-                # Draw "Select All" checkbox
-                key = str(self.mat_tree)
-                checked = self._checked_rows.get(key, set())
+                key_tree = str(self.mat_tree)
+                checked = self._checked_rows.get(key_tree, set())
                 children = self.mat_tree.get_children()
                 is_all_checked = len(checked) == len(children) and len(children) > 0
                 
@@ -2743,18 +2751,22 @@ class App(tk.Tk):
                 hitbox_id = c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.mat_tree))
                 
-            # Draw RIGHT fixed cover
             try:
-                cw11 = int(self.mat_tree.column('#11','width'))
-                cw12 = int(self.mat_tree.column('#12','width'))
-                cw13 = int(self.mat_tree.column('#13','width'))
-                fixed_right_w = cw11 + cw12 + cw13
+                disp_list = list(disp)
+                idx_edit = f"#{disp_list.index('edit') + 1}" if 'edit' in disp_list else None
+                idx_del = f"#{disp_list.index('delete') + 1}" if 'delete' in disp_list else None
+                idx_opt = f"#{disp_list.index('options') + 1}" if 'options' in disp_list else None
+                
+                cw11 = int(self.mat_tree.column(idx_edit, 'width')) if idx_edit else 0
+                cw12 = int(self.mat_tree.column(idx_del, 'width')) if idx_del else 0
+                cw13 = int(self.mat_tree.column(idx_opt, 'width')) if idx_opt else 0
             except Exception:
-                fixed_right_w = 120
+                cw11, cw12, cw13 = 30, 30, 30
+                
+            fixed_right_w = cw11 + cw12 + cw13
             
             if fixed_right_w > 0:
                 start_x = w - fixed_right_w
-                # Cover the right area, but leave top-right and bottom-right corners empty!
                 c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
                 c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
                 c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
@@ -2772,26 +2784,37 @@ class App(tk.Tk):
                     cx += cw12
                 
                 if cw13 > 0:
-                    # Desenhar engrenagem (16-point math gear) na coluna Options
                     import math
-                    cx_gear = cx + cw13/2
-                    cy = h/2
-                    r_out = 8; r_in = 2.5
-                    pts = []
-                    for i in range(16):
-                        angle = i * (math.pi / 8)
-                        r = r_out if i % 2 == 0 else r_out - 3
-                        pts.extend([cx_gear + r * math.cos(angle), cy + r * math.sin(angle)])
+                    from PIL import Image, ImageDraw, ImageTk
                     
-                    c.create_polygon(pts, fill='#60769D', outline='', tags=('mat_gear',))
-                    c.create_oval(cx_gear-r_in, cy-r_in, cx_gear+r_in, cy+r_in, fill=fill, outline='', tags=('mat_gear',))
-                    
-                    # Hitbox para a engrenagem
+                    if 'gear_normal' not in self._mat_header_imgs:
+                        def make_gear(color):
+                            img = Image.new('RGBA', (128, 128), (0,0,0,0))
+                            draw = ImageDraw.Draw(img)
+                            gcx, gcy = 64, 64
+                            
+                            for i in range(3):
+                                angle = i * (math.pi / 3)
+                                x1 = gcx + 48 * math.cos(angle)
+                                y1 = gcy + 48 * math.sin(angle)
+                                x2 = gcx - 48 * math.cos(angle)
+                                y2 = gcy - 48 * math.sin(angle)
+                                draw.line([x1, y1, x2, y2], fill=color, width=22)
+                            
+                            draw.ellipse([gcx-36, gcy-36, gcx+36, gcy+36], fill=color)
+                            
+                            draw.ellipse([gcx-14, gcy-14, gcx+14, gcy+14], fill='#EEF4FB')
+                            
+                            return ImageTk.PhotoImage(img.resize((16, 16), Image.Resampling.LANCZOS))
+                        
+                        self._mat_header_imgs['gear_normal'] = make_gear('#60769D')
+                        self._mat_header_imgs['gear_hover'] = make_gear('#F28C28')
+
+                    c.create_image(cx + cw13/2, h/2, image=self._mat_header_imgs['gear_normal'], anchor='center', tags=('mat_gear', 'mat_gear_img'))
                     c.create_rectangle(cx, 0, cx+cw13, h, fill='', outline='', tags=('mat_gear',))
                     
-                    # Bindings Engrenagem
-                    c.tag_bind('mat_gear', '<Enter>', lambda e, c=c: (c.itemconfig(c.find_withtag('mat_gear')[0], fill='#BA5200'), c.config(cursor='hand2')))
-                    c.tag_bind('mat_gear', '<Leave>', lambda e, c=c: (c.itemconfig(c.find_withtag('mat_gear')[0], fill='#60769D'), c.config(cursor='')))
+                    c.tag_bind('mat_gear', '<Enter>', lambda e, c=c: (c.itemconfig('mat_gear_img', image=self._mat_header_imgs['gear_hover']), c.config(cursor='hand2')))
+                    c.tag_bind('mat_gear', '<Leave>', lambda e, c=c: (c.itemconfig('mat_gear_img', image=self._mat_header_imgs['gear_normal']), c.config(cursor='')))
                     c.tag_bind('mat_gear', '<Button-1>', lambda e: self._show_mat_col_menu(e))
 
         self._redraw_mat_header=redraw_mat_header
@@ -3067,31 +3090,36 @@ class App(tk.Tk):
         top = tk.Toplevel(self)
         top.overrideredirect(True)
         top.attributes('-topmost', True)
+        bg_color = '#000001'
+        top.attributes('-transparentcolor', bg_color)
+        top.config(bg=bg_color)
         self._mat_col_popup = top
         
-        panel = tk.Frame(top, bg='#FFFFFF', highlightbackground='#E5ECF5', highlightthickness=1)
-        panel.pack(fill='both', expand=True)
+        canvas = tk.Canvas(top, bg=bg_color, highlightthickness=0)
+        canvas.pack(fill='both', expand=True)
+        
+        panel = tk.Frame(canvas, bg='#FFFFFF')
         
         lbl_title = tk.Label(panel, text='EXIBIR COLUNAS', bg='#FFFFFF', fg='#A0ABB9', font=('Segoe UI', 8, 'bold'))
-        lbl_title.pack(anchor='w', padx=12, pady=(10, 6))
+        lbl_title.pack(anchor='w', padx=12, pady=(8, 4))
         
         for idx, (key, txt, default_w) in enumerate(self._mat_header_specs, 1):
             if key in ('dummy', 'edit', 'delete', 'options', 'barcode'): continue
             
             row = tk.Frame(panel, bg='#FFFFFF', cursor='hand2')
-            row.pack(fill='x', pady=0)
+            row.pack(fill='x', pady=1)
             
             is_vis = key not in self._mat_hidden_cols
             chk_char = '☑' if is_vis else '☐'
             chk_color = '#F28C28' if is_vis else '#C0C9D8'
             
-            lbl_chk = tk.Label(row, text=chk_char, fg=chk_color, bg='#FFFFFF', font=('Segoe UI', 12), cursor='hand2')
-            lbl_chk.pack(side='left', padx=(12, 6), pady=4)
+            lbl_chk = tk.Label(row, text=chk_char, fg=chk_color, bg='#FFFFFF', font=('Segoe UI', 13), cursor='hand2')
+            lbl_chk.pack(side='left', padx=(12, 6), pady=2)
             
             lbl_txt = tk.Label(row, text=txt, fg='#18223A' if is_vis else '#687796', bg='#FFFFFF', font=('Segoe UI', 9), cursor='hand2')
-            lbl_txt.pack(side='left', padx=(0, 16), pady=4)
+            lbl_txt.pack(side='left', padx=(0, 16), pady=2)
             
-            def on_enter(ev, r=row, lc=lbl_chk, lt=lbl_txt, k=key):
+            def on_enter(ev, r=row, lc=lbl_chk, lt=lbl_txt):
                 r.config(bg='#EEF4FB')
                 lc.config(bg='#EEF4FB')
                 lt.config(bg='#EEF4FB', fg='#18223A')
@@ -3106,40 +3134,50 @@ class App(tk.Tk):
                 w.bind('<Enter>', on_enter)
                 w.bind('<Leave>', on_leave)
             
-            def toggle(ev, k=key, dw=default_w, i=idx, lc=lbl_chk, lt=lbl_txt):
+            def toggle(ev, k=key, lc=lbl_chk, lt=lbl_txt):
                 if k in self._mat_hidden_cols:
                     self._mat_hidden_cols.remove(k)
-                    self.mat_tree.column(f'#{i}', width=dw, minwidth=dw, stretch=False)
                     lc.config(text='☑', fg='#F28C28')
                     lt.config(fg='#18223A')
                 else:
                     self._mat_hidden_cols.append(k)
-                    self.mat_tree.column(f'#{i}', width=0, minwidth=0, stretch=False)
                     lc.config(text='☐', fg='#C0C9D8')
                     lt.config(fg='#687796')
+                
                 set_setting('mat_hidden_cols', self._mat_hidden_cols)
+                
+                valid_keys = [spec[0] for spec in self._mat_header_specs]
+                disp = [c for c in valid_keys if c not in self._mat_hidden_cols and c != 'dummy']
+                self.mat_tree['displaycolumns'] = disp
                 self.after_idle(self._redraw_mat_header)
                 
             for w in (row, lbl_chk, lbl_txt):
                 w.bind('<Button-1>', toggle)
                 
-        # Padding final
-        tk.Frame(panel, bg='#FFFFFF', height=6).pack()
-            
+        # DYNAMIC HEIGHT CALCULATION
         top.update_idletasks()
-        w = top.winfo_reqwidth()
-        # Calcula a posição baseada no ponteiro do mouse, mas espelha para a esquerda
-        # Subtrai toda a largura da janela + 5px de margem
-        x_pos = max(0, e.x_root - w - 5)
-        y_pos = e.y_root + 15
-        top.geometry(f"+{x_pos}+{y_pos}")
+        w_menu = 180
+        h_menu = panel.winfo_reqheight() + 8
         
-        # Fecha a janela ao clicar fora dela
+        canvas.config(width=w_menu, height=h_menu)
+        
+        def create_round_rect(c, x1, y1, x2, y2, r, **kwargs):
+            points = (x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y1+r, x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1)
+            return c.create_polygon(points, smooth=True, **kwargs)
+            
+        create_round_rect(canvas, 1, 1, w_menu-1, h_menu-1, 12, fill='#FFFFFF', outline='#E5ECF5', width=1)
+        
+        # Place panel OVER the drawn rounded background
+        canvas.create_window(w_menu/2, h_menu/2, window=panel, anchor='center', width=w_menu-6, height=h_menu-6)
+        
+        x_pos = max(0, e.x_root - w_menu - 10)
+        y_pos = e.y_root + 15
+        top.geometry(f"{w_menu}x{h_menu}+{x_pos}+{y_pos}")
+        
         def close_popup(ev):
             if hasattr(self, '_mat_col_popup') and self._mat_col_popup.winfo_exists():
                 self._mat_col_popup.destroy()
         
-        # Garante foco e captura clique fora
         top.focus_set()
         top.bind('<FocusOut>', lambda ev: top.destroy() if str(ev.widget) == str(top) else None)
         self.mat_tree.bind('<Button-1>', lambda ev: close_popup(ev), add='+')
