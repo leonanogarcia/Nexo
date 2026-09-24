@@ -1,0 +1,104 @@
+    def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
+        is_edit=edit_id is not None
+        with db() as c:
+            existing=c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone() if is_edit else None
+            current_items=c.execute('SELECT material_id,qty,unit FROM base_recipe_items WHERE recipe_id=?',(edit_id,)).fetchall() if is_edit else []
+        d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','900x760')
+        name=tk.StringVar(value=existing['name'] if existing else '')
+        yield_qty=tk.StringVar(value=fmt_num(existing['yield_qty']) if existing and existing['yield_qty'] is not None else '')
+        yield_unit=tk.StringVar(value=existing['yield_unit'] if existing and existing['yield_unit'] else 'g')
+        notes=tk.StringVar(value=existing['notes'] or '' if existing else '')
+        top=ttk.Frame(d,padding=16);top.pack(fill='x')
+        ttk.Label(top,text='Nome *').grid(row=0,column=0,sticky='w');rounded_entry(top,name,width=30)[0].grid(row=1,column=0,padx=(0,8),sticky='ew')
+        ttk.Label(top,text='Rendimento').grid(row=0,column=1,sticky='w');numeric_entry(top,yield_qty,width=16).grid(row=1,column=1,padx=8)
+        ttk.Label(top,text='Unidade').grid(row=0,column=2,sticky='w');ttk.Combobox(top,textvariable=yield_unit,values=UNITS,state='readonly',width=10).grid(row=1,column=2,padx=8)
+        ttk.Label(top,text='Observações').grid(row=0,column=3,sticky='w');rounded_entry(top,notes,width=30)[0].grid(row=1,column=3,padx=8,sticky='ew')
+        box=ttk.LabelFrame(d,text='Composição — somente itens do Cadastro',padding=12);box.pack(fill='both',expand=True,padx=16,pady=10)
+        material_var=tk.StringVar();qty_var=tk.StringVar();unit_var=tk.StringVar(value='g')
+        ttk.Label(box,text='Insumo').grid(row=0,column=0,sticky='w'); material_cb=ttk.Combobox(box,textvariable=material_var,width=40)
+        material_cb.grid(row=1,column=0,padx=(0,6),sticky='ew')
+        ttk.Label(box,text='Quantidade').grid(row=0,column=1,sticky='w');numeric_entry(box,qty_var,width=14).grid(row=1,column=1,padx=6)
+        ttk.Label(box,text='Unidade').grid(row=0,column=2,sticky='w');unit_cb=ttk.Combobox(box,textvariable=unit_var,values=UNITS,state='readonly',width=12);unit_cb.grid(row=1,column=2,padx=6)
+        items=[]
+        if current_items:
+            for r in current_items:
+                with db() as c: m=c.execute('SELECT id,code,name FROM materials WHERE id=?',(r['material_id'],)).fetchone()
+                if m: items.append((m['id'],m['name'],r['qty'],r['unit']))
+        if imported_items:
+            items.extend(imported_items)
+        tree=ttk.Treeview(box,columns=('item','qty','unit','cost'),show='headings')
+        for k,t,w in [('item','Item',360),('qty','Quantidade',100),('unit','Un.',70),('cost','Custo',110)]:tree.heading(k,text=t);tree.column(k,width=w)
+        tree.grid(row=2,column=0,columnspan=4,sticky='nsew',pady=12);box.rowconfigure(2,weight=1);box.columnconfigure(0,weight=1)
+        def load_materials(*_):
+            vals=[f'{r["id"]} — {r["name"]} ({r["code"]})' for r in list_names('materials')]
+            material_cb['values']=vals
+        def load_units(*_):
+            if '—' not in material_var.get(): unit_cb['values']=UNITS; return
+            mid=int(material_var.get().split(' — ')[0]); custom=[r['name'] for r in custom_units_for_material(mid)]; unit_cb['values']=UNITS+tuple(custom)
+        material_cb.bind('<<ComboboxSelected>>',load_units)
+        def refresh_items():
+            for x in tree.get_children():tree.delete(x)
+            for mid,n,q,u in items:
+                try: cst=material_cost(mid,q,u)
+                except Exception as e: cst=f'Erro'
+                tree.insert('','end',values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
+        def add_item():
+            try:
+                if '—' not in material_var.get(): raise ValueError('Selecione um Insumo do Cadastro.')
+                mid=int(material_var.get().split(' — ')[0]);q=to_float(qty_var.get(),'Quantidade');u=unit_var.get().strip()
+                if q<=0:raise ValueError('A Quantidade deve ser maior que zero.')
+                items.append((mid,material_var.get().split(' — ')[1].split(' (')[0],q,u));material_var.set('');qty_var.set('');refresh_items()
+            except Exception as e:safe_error(d,'Não foi possível adicionar o item',e)
+        ttk.Button(box,text='Adicionar',command=add_item).grid(row=1,column=3,padx=8)
+        edit_item_btn=ttk.Button(box,text='✏',command=lambda: edit_item(),width=3)
+        delete_item_btn=ttk.Button(box,text='🗑',command=lambda: delete_item(),width=3)
+        edit_item_btn.grid(row=3,column=0,sticky='w',pady=(0,4))
+        delete_item_btn.grid(row=3,column=1,sticky='w',pady=(0,4))
+        def edit_item():
+            sel=tree.selection()
+            if not sel:
+                messagebox.showwarning('Receita','Selecione um item da composição para editar.',parent=d); return
+            idx=tree.index(sel[0]); mid,n,q,u=items[idx]
+            material_var.set(f'{mid} — {n}')
+            load_units()
+            qty_var.set(fmt_num(q)); unit_var.set(u)
+            items.pop(idx); refresh_items()
+
+        def delete_item():
+            sel=tree.selection()
+            if not sel:
+                messagebox.showwarning('Receita','Selecione um item da composição para excluir.',parent=d); return
+            idx=tree.index(sel[0]); items.pop(idx); refresh_items()
+
+        tree.bind('<Double-1>',lambda e: edit_item())
+        def save():
+            try:
+                n=name.get().strip()
+                if not n: raise ValueError('O campo "Nome" é obrigatório.')
+                y=optional_float(yield_qty.get()); yu=yield_unit.get().strip() if y is not None else None
+                if y is not None and y<=0: raise ValueError('O Rendimento deve ser maior que zero.')
+                if not items: raise ValueError('Adicione pelo menos um Insumo à receita.')
+                if is_edit:
+                    with db() as c: before=dict(c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone())
+                    self.ask_edit_reason('RECEITA_BASE',edit_id,before,{'name':n,'yield_qty':y,'yield_unit':yu,'notes':notes.get().strip(),'items':[(m,q,u) for m,_,q,u in items]})
+                with db() as c:
+                    if is_edit:
+                        rid=edit_id
+                        c.execute('UPDATE base_recipes SET name=?,yield_qty=?,yield_unit=?,notes=?,updated_at=? WHERE id=?',(n,y,yu,notes.get().strip(),now_iso(),edit_id))
+                        c.execute('DELETE FROM base_recipe_items WHERE recipe_id=?',(rid,))
+                    else:
+                        code=next_code('base_recipes','RB');cur=c.execute('INSERT INTO base_recipes(code,name,yield_qty,yield_unit,notes,updated_at) VALUES(?,?,?,?,?,?)',(code,n,y,yu,notes.get().strip(),now_iso()));rid=cur.lastrowid
+                    for mid,_,q,u in items:c.execute('INSERT INTO base_recipe_items(recipe_id,material_id,qty,unit) VALUES(?,?,?,?)',(rid,mid,q,u))
+                if imported_source:
+                    save_uploaded_document('RECIPE_BASE', rid, imported_source)
+                snapshot_costs();d.destroy();self.refresh_all();self.notify('Receita salva com sucesso.')
+            except Exception as e:safe_error(d,'Não foi possível salvar a Receita',e)
+        ttk.Label(d,text='* campo obrigatório; Rendimento pode ser definido depois.').pack(anchor='w',padx=16)
+        act=d.action_host
+        left=tk.Frame(act,bg=d.cget('bg'));left.pack(side='left',fill='y')
+        FlatEmojiButton(left,'✏️',edit_item).pack(side='left',padx=(0,8),pady=7)
+        FlatEmojiButton(left,'🗑️',delete_item).pack(side='left',pady=7)
+        right=tk.Frame(act,bg=d.cget('bg'));right.pack(side='right',fill='y')
+        RoundedActionButton(right,'Salvar',save,width=92,height=38,fill='#F28C28',hover='#BA5200').pack(side='left',padx=(6,0),pady=7)
+        RoundedActionButton(right,'Cancelar',d.destroy,width=92,height=38,fill='#6B7280',hover='#4B5563').pack(side='left',padx=(6,0),pady=7)
+        load_materials();refresh_items()

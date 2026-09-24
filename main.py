@@ -455,6 +455,14 @@ def next_code(table, prefix):
         return f'{prefix}_{highest + 1:04d}'
 
 
+def FlatEmojiButton(master, text, command):
+    btn = tk.Label(master, text=text, font=('Segoe UI', 12), cursor='hand2', bg=master.cget('bg'), fg='#687796')
+    btn.bind('<Enter>', lambda e: btn.config(fg='#1D3557', bg='#E3EBF6'))
+    btn.bind('<Leave>', lambda e: btn.config(fg='#687796', bg=master.cget('bg')))
+    btn.bind('<Button-1>', lambda e: command())
+    return btn
+
+
 def get_setting(key, default=''):
     with db() as c:
         r = c.execute('SELECT value FROM system_settings WHERE key=?', (key,)).fetchone()
@@ -1746,7 +1754,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.7.20',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.7.23',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -3457,14 +3465,14 @@ class App(tk.Tk):
                 tree.insert('','end',values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
         def add_item():
             try:
-                if '—' not in material_var.get(): raise ValueError('Selecione um Insumo do Cadastro.')
+                if ' — ' not in material_var.get(): raise ValueError('Selecione um Insumo do Cadastro.')
                 mid=int(material_var.get().split(' — ')[0]);q=to_float(qty_var.get(),'Quantidade');u=unit_var.get().strip()
                 if q<=0:raise ValueError('A Quantidade deve ser maior que zero.')
                 items.append((mid,material_var.get().split(' — ')[1].split(' (')[0],q,u));material_var.set('');qty_var.set('');refresh_items()
             except Exception as e:safe_error(d,'Não foi possível adicionar o item',e)
         ttk.Button(box,text='Adicionar',command=add_item).grid(row=1,column=3,padx=8)
-        edit_item_btn=ttk.Button(box,text='✏',command=lambda: edit_item(),width=3)
-        delete_item_btn=ttk.Button(box,text='🗑',command=lambda: delete_item(),width=3)
+        edit_item_btn=ttk.Button(box,text='✏️',command=lambda: edit_item(),width=3)
+        delete_item_btn=ttk.Button(box,text='🗑️',command=lambda: delete_item(),width=3)
         edit_item_btn.grid(row=3,column=0,sticky='w',pady=(0,4))
         delete_item_btn.grid(row=3,column=1,sticky='w',pady=(0,4))
         def edit_item():
@@ -4117,7 +4125,7 @@ class App(tk.Tk):
             for r in rows:tree.insert('','end',values=(r['material_name'],r['unit_name'],r['factor_to_base'],r['base_unit']))
         def add():
             try:
-                if '—' not in material.get():raise ValueError('Selecione um Insumo do Cadastro.')
+                if ' — ' not in material.get():raise ValueError('Selecione um Insumo do Cadastro.')
                 mid=int(material.get().split(' — ')[0]);n=unit.get().strip();b=base.get();f=to_float(factor.get(),'Quantidade equivalente')
                 if not n:raise ValueError('O nome da unidade configurável é obrigatório.')
                 if f<=0:raise ValueError('A Quantidade equivalente deve ser maior que zero.')

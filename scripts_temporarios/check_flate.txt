@@ -1,0 +1,6 @@
+2555: FlatEmojiButton(left,'??',edit_item).pack(side='left',padx=(0,8),pady=7)
+2556: FlatEmojiButton(left,'??',delete_item).pack(side='left',pady=7)
+2780: FlatEmojiButton(box,'??',edit_item).grid(row=3,column=0,sticky='w',padx=0,pady=(0,4))
+2781: FlatEmojiButton(box,'??',delete_item).grid(row=3,column=1,sticky='w',padx=8,pady=(0,4))
+2808: FlatEmojiButton(left,'??',edit_item).pack(side='left',padx=(0,8),pady=7)
+2809: FlatEmojiButton(left,'??',delete_item).pack(side='left',pady=7)
