@@ -456,9 +456,11 @@ def next_code(table, prefix):
 
 
 def FlatEmojiButton(master, text, command):
-    btn = tk.Label(master, text=text, font=('Segoe UI', 12), cursor='hand2', bg=master.cget('bg'), fg='#687796')
+    try: bg_col = master.cget('bg')
+    except: bg_col = '#FFFFFF'
+    btn = tk.Label(master, text=text, font=('Segoe UI', 12), cursor='hand2', bg=bg_col, fg='#687796')
     btn.bind('<Enter>', lambda e: btn.config(fg='#1D3557', bg='#E3EBF6'))
-    btn.bind('<Leave>', lambda e: btn.config(fg='#687796', bg=master.cget('bg')))
+    btn.bind('<Leave>', lambda e: btn.config(fg='#687796', bg=bg_col))
     btn.bind('<Button-1>', lambda e: command())
     return btn
 
@@ -3465,7 +3467,7 @@ class App(tk.Tk):
         with db() as c:
             existing=c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone() if is_edit else None
             current_items=c.execute('SELECT material_id,qty,unit FROM base_recipe_items WHERE recipe_id=?',(edit_id,)).fetchall() if is_edit else []
-        d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','900x760')
+        d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','900x580')
         name=tk.StringVar(value=existing['name'] if existing else '')
         yield_qty=tk.StringVar(value=fmt_num(existing['yield_qty']) if existing and existing['yield_qty'] is not None else '')
         yield_unit=tk.StringVar(value=existing['yield_unit'] if existing and existing['yield_unit'] else 'g')
@@ -3845,7 +3847,7 @@ class App(tk.Tk):
         with db() as c:
             existing=c.execute('SELECT * FROM products WHERE id=?',(edit_id,)).fetchone() if is_edit else None
             current=c.execute('SELECT * FROM product_items WHERE product_id=?',(edit_id,)).fetchall() if is_edit else []
-        d=Modal(self,'Editar Produto' if is_edit else 'Novo Produto','920x680')
+        d=Modal(self,'Editar Produto' if is_edit else 'Novo Produto','920x580')
         name=tk.StringVar(value=existing['name'] if existing else '')
         weight=tk.StringVar(value=fmt_num(existing['weight_qty']) if existing and existing['weight_qty'] is not None else '')
         weight_unit=tk.StringVar(value=existing['weight_unit'] if existing and existing['weight_unit'] else 'g')
@@ -3872,6 +3874,7 @@ class App(tk.Tk):
                 rr=c.execute(f'SELECT id,name FROM {table} WHERE id=?',(r['ref_id'],)).fetchone() if table else None
             if rr: items.append((r['item_type'],r['ref_id'],rr['name'],r['qty_per_unit'],r['unit']))
         def load_ref(*_):
+            if not typ.get(): return
             typemap={'INSUMO':'materials','RECEITA':'base_recipes','PRODUTO':'products'}
             table=typemap[typ.get()];vals=[]
             current_pid=edit_id
