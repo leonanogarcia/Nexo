@@ -1355,20 +1355,19 @@ class ReferenceSidebar(tk.Canvas):
             self.create_image(x, y, image=img_tk, anchor='nw', tags=tag)
 
     def _get_centers(self):
-        W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
-        y=188
+        H = max(self.winfo_height(), 600)
+        y = 188
         bottom = H - 32
-        h=max(300,bottom-y)
-        if h > 540:
-            spacing = (h - 130) / 4
-            return [y + 65 + i * spacing for i in range(5)]
-        else:
-            return [y+65, y+170, y+275, y+380, y+485]
+        h = max(380, bottom - y)
+        top_c = y + 50
+        bot_c = y + h - 50
+        spacing = (bot_c - top_c) / 4
+        return [top_c + i * spacing for i in range(5)]
 
     def _redraw(self):
         self.delete('all'); self._button_items.clear()
         self._image_refs = {}
-        H=max(self.winfo_height(),650)
+        H=max(self.winfo_height(),600)
         
         # O espaçamento fixo na esquerda do Nexo é 150px
         available_w = 150
@@ -1376,7 +1375,7 @@ class ReferenceSidebar(tk.Canvas):
         x = (available_w - side_w) // 2
         y = 188
         bottom = H - 32
-        h=max(300,bottom-y); r=side_w/2
+        h=max(380,bottom-y); r=side_w/2
         sidebar='#111C30' if not self._dark else '#F28C28'
         shadow='#D8E1EE' if not self._dark else '#0A0A0A'
         outline='#A9BFE0' if not self._dark else '#F6A24B'
@@ -1398,7 +1397,7 @@ class ReferenceSidebar(tk.Canvas):
                 self._button_items[key]=item
 
     def _hit_key(self,x,y):
-        W=max(self.winfo_width(),150); H=max(self.winfo_height(),650)
+        W=max(self.winfo_width(),150); H=max(self.winfo_height(),600)
         side_w=min(68, max(64, int(W*0.055))); sx=29 if W>=600 else 8
         if not (sx <= x <= sx+side_w): return None
         centers = self._get_centers()
@@ -1637,8 +1636,14 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('Nexo')
-        self.geometry('1280x800')
-        self.minsize(1080, 650)
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(1280, int(sw * 0.95))
+        h = min(800, int(sh * 0.85))
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        self.geometry(f'{w}x{h}+{x}+{y}')
+        self.minsize(1000, 600)
         self._set_icon()
         self.style = ttk.Style(self)
         try:
@@ -1654,6 +1659,20 @@ class App(tk.Tk):
         self._bind_combobox_full_click()
         self._apply_theme()
         self.refresh_all()
+        
+        def load_hidden(key, default=['code']):
+            val = get_setting(key)
+            if isinstance(val, str):
+                try:
+                    import ast
+                    val = ast.literal_eval(val)
+                except: pass
+            if isinstance(val, str): return [val] if val else default
+            elif isinstance(val, list): return val
+            return default
+            
+        self._rec_hidden_cols = load_hidden('rec_hidden_cols')
+        self._prod_hidden_cols = load_hidden('prod_hidden_cols')
 
     def _set_icon(self):
         try:
@@ -1684,6 +1703,19 @@ class App(tk.Tk):
         
         self._img_chk_off = make_chk(False)
         self._img_chk_on = make_chk(True)
+        
+        import math
+        def make_gear(color):
+            img = Image.new('RGBA', (128, 128), (0,0,0,0))
+            draw = ImageDraw.Draw(img)
+            gcx, gcy = 64, 64
+            for i in range(3):
+                angle = i * (math.pi / 3)
+                draw.line([gcx + 48 * math.cos(angle), gcy + 48 * math.sin(angle), gcx - 48 * math.cos(angle), gcy - 48 * math.sin(angle)], fill=color, width=22)
+            draw.ellipse([gcx-36, gcy-36, gcx+36, gcy+36], fill=color)
+            draw.ellipse([gcx-14, gcy-14, gcx+14, gcy+14], fill='#EEF4FB')
+            return ImageTk.PhotoImage(img.resize((16, 16), Image.Resampling.LANCZOS))
+        self._img_gear = make_gear('#60769D')
 
     def _build_styles(self):
         # Estilos base; a paleta completa é aplicada em _build_shell/_apply_theme.
@@ -3104,9 +3136,9 @@ class App(tk.Tk):
         record_edit(entity_type, entity_id, reason.strip(), {'antes': before, 'depois': after})
 
 
-    def _show_mat_col_menu(self, e):
-        if hasattr(self, '_mat_col_popup') and self._mat_col_popup.winfo_exists():
-            self._mat_col_popup.destroy()
+    def _show_generic_col_menu(self, e, popup_attr, tree, header_specs, hidden_cols, setting_key, redraw_callback):
+        if hasattr(self, popup_attr) and getattr(self, popup_attr).winfo_exists():
+            getattr(self, popup_attr).destroy()
             
         top = tk.Toplevel(self)
         top.overrideredirect(True)
@@ -3114,24 +3146,23 @@ class App(tk.Tk):
         bg_color = '#000001'
         top.attributes('-transparentcolor', bg_color)
         top.config(bg=bg_color)
-        self._mat_col_popup = top
+        setattr(self, popup_attr, top)
         
         canvas = tk.Canvas(top, bg=bg_color, highlightthickness=0)
         canvas.pack(fill='both', expand=True)
         
         panel = tk.Frame(canvas, bg='#FFFFFF')
-        
         lbl_title = tk.Label(panel, text='EXIBIR COLUNAS', bg='#FFFFFF', fg='#A0ABB9', font=('Segoe UI', 8, 'bold'))
         lbl_title.pack(anchor='w', padx=12, pady=(8, 4))
         
-        for idx, (key, txt, default_w) in enumerate(self._mat_header_specs, 1):
+        for idx, (key, txt, default_w) in enumerate(header_specs, 1):
             if key in ('dummy', 'edit', 'delete', 'options', 'barcode'): continue
             
             row = tk.Frame(panel, bg='#FFFFFF', cursor='hand2')
             row.pack(fill='x', pady=1)
             
-            is_vis = key not in self._mat_hidden_cols
-            chk_char = '☑' if is_vis else '☐'
+            is_vis = key not in hidden_cols
+            chk_char = '\u2611' if is_vis else '\u2610'
             chk_color = '#F28C28' if is_vis else '#C0C9D8'
             
             lbl_chk = tk.Label(row, text=chk_char, fg=chk_color, bg='#FFFFFF', font=('Segoe UI', 13), cursor='hand2')
@@ -3148,58 +3179,59 @@ class App(tk.Tk):
             def on_leave(ev, r=row, lc=lbl_chk, lt=lbl_txt, k=key):
                 r.config(bg='#FFFFFF')
                 lc.config(bg='#FFFFFF')
-                is_vis_now = k not in self._mat_hidden_cols
+                is_vis_now = k not in hidden_cols
                 lt.config(bg='#FFFFFF', fg='#18223A' if is_vis_now else '#687796')
                 
             for w in (row, lbl_chk, lbl_txt):
                 w.bind('<Enter>', on_enter)
                 w.bind('<Leave>', on_leave)
-            
+                
             def toggle(ev, k=key, lc=lbl_chk, lt=lbl_txt):
-                if k in self._mat_hidden_cols:
-                    self._mat_hidden_cols.remove(k)
-                    lc.config(text='☑', fg='#F28C28')
+                if k in hidden_cols:
+                    hidden_cols.remove(k)
+                    lc.config(text='\u2611', fg='#F28C28')
                     lt.config(fg='#18223A')
                 else:
-                    self._mat_hidden_cols.append(k)
-                    lc.config(text='☐', fg='#C0C9D8')
+                    hidden_cols.append(k)
+                    lc.config(text='\u2610', fg='#C0C9D8')
                     lt.config(fg='#687796')
+                    
+                set_setting(setting_key, hidden_cols)
                 
-                set_setting('mat_hidden_cols', self._mat_hidden_cols)
-                
-                valid_keys = [spec[0] for spec in self._mat_header_specs]
-                disp = [c for c in valid_keys if c not in self._mat_hidden_cols and c != 'dummy']
-                self.mat_tree['displaycolumns'] = disp
-                self.after_idle(self._redraw_mat_header)
-                
+                valid_keys = [spec[0] for spec in header_specs]
+                disp = [c for c in valid_keys if c not in hidden_cols and c != 'dummy']
+                tree['displaycolumns'] = disp
+                if hasattr(self, redraw_callback):
+                    self.after_idle(getattr(self, redraw_callback))
+                    
             for w in (row, lbl_chk, lbl_txt):
                 w.bind('<Button-1>', toggle)
                 
-        # DYNAMIC HEIGHT CALCULATION
-        top.update_idletasks()
-        w_menu = 180
-        h_menu = panel.winfo_reqheight() + 8
+        panel.update_idletasks()
+        req_width = panel.winfo_reqwidth()
+        req_height = panel.winfo_reqheight() + 8
+        canvas.config(width=req_width, height=req_height)
         
-        canvas.config(width=w_menu, height=h_menu)
+        r = 12
+        canvas.create_polygon(
+            r,0, req_width-r,0,
+            req_width,0, req_width,r,
+            req_width,req_height-r, req_width,req_height,
+            req_width-r,req_height, r,req_height,
+            0,req_height, 0,req_height-r,
+            0,r, 0,0,
+            fill='#FFFFFF', outline='#FFFFFF', smooth=True
+        )
+        canvas.create_window(0, 0, anchor='nw', window=panel)
         
-        def create_round_rect(c, x1, y1, x2, y2, r, **kwargs):
-            points = (x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y1+r, x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1)
-            return c.create_polygon(points, smooth=True, **kwargs)
-            
-        create_round_rect(canvas, 1, 1, w_menu-1, h_menu-1, 12, fill='#FFFFFF', outline='#E5ECF5', width=1)
-        
-        # Place panel OVER the drawn rounded background
-        canvas.create_window(w_menu/2, h_menu/2, window=panel, anchor='center', width=w_menu-6, height=h_menu-6)
-        
-        x_pos = max(0, e.x_root - w_menu - 10)
-        y_pos = e.y_root + 15
-        top.geometry(f"{w_menu}x{h_menu}+{x_pos}+{y_pos}")
-        
-        def close_popup(ev):
-            if hasattr(self, '_mat_col_popup') and self._mat_col_popup.winfo_exists():
-                self._mat_col_popup.destroy()
-        
+        x = e.x_root - req_width + 15
+        y = e.y_root + 15
+        top.geometry(f'{req_width}x{req_height}+{x}+{y}')
+        top.bind('<FocusOut>', lambda ev: top.destroy())
         top.focus_set()
+
+    def _show_mat_col_menu(self, e):
+        self._show_generic_col_menu(e, '_mat_col_popup', self.mat_tree, self._mat_header_specs, self._mat_hidden_cols, 'mat_hidden_cols', '_redraw_mat_header')
         top.bind('<FocusOut>', lambda ev: top.destroy() if str(ev.widget) == str(top) else None)
         self.mat_tree.bind('<Button-1>', lambda ev: close_popup(ev), add='+')
 
@@ -3383,18 +3415,17 @@ class App(tk.Tk):
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.rec_tree))
             
             # RIGHT side cover
-            try: cw7=int(self.rec_tree.column('#7','width'))
-            except: cw7=0
-            try: cw8=int(self.rec_tree.column('#8','width'))
-            except: cw8=0
-            total_r = cw7 + cw8
-            if total_r > 0:
-                start_x = w - total_r
-                c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
-                c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
-                c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
-                c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
-                c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+            start_x = w - 90
+            c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
+            c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
+            c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+            c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+            if hasattr(self, '_img_gear'):
+                c.create_image(w - 20, h/2, image=self._img_gear, anchor='center', tags=('gear_icon',))
+                c.tag_bind('gear_icon', '<Enter>', lambda e: c.config(cursor='hand2'))
+                c.tag_bind('gear_icon', '<Leave>', lambda e: c.config(cursor='arrow'))
+                c.tag_bind('gear_icon', '<Button-1>', lambda e: self._show_generic_col_menu(e, '_rec_col_popup', self.rec_tree, self._rec_header_specs, self._rec_hidden_cols, 'rec_hidden_cols', '_redraw_rec_header'))
         
         self._redraw_rec_header=redraw_rec_header
         self.rec_header.bind('<Configure>', redraw_rec_header)
@@ -3764,18 +3795,17 @@ class App(tk.Tk):
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.prod_tree))
             
             # RIGHT side cover
-            try: cw8=int(self.prod_tree.column('#8','width'))
-            except: cw8=0
-            try: cw9=int(self.prod_tree.column('#9','width'))
-            except: cw9=0
-            total_r = cw8 + cw9
-            if total_r > 0:
-                start_x = w - total_r
-                c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
-                c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
-                c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
-                c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
-                c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+            start_x = w - 90
+            c.create_rectangle(start_x, 0, w-r, h, fill=fill, outline='')
+            c.create_rectangle(start_x, r, w, h-r, fill=fill, outline='')
+            c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+            c.create_line(start_x, 6, start_x, h-6, fill=self.colors.get('line', '#E5ECF5'))
+            if hasattr(self, '_img_gear'):
+                c.create_image(w - 20, h/2, image=self._img_gear, anchor='center', tags=('gear_icon',))
+                c.tag_bind('gear_icon', '<Enter>', lambda e: c.config(cursor='hand2'))
+                c.tag_bind('gear_icon', '<Leave>', lambda e: c.config(cursor='arrow'))
+                c.tag_bind('gear_icon', '<Button-1>', lambda e: self._show_generic_col_menu(e, '_prod_col_popup', self.prod_tree, self._prod_header_specs, self._prod_hidden_cols, 'prod_hidden_cols', '_redraw_prod_header'))
         
         self._redraw_prod_header=redraw_prod_header
         self.prod_header.bind('<Configure>', redraw_prod_header)

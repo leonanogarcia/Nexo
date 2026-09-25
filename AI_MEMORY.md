@@ -13,3 +13,8 @@
 ## Status Atual
 - Em processo de refatoração para aplicar o Design System universalmente. Existem divergências no código atualmente (componentes antigos), mas o que dita a regra ideal é a pasta `docs/`.
 - Regra de Conduta: **LEIA -> REPENSE -> PROPONHA -> SÓ ENTÃO EXECUTE (se aprovado)**.
+
+## Histórico Recente (Último Backup v0.7.25)
+- **UI Checkboxes:** Substituído checkboxes textuais em nativo por imagens renderizadas PIL (resolvendo problemas de highlight e rendering feio do Windows).
+- **Sidebar & Responsividade:** O minsize da janela foi reduzido para (1000x600). A Sidebar ganhou matemática de re-ancoragem (Efeito Sanfona) garantindo que botões (como a Engrenagem de Configurações) jamais vazem os limites, independente do monitor.
+- **Engrenagem de Colunas:** Implementado `_show_generic_col_menu` compartilhado globalmente. A engrenagem da tela Cadastro, Receitas e Produtos agora funcionam de forma autônoma para ocultar/mostrar colunas e persistem via banco.
