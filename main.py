@@ -1645,6 +1645,7 @@ class App(tk.Tk):
             self.style.theme_use('clam')
         except Exception:
             pass
+        self._create_checkbox_images()
         self._build_styles()
         # O status do banco é usado pela página Configurações durante a
         # construção do shell; ele precisa existir antes dos builders das páginas.
@@ -1663,6 +1664,26 @@ class App(tk.Tk):
                 self.iconphoto(True, self.icon_img)
         except Exception:
             pass
+
+    def _create_checkbox_images(self):
+        from PIL import Image, ImageDraw, ImageTk
+        def make_chk(checked):
+            img = Image.new('RGBA', (128, 128), (0,0,0,0))
+            draw = ImageDraw.Draw(img)
+            # Fundo branco e borda
+            if checked:
+                draw.rounded_rectangle([16,16, 112,112], radius=24, fill='#FFFFFF', outline='#F28C28', width=12)
+                # Tique delicado e perfeito dentro da caixa
+                # Linha 1: Desce da esquerda para o meio
+                draw.line([36,64, 56,84], fill='#F28C28', width=14)
+                # Linha 2: Sobe do meio para a direita
+                draw.line([56,84, 96,44], fill='#F28C28', width=14)
+            else:
+                draw.rounded_rectangle([16,16, 112,112], radius=24, fill='#FFFFFF', outline='#C0C9D8', width=12)
+            return ImageTk.PhotoImage(img.resize((16, 16), Image.Resampling.LANCZOS))
+        
+        self._img_chk_off = make_chk(False)
+        self._img_chk_on = make_chk(True)
 
     def _build_styles(self):
         # Estilos base; a paleta completa é aplicada em _build_shell/_apply_theme.
@@ -1754,7 +1775,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.7.23',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.7.24',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -2106,7 +2127,7 @@ class App(tk.Tk):
     def _set_single_checked(self, tree, iid):
         key=str(tree); self._checked_rows[key]={iid}
         for item in tree.get_children():
-            tree.item(item, text='☑' if item==iid else '☐')
+            tree.item(item, text='', image=self._img_chk_on if item==iid else self._img_chk_off)
         tree.selection_set(iid)
         self._update_action_states()
         
@@ -2115,7 +2136,7 @@ class App(tk.Tk):
         if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
             self._redraw_mat_header()
         else:
-            tree.heading('#0', text='☑' if is_all_checked else '☐')
+            tree.heading('#0', text='', image=self._img_chk_on if is_all_checked else self._img_chk_off)
             
         tree.event_generate('<<TreeviewSelect>>')
 
@@ -2126,7 +2147,7 @@ class App(tk.Tk):
         else:
             checked.add(iid)
         for item in tree.get_children():
-            tree.item(item, text='☑' if item in checked else '☐')
+            tree.item(item, text='', image=self._img_chk_on if item in checked else self._img_chk_off)
         if checked:
             tree.selection_set(iid if len(checked)==1 else tuple(checked))
         else:
@@ -2138,7 +2159,7 @@ class App(tk.Tk):
         if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
             self._redraw_mat_header()
         else:
-            tree.heading('#0', text='☑' if is_all_checked else '☐')
+            tree.heading('#0', text='', image=self._img_chk_on if is_all_checked else self._img_chk_off)
             
         tree.event_generate('<<TreeviewSelect>>')
 
@@ -2156,7 +2177,7 @@ class App(tk.Tk):
             tree.selection_set(children)
             
         for item in children:
-            tree.item(item, text='☑' if item in checked else '☐')
+            tree.item(item, text='', image=self._img_chk_on if item in checked else self._img_chk_off)
             
         self._update_action_states()
         tree.event_generate('<<TreeviewSelect>>')
@@ -2165,7 +2186,7 @@ class App(tk.Tk):
             self._redraw_mat_header()
         else:
             is_all_checked = len(checked) == len(children)
-            tree.heading('#0', text='☑' if is_all_checked else '☐')
+            tree.heading('#0', text='', image=self._img_chk_on if is_all_checked else self._img_chk_off)
 
     def _update_action_states(self):
         for tree, cfg in getattr(self, '_action_buttons', {}).items():
@@ -2203,11 +2224,11 @@ class App(tk.Tk):
 
     def _reset_checked(self, tree):
         self._checked_rows[str(tree)] = set()
-        for iid in tree.get_children(): tree.item(iid,text='☐')
+        for iid in tree.get_children(): tree.item(iid, text='', image=self._img_chk_off)
         if tree == getattr(self, 'mat_tree', None) and hasattr(self, '_redraw_mat_header'):
             self._redraw_mat_header()
         else:
-            tree.heading('#0', text='☐')
+            tree.heading('#0', text='', image=self._img_chk_off)
         self._update_action_states()
 
     def _action_photo(self, slug):
@@ -2561,12 +2582,8 @@ class App(tk.Tk):
                 tags = tree.item(iid, 'tags')
                 is_active = 'inactive' not in tags
                 is_checked = iid in self._checked_rows.get(str(tree), set())
-                txt = '☑' if is_checked else '☐'
-                color = '#BA5200' if is_checked else '#A0ABB9'
-                if getattr(self, '_dark', False): color = '#FFFFFF' if is_checked else '#60769D'
-                
                 cy = ry + rh // 2
-                ov_left.create_text(cw0/2, cy, text=txt, fill=color, font=f_chk, anchor='center', tags=(f'c_{iid}',))
+                ov_left.create_image(cw0/2, cy, image=self._img_chk_on if is_checked else self._img_chk_off, anchor='center', tags=(f'c_{iid}',))
                 
                 ov_left.tag_bind(f'c_{iid}', '<Button-1>', lambda ev, i=iid: self._toggle_checkbox(tree, i))
                 ov_left.tag_bind(f'c_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
@@ -2751,11 +2768,7 @@ class App(tk.Tk):
                 children = self.mat_tree.get_children()
                 is_all_checked = len(checked) == len(children) and len(children) > 0
                 
-                txt_chk = '☑' if is_all_checked else '☐'
-                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
-                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
-                
-                chk_id = c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                chk_id = c.create_image(cw0/2, h/2, image=self._img_chk_on if is_all_checked else self._img_chk_off, anchor='center', tags=('header_chk',))
                 hitbox_id = c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.mat_tree))
                 
@@ -3224,7 +3237,7 @@ class App(tk.Tk):
             is_active = r_list.pop(10)
             mat_id = r_list.pop(10)
             status_str = 'Ativo' if is_active else 'Inativo'
-            self.mat_tree.insert('', 'end', iid=str(mat_id), text='☐', values=tuple(r_list)+(status_str, '','',''), tags=() if is_active else ('inactive',))
+            self.mat_tree.insert('', 'end', iid=str(mat_id), text='', image=self._img_chk_off, values=tuple(r_list)+(status_str, '','',''), tags=() if is_active else ('inactive',))
         self._reset_checked(self.mat_tree)
         if hasattr(self, 'mat_icon_ov'): self.mat_icon_ov._redraw()
         if hasattr(self,'mat_empty_overlay'):
@@ -3365,10 +3378,7 @@ class App(tk.Tk):
                 checked = self._checked_rows.get(key, set())
                 children = self.rec_tree.get_children()
                 is_all_checked = len(checked) == len(children) and len(children) > 0
-                txt_chk = '☑' if is_all_checked else '☐'
-                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
-                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
-                c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                c.create_image(cw0/2, h/2, image=self._img_chk_on if is_all_checked else self._img_chk_off, anchor='center', tags=('header_chk',))
                 c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.rec_tree))
             
@@ -3749,10 +3759,7 @@ class App(tk.Tk):
                 checked = self._checked_rows.get(key, set())
                 children = self.prod_tree.get_children()
                 is_all_checked = len(checked) == len(children) and len(children) > 0
-                txt_chk = '☑' if is_all_checked else '☐'
-                color_chk = '#2B3D55' if is_all_checked else '#A0ABB9'
-                if getattr(self, '_dark', False): color_chk = '#FFFFFF' if is_all_checked else '#60769D'
-                c.create_text(cw0/2, h/2, text=txt_chk, fill=color_chk, font=('Segoe UI', 13), anchor='center', tags=('header_chk',))
+                c.create_image(cw0/2, h/2, image=self._img_chk_on if is_all_checked else self._img_chk_off, anchor='center', tags=('header_chk',))
                 c.create_rectangle(0, 0, cw0-2, h, fill='', outline='', tags=('header_chk',))
                 c.tag_bind('header_chk', '<Button-1>', lambda e: self._toggle_all_checkboxes(self.prod_tree))
             
