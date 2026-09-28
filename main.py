@@ -2767,7 +2767,7 @@ class App(tk.Tk):
         self._mat_header_imgs={}
         
         valid_keys = [spec[0] for spec in self._mat_header_specs]
-        disp = [c for c in valid_keys if c not in self._mat_hidden_cols and c != 'dummy']
+        disp = [c for c in valid_keys if c not in self._mat_hidden_cols]
         self.mat_tree['displaycolumns'] = disp
         
         def redraw_mat_header(_event=None):
@@ -3242,7 +3242,7 @@ class App(tk.Tk):
                 set_setting(setting_key, hidden_cols)
                 
                 valid_keys = [spec[0] for spec in header_specs]
-                disp = [c for c in valid_keys if c not in hidden_cols and c != 'dummy']
+                disp = [c for c in valid_keys if c not in hidden_cols]
                 tree['displaycolumns'] = disp
                 if hasattr(self, redraw_callback):
                     self.after_idle(getattr(self, redraw_callback))
@@ -3534,7 +3534,7 @@ class App(tk.Tk):
         self._rec_header_imgs={}
         
         valid_keys = [spec[0] for spec in self._rec_header_specs]
-        disp = [c for c in valid_keys if c not in self._rec_hidden_cols and c != 'dummy']
+        disp = [c for c in valid_keys if c not in self._rec_hidden_cols]
         self.rec_tree['displaycolumns'] = disp
         
         def redraw_rec_header(_event=None):
@@ -4061,7 +4061,7 @@ class App(tk.Tk):
         self._prod_header_imgs={}
         
         valid_keys = [spec[0] for spec in self._prod_header_specs]
-        disp = [c for c in valid_keys if c not in self._prod_hidden_cols and c != 'dummy']
+        disp = [c for c in valid_keys if c not in self._prod_hidden_cols]
         self.prod_tree['displaycolumns'] = disp
         
         def redraw_prod_header(_event=None):
