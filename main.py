@@ -7,6 +7,12 @@ from datetime import date, datetime
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
 
+try:
+    import ctypes
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
+
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / 'nexo_config.json'
 DEFAULT_DB_PATH = BASE_DIR / 'nexo.db'
@@ -83,7 +89,7 @@ def rounded_entry(parent, variable, **kwargs):
     w = kwargs.pop('width', 28)
     # Estimate pixel width (tk.Entry width is in characters, roughly 8px per char)
     px_w = w * 9 + 32
-    wrap=RoundedPanel(parent, fill=field, border='#E2EAF5', radius=16, bg=parent_bg)
+    wrap=RoundedPanel(parent, fill=field, border='#B0C0D6', radius=16, bg=parent_bg)
     wrap.config(width=px_w, height=32); wrap.pack_propagate(False)
     entry_kwargs=dict(bg=field, fg=getattr(parent.winfo_toplevel(),'colors',{}).get('text','#1F2A44'),
                       insertbackground=getattr(parent.winfo_toplevel(),'colors',{}).get('text','#1F2A44'),
@@ -928,8 +934,15 @@ class PillScrollbar(tk.Canvas):
 class RoundedActionButton(tk.Frame):
     """Botão cápsula com renderização antialias perfeita e ícones desenhados com supersampling."""
     def __init__(self,parent,text,command,width=150,height=42,fill='#2F67B1',hover='#255894',fg='#FFFFFF',font=('Segoe UI',10,'bold'),**kwargs):
+        import tkinter.font as tkfont
+        f = tkfont.Font(family=font[0], size=font[1], weight=font[2] if len(font)>2 else 'normal')
+        c_text = text
+        for t in ('+', '<clock>', '<convert>', '<delete>'): c_text = c_text.replace(t, '')
+        c_text = ' '.join(c_text.split())
+        calc_w = f.measure(c_text) + (24 if c_text != text else 0) + 36
+        if c_text.strip(): width = max(width, calc_w)
         super().__init__(parent,bg=parent.cget('bg'),bd=0,highlightthickness=0,width=width,height=height,cursor='hand2',**kwargs)
-        self.pack_propagate(False); self._base_fill=fill; self._hover_fill=hover; self._current_fill=fill; self._fg=fg; self._text=text; self._command=command; self._font=font
+        self.pack_propagate(False); self._base_fill=fill; self._hover_fill=hover; self._current_fill=fill; self._fg=fg; self._text=text; self._command=command; self._font=font; self._tkfont=f
         self._canvas=tk.Canvas(self,bg=self.cget('bg'),bd=0,highlightthickness=0); self._canvas.pack(fill='both',expand=True)
         self._img_ref=None; self._icon=self._detect_icon(text); self._label=self._clean_text(text)
         self.bind('<Configure>',lambda e:self._redraw())
@@ -983,10 +996,14 @@ class RoundedActionButton(tk.Frame):
                     line([cx, c_y, cx, c_y-4.5*scale])
                     line([cx, c_y, cx+4*scale, c_y+2.5*scale])
                 elif icon=='convert':
-                    line([cx-8*scale, c_y-3*scale, cx+6*scale, c_y-3*scale])
-                    line([cx+3*scale, c_y-6*scale, cx+6*scale, c_y-3*scale, cx+3*scale, c_y])
-                    line([cx+8*scale, c_y+3*scale, cx-6*scale, c_y+3*scale])
-                    line([cx-3*scale, c_y, cx-6*scale, c_y+3*scale, cx-3*scale, c_y+6*scale])
+                    d.arc((cx-7*scale, c_y-4*scale, cx+1*scale, c_y+4*scale), 180, 270, fill=col, width=cw)
+                    d.ellipse((cx-7*scale-cw/2, c_y-cw/2, cx-7*scale+cw/2, c_y+cw/2), fill=col)
+                    line([cx-3*scale, c_y-4*scale, cx+5*scale, c_y-4*scale])
+                    line([cx+2*scale, c_y-7*scale, cx+5*scale, c_y-4*scale, cx+2*scale, c_y-1*scale])
+                    d.arc((cx-1*scale, c_y-4*scale, cx+7*scale, c_y+4*scale), 0, 90, fill=col, width=cw)
+                    d.ellipse((cx+7*scale-cw/2, c_y-cw/2, cx+7*scale+cw/2, c_y+cw/2), fill=col)
+                    line([cx+3*scale, c_y+4*scale, cx-5*scale, c_y+4*scale])
+                    line([cx-2*scale, c_y+1*scale, cx-5*scale, c_y+4*scale, cx-2*scale, c_y+7*scale])
                 elif icon=='delete':
                     import pathlib
                     UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
@@ -1024,8 +1041,7 @@ class RoundedActionButton(tk.Frame):
         icon_w = 16
         gap = 10
         if self._icon:
-            try: text_w=self._font.measure(self._label)
-            except Exception: text_w=max(40,len(self._label)*7)
+            text_w = self._tkfont.measure(self._label) if hasattr(self, '_tkfont') else max(40,len(self._label)*7)
             group_w=icon_w+gap+text_w
             start=max(0,(w-group_w)/2)
         
@@ -1044,7 +1060,7 @@ class RoundedEntry(tk.Frame):
         super().__init__(parent,bg=parent.cget('bg'),bd=0,highlightthickness=0,width=width,height=height,**kwargs)
         self.pack_propagate(False); self.grid_propagate(False)
         self.config(width=width, height=height)
-        self._bg='#FFFFFF'; self._line='#E2EAF5'; self._placeholder=placeholder
+        self._bg='#FFFFFF'; self._line='#B0C0D6'; self._placeholder=placeholder
         self._canvas=tk.Canvas(self,bg=self.cget('bg'),bd=0,highlightthickness=0); self._canvas.place(relwidth=1,relheight=1)
         self.entry=tk.Entry(self,textvariable=textvariable,bg=self._bg,fg='#18223A',insertbackground='#18223A',relief='flat',bd=0,highlightthickness=0,font=('Segoe UI',10))
         self.entry.place(x=42,rely=.5,anchor='w',relwidth=1,width=-56,relheight=.56)
@@ -1060,7 +1076,7 @@ class RoundedEntry(tk.Frame):
     def _update_placeholder(self):
         if not hasattr(self,'_placeholder_label'): return
         show = (not self._var.get()) and (self.focus_get() != self.entry)
-        self._placeholder_label.place_forget() if not show else self._placeholder_label.place(x=42,rely=.5,anchor='w')
+        self._placeholder_label.place_forget() if not show else self._placeholder_label.place(x=42,rely=.5,anchor='w',relheight=.56)
 
     def _redraw(self):
         w=self.winfo_width(); h=self.winfo_height(); r=h/2
@@ -1515,7 +1531,9 @@ class RoundedDropdown(tk.Frame):
         self._align = align
         self._bg = '#FFFFFF'
         self._hover = '#F8FAFC'
-        self._line = '#E2EAF5'
+        self._line = getattr(parent.winfo_toplevel(), 'colors', {}).get('line', '#B0C0D6')
+        if self._line == '#E2EAF5' or self._line == '#DDE5F2':
+            self._line = '#B0C0D6'
         self._fg = '#18223A'
         self._canvas = tk.Canvas(self, bg=self.cget('bg'), bd=0, highlightthickness=0)
         self._canvas.place(relwidth=1, relheight=1)
@@ -1634,16 +1652,39 @@ class RoundedDropdown(tk.Frame):
                 
         top.bind('<FocusOut>', on_focus_out)
         top.focus_set()
+def get_work_area():
+    try:
+        import ctypes
+        from ctypes import wintypes
+        class RECT(ctypes.Structure):
+            _fields_=[('left',wintypes.LONG),('top',wintypes.LONG),('right',wintypes.LONG),('bottom',wintypes.LONG)]
+        rect = RECT()
+        if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+            return rect.left, rect.top, rect.right, rect.bottom
+    except Exception:
+        pass
+    return None
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('Nexo')
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
+        
+        wa = get_work_area()
+        if wa:
+            left, top, right, bottom = wa
+            sw = right - left
+            sh = bottom - top
+        else:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            left, top = 0, 0
+            
         w = min(1280, int(sw * 0.95))
         h = min(800, int(sh * 0.85))
-        x = (sw - w) // 2
-        y = (sh - h) // 2
+        x = left + (sw - w) // 2
+        y = top + (sh - h) // 2
+        
         self.geometry(f'{w}x{h}+{x}+{y}')
         self.minsize(1000, 600)
         self._set_icon()
@@ -1654,13 +1695,6 @@ class App(tk.Tk):
             pass
         self._create_checkbox_images()
         self._build_styles()
-        # O status do banco é usado pela página Configurações durante a
-        # construção do shell; ele precisa existir antes dos builders das páginas.
-        self.status = tk.StringVar(value='')
-        self._build_shell()
-        self._bind_combobox_full_click()
-        self._apply_theme()
-        self.refresh_all()
         
         def load_hidden(key, default=['code']):
             val = get_setting(key)
@@ -1675,6 +1709,14 @@ class App(tk.Tk):
             
         self._rec_hidden_cols = load_hidden('rec_hidden_cols')
         self._prod_hidden_cols = load_hidden('prod_hidden_cols')
+        
+        # O status do banco é usado pela página Configurações durante a
+        # construção do shell; ele precisa existir antes dos builders das páginas.
+        self.status = tk.StringVar(value='')
+        self._build_shell()
+        self._bind_combobox_full_click()
+        self._apply_theme()
+        self.refresh_all()
 
     def _set_icon(self):
         try:
@@ -2913,7 +2955,7 @@ class App(tk.Tk):
         is_edit = edit_id is not None
         with db() as c:
             existing = c.execute('SELECT * FROM materials WHERE id=?', (edit_id,)).fetchone() if is_edit else None
-        d = Modal(self, 'Editar item' if is_edit else 'Novo item', '620x290')
+        d = Modal(self, 'Editar item' if is_edit else 'Novo item', '620x330')
         vars = {k: tk.StringVar() for k in ('name','brand','qty','unit','value','category','date','barcode')}
         if existing:
             for k in vars:
@@ -3150,12 +3192,11 @@ class App(tk.Tk):
         top.config(bg=bg_color)
         setattr(self, popup_attr, top)
         
-        canvas = tk.Canvas(top, bg=bg_color, highlightthickness=0)
-        canvas.pack(fill='both', expand=True)
+        panel = RoundedPanel(top, fill='#FFFFFF', radius=12, bg=bg_color)
+        panel.pack(fill='both', expand=True, padx=4, pady=4)
         
-        panel = tk.Frame(canvas, bg='#FFFFFF')
         lbl_title = tk.Label(panel, text='EXIBIR COLUNAS', bg='#FFFFFF', fg='#A0ABB9', font=('Segoe UI', 8, 'bold'))
-        lbl_title.pack(anchor='w', padx=12, pady=(8, 4))
+        lbl_title.pack(anchor='w', padx=12, pady=(12, 4))
         
         for idx, (key, txt, default_w) in enumerate(header_specs, 1):
             if key in ('dummy', 'edit', 'delete', 'options', 'barcode'): continue
@@ -3210,21 +3251,11 @@ class App(tk.Tk):
                 w.bind('<Button-1>', toggle)
                 
         panel.update_idletasks()
-        req_width = panel.winfo_reqwidth()
-        req_height = panel.winfo_reqheight() + 8
-        canvas.config(width=req_width, height=req_height)
+        req_width = max(panel.winfo_reqwidth(), 160)
+        req_height = panel.winfo_reqheight() + 12
         
-        r = 12
-        canvas.create_polygon(
-            r,0, req_width-r,0,
-            req_width,0, req_width,r,
-            req_width,req_height-r, req_width,req_height,
-            req_width-r,req_height, r,req_height,
-            0,req_height, 0,req_height-r,
-            0,r, 0,0,
-            fill='#FFFFFF', outline='#FFFFFF', smooth=True
-        )
-        canvas.create_window(0, 0, anchor='nw', window=panel)
+        # force minimum width layout
+        panel.config(width=req_width)
         
         x = e.x_root - req_width + 15
         y = e.y_root + 15
@@ -3234,8 +3265,6 @@ class App(tk.Tk):
 
     def _show_mat_col_menu(self, e):
         self._show_generic_col_menu(e, '_mat_col_popup', self.mat_tree, self._mat_header_specs, self._mat_hidden_cols, 'mat_hidden_cols', '_redraw_mat_header')
-        top.bind('<FocusOut>', lambda ev: top.destroy() if str(ev.widget) == str(top) else None)
-        self.mat_tree.bind('<Button-1>', lambda ev: close_popup(ev), add='+')
 
     def _sort_mat_col(self, key):
         if getattr(self, '_mat_order_by', 'name') == key:
@@ -3290,35 +3319,75 @@ class App(tk.Tk):
         ListDialog(self,'Histórico de compras',(('data','Data',100),('qtd','Qtd.',90),('un','Un.',65),('valor','Valor',100),('marca','Marca',140)),rows)
 
     def material_conversion_dialog(self):
-        s=self.mat_tree.selection()
-        if not s: return
-        code=self.mat_tree.item(s[0])['values'][0]
-        with db() as c: mat=c.execute('SELECT id,name FROM materials WHERE code=?',(code,)).fetchone()
-        if not mat:return
-        d=Modal(self,f'Conversões — {mat["name"]}','620x440')
-        ttk.Label(d,text='As unidades configuráveis dependem do insumo. Ex.: xícara de leite ≠ xícara de farinha.').pack(anchor='w',padx=16,pady=12)
+        d=Modal(self, 'Conversões de Insumos', '740x520')
+        ttk.Label(d, text='Selecione o insumo para configurar suas unidades (Ex: xícara, colher).').pack(anchor='w', padx=16, pady=(12, 4))
+        
+        sel_frame = ttk.Frame(d, padding=10)
+        sel_frame.pack(fill='x')
+        ttk.Label(sel_frame, text='Insumo: ').pack(side='left', padx=5)
+        mat_var = tk.StringVar()
+        mat_cb = ttk.Combobox(sel_frame, textvariable=mat_var, width=55, state='readonly')
+        mat_cb.pack(side='left', padx=5)
+        
+        mats = []
+        with db() as c:
+            for r in c.execute('SELECT id, code, name FROM materials ORDER BY name').fetchall():
+                mats.append(f"{r['id']} - {r['name']} ({r['code']})")
+        mat_cb['values'] = mats
+
         form=ttk.Frame(d,padding=10);form.pack(fill='x')
-        name=tk.StringVar(); base=tk.StringVar(value='ml'); factor=tk.StringVar()
+        name=tk.StringVar(); base=tk.StringVar(value='g'); factor=tk.StringVar()
         ttk.Label(form,text='Unidade configurável *').grid(row=0,column=0,padx=5,sticky='w'); ttk.Entry(form,textvariable=name,width=24).grid(row=1,column=0,padx=5)
-        ttk.Label(form,text='Unidade interna *').grid(row=0,column=1,padx=5,sticky='w'); ttk.Combobox(form,textvariable=base,values=('mg','ml','un'),state='readonly',width=12).grid(row=1,column=1,padx=5)
-        ttk.Label(form,text='Quantidade na unidade *').grid(row=0,column=2,padx=5,sticky='w'); ttk.Entry(form,textvariable=factor,width=18).grid(row=1,column=2,padx=5)
+        ttk.Label(form,text='Unid. interna *').grid(row=0,column=1,padx=5,sticky='w'); ttk.Combobox(form,textvariable=base,values=('mg','g','kg','ml','l','un'),state='readonly',width=12).grid(row=1,column=1,padx=5)
+        ttk.Label(form,text='Equivale a *').grid(row=0,column=2,padx=5,sticky='w'); ttk.Entry(form,textvariable=factor,width=18).grid(row=1,column=2,padx=5)
+        
         tree=ttk.Treeview(d,columns=('name','base','factor'),show='headings')
-        for k,t,w in [('name','Unidade',200),('base','Base',100),('factor','Equivale a',160)]: tree.heading(k,text=t);tree.column(k,width=w)
+        for k,t,w in [('name','Unidade Configurável',240),('base','Un. Interna',140),('factor','Equivale a',160)]: tree.heading(k,text=t);tree.column(k,width=w)
         tree.pack(fill='both',expand=True,padx=16,pady=12)
-        def refresh():
-            for x in tree.get_children():tree.delete(x)
-            for r in custom_units_for_material(mat['id']):tree.insert('','end',values=(r['name'],r['base_unit'],r['factor_to_base']))
+        
+        def refresh(*_):
+            for x in tree.get_children(): tree.delete(x)
+            if not mat_var.get(): return
+            mid = int(mat_var.get().split(' - ')[0])
+            for r in custom_units_for_material(mid):
+                tree.insert('','end',values=(r['name'],r['base_unit'],r['factor_to_base']))
+                
+        mat_cb.bind('<<ComboboxSelected>>', refresh)
+        
         def add():
             try:
-                n=name.get().strip(); b=base.get().strip(); f=to_float(factor.get(),'Quantidade na unidade')
+                if not mat_var.get(): raise ValueError('Selecione um insumo primeiro.')
+                mid = int(mat_var.get().split(' - ')[0])
+                n=name.get().strip(); b=base.get().strip(); f=to_float(factor.get(),'Quantidade')
                 if not n: raise ValueError('O nome da unidade configurável é obrigatório.')
                 if not b: raise ValueError('A unidade interna é obrigatória.')
-                if f<=0: raise ValueError('A quantidade na unidade configurável deve ser maior que zero.')
-                with db() as c:c.execute('INSERT INTO custom_units(material_id,name,base_unit,factor_to_base) VALUES(?,?,?,?)',(mat['id'],n,b,f))
+                if f<=0: raise ValueError('A quantidade deve ser maior que zero.')
+                with db() as c:
+                    exist = c.execute('SELECT id FROM custom_units WHERE material_id=? AND name=?', (mid, n)).fetchone()
+                    if exist:
+                        c.execute('UPDATE custom_units SET base_unit=?, factor_to_base=? WHERE id=?', (b, f, exist['id']))
+                    else:
+                        c.execute('INSERT INTO custom_units(material_id,name,base_unit,factor_to_base) VALUES(?,?,?,?)',(mid,n,b,f))
                 name.set('');factor.set('');refresh()
-            except Exception as e:safe_error(d,'Não foi possível salvar a conversão',e)
-        ttk.Button(form,text='Adicionar',command=add).grid(row=1,column=3,padx=8)
-        refresh(); ttk.Button(d,text='Fechar',command=d.destroy).pack(pady=(0,12))
+                self.notify('Conversão salva com sucesso!')
+            except Exception as e:
+                safe_error(d,'Não foi possível salvar a conversão',e)
+                
+        ttk.Button(form,text='Salvar',command=add).grid(row=1,column=3,padx=8)
+        
+        def del_conv():
+            s = tree.selection()
+            if not s or not mat_var.get(): return
+            mid = int(mat_var.get().split(' - ')[0])
+            n = tree.item(s[0])['values'][0]
+            with db() as c: c.execute('DELETE FROM custom_units WHERE material_id=? AND name=?', (mid, n))
+            refresh()
+            self.notify('Conversão removida.')
+            
+        btn_bar = ttk.Frame(d)
+        btn_bar.pack(fill='x', padx=16, pady=(0, 12))
+        ttk.Button(btn_bar, text='Excluir selecionada', command=del_conv).pack(side='left')
+        ttk.Button(btn_bar, text='Fechar', command=d.destroy).pack(side='right')
 
     # ---------- Receitas ----------
     def recipes_page(self, f):
@@ -3329,17 +3398,107 @@ class App(tk.Tk):
         
         self.rec_bulk_delete_btn=RoundedActionButton(bar, '<delete> Excluir', lambda: self.delete_selected_recipes(), width=95, height=40, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030')
         
-        rec_import=RoundedActionButton(bar, 'Importar', lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document), width=95, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
-        rec_import.pack(side='left', padx=(8, 0))
-        
-        rec_export=RoundedActionButton(bar, 'Exportar', lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe), width=95, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
-        rec_export.pack(side='left', padx=(8, 0))
-        
-        rec_original=RoundedActionButton(bar, 'Doc. Original', lambda: self._run_normal_action(self.rec_tree, self.open_original_document), width=120, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
-        rec_original.pack(side='left', padx=(8, 0))
-        
         rec_history=RoundedActionButton(bar, '<clock> Histórico', lambda: self._run_normal_action(self.rec_tree, self.recipe_history_dialog), width=120, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
         rec_history.pack(side='left', padx=(8, 0))
+        
+        rec_conv=RoundedActionButton(bar, '<convert> Conversões', lambda: self.material_conversion_dialog(), width=135, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_conv.pack(side='left', padx=(8, 0))
+        
+        def show_rec_more_menu():
+            if hasattr(self, '_current_menu') and self._current_menu.winfo_exists():
+                self._current_menu.destroy()
+                
+            menu = tk.Toplevel(self)
+            menu.overrideredirect(True)
+            menu.attributes('-topmost', True)
+            self._current_menu = menu
+            
+            bg = self.colors['panel']
+            border = self.colors['line']
+            try:
+                menu.configure(bg='#000001')
+                menu.wm_attributes('-transparentcolor', '#000001')
+                transparent_bg = '#000001'
+            except Exception:
+                transparent_bg = bg
+                menu.configure(bg=bg)
+                
+            w, h = 180, 115
+            x = rec_more.winfo_rootx()
+            y = rec_more.winfo_rooty() + rec_more.winfo_height() + 4
+            menu.geometry(f'{w}x{h}+{x}+{y}')
+            
+            c = tk.Canvas(menu, bg=transparent_bg, bd=0, highlightthickness=0)
+            c.pack(fill='both', expand=True)
+            
+            r = 8
+            c.create_rectangle(r, 0, w-r, h, fill=bg, outline='')
+            c.create_rectangle(0, r, w, h-r, fill=bg, outline='')
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=bg, outline='')
+            c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=bg, outline='')
+            c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=bg, outline='')
+            c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=bg, outline='')
+            
+            c.create_line(r, 0, w-r, 0, fill=border)
+            c.create_line(r, h-1, w-r, h-1, fill=border)
+            c.create_line(0, r, 0, h-r, fill=border)
+            c.create_line(w-1, r, w-1, h-r, fill=border)
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, style='arc', outline=border)
+            c.create_arc(w-2*r-1, 0, w-1, 2*r, start=0, extent=90, style='arc', outline=border)
+            c.create_arc(0, h-2*r-1, 2*r, h-1, start=180, extent=90, style='arc', outline=border)
+            c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
+            
+            items = [
+                ('Importar', 'import', lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document)),
+                ('Exportar', 'export', lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe)),
+                ('Doc. Original', 'doc', lambda: self._run_normal_action(self.rec_tree, self.open_original_document))
+            ]
+            
+            for i, (label, icon_type, cmd) in enumerate(items):
+                oy = 5 + i * 35
+                hitbox = c.create_rectangle(1, oy, w-1, oy+35, fill=bg, outline='', tags=f'opt_{i}')
+                
+                ix, iy = 24, oy + 17
+                col = '#687796'
+                if icon_type == 'import':
+                    c.create_line(ix, iy-5, ix, iy+3, fill=col, width=2)
+                    c.create_line(ix-3, iy, ix, iy+3, ix+3, iy, fill=col, width=2)
+                    c.create_line(ix-5, iy+6, ix+5, iy+6, fill=col, width=2)
+                elif icon_type == 'export':
+                    c.create_line(ix, iy-4, ix, iy+4, fill=col, width=2)
+                    c.create_line(ix-3, iy-1, ix, iy-4, ix+3, iy-1, fill=col, width=2)
+                    c.create_line(ix-5, iy+6, ix+5, iy+6, fill=col, width=2)
+                elif icon_type == 'doc':
+                    c.create_rectangle(ix-4, iy-6, ix+4, iy+6, outline=col, width=2)
+                    c.create_line(ix-2, iy-2, ix+2, iy-2, fill=col, width=2)
+                    c.create_line(ix-2, iy+2, ix+2, iy+2, fill=col, width=2)
+                    
+                text_col = self.colors['text']
+                c.create_text(42, oy+17, text=label, fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
+                
+                def on_click(e, c_cmd=cmd):
+                    menu.destroy()
+                    c_cmd()
+                hover = '#20375F' if getattr(self, '_dark', False) else '#F4F7FC'
+                c.tag_bind(f'opt_{i}', '<Enter>', lambda e, hb=hitbox: c.itemconfig(hb, fill=hover))
+                c.tag_bind(f'opt_{i}', '<Leave>', lambda e, hb=hitbox: c.itemconfig(hb, fill=bg))
+                c.tag_bind(f'opt_{i}', '<Button-1>', on_click)
+                c.tag_bind(f'opt_{i}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
+                c.tag_bind(f'opt_{i}', '<Leave>', lambda e: c.config(cursor='arrow'), add='+')
+            
+            root = self.winfo_toplevel()
+            def close_on_click(e):
+                if menu.winfo_exists():
+                    mx, my = menu.winfo_rootx(), menu.winfo_rooty()
+                    mw, mh = menu.winfo_width(), menu.winfo_height()
+                    if not (mx <= e.x_root <= mx+mw and my <= e.y_root <= my+mh):
+                        menu.destroy()
+                try: root.unbind('<Button-1>', bind_id)
+                except Exception: pass
+            bind_id = root.bind('<Button-1>', close_on_click, add='+')
+            
+        rec_more=RoundedActionButton(bar, 'Mais ▾', show_rec_more_menu, width=80, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
+        rec_more.pack(side='left', padx=(8, 0))
 
         self.rec_search = tk.StringVar()
         self.rec_search.trace_add('write', lambda *a: self.refresh_recipes())
@@ -3374,6 +3533,10 @@ class App(tk.Tk):
         self._rec_header_specs=[('code','Código',100),('name','Receita',380),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('dummy','',0),('edit','',30),('delete','',30)]
         self._rec_header_imgs={}
         
+        valid_keys = [spec[0] for spec in self._rec_header_specs]
+        disp = [c for c in valid_keys if c not in self._rec_hidden_cols and c != 'dummy']
+        self.rec_tree['displaycolumns'] = disp
+        
         def redraw_rec_header(_event=None):
             c=self.rec_header; c.delete('all')
             w=max(c.winfo_width(),2); h=max(c.winfo_height(),2)
@@ -3385,20 +3548,34 @@ class App(tk.Tk):
             c.create_arc(0,h-2*r,2*r,h,start=180,extent=90,fill=fill,outline=fill)
             c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
             try:
-                total_w = sum(int(self.rec_tree.column(col, 'width')) for col in ['#0'] + list(self.rec_tree['columns']))
+                total_w = sum(int(self.rec_tree.column(col, 'width')) for col in ['#0'] + list(self.rec_tree['displaycolumns']))
                 x_offset = float(self.rec_tree.xview()[0]) * total_w
             except Exception: x_offset = 0
             x0 = -x_offset
-            cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._rec_header_specs,1)]
-            for idx,(col,txt) in enumerate(cols):
+            
+            disp = self.rec_tree['displaycolumns']
+            if disp == ('#all',): disp = self.rec_tree['columns']
+            spec_dict = {key: txt for key, txt, _ in self._rec_header_specs}
+            
+            cols = [('#0', '', 'dummy')]
+            for i, col_id in enumerate(disp, 1):
+                cols.append((f'#{i}', spec_dict.get(col_id, ''), col_id))
+                
+            for idx,(col,txt,key) in enumerate(cols):
                 try: cw=int(self.rec_tree.column(col,'width'))
                 except Exception: cw=0
                 if col == '#0': cw = 60
-                if col in ('#0', '#8', '#9'):
+                if key in ('dummy', 'edit', 'delete'):
                     x0+=cw; continue
-                align = 'w' if col in ('#1', '#2') else 'center'
+                align = 'w' if key in ('code', 'name') else 'center'
                 anchor_x = x0+12 if align == 'w' else x0+cw/2
-                c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                
+                arrow_txt = ''
+                if getattr(self, '_rec_order_by', 'name') == key:
+                    arrow_txt = ' ↑' if getattr(self, '_rec_order_dir', 'ASC') == 'ASC' else ' ↓'
+                full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
+                
+                c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
                 c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
                 x0+=cw
             cw0 = 60
@@ -3459,7 +3636,7 @@ class App(tk.Tk):
             l_sub.pack()
         except Exception:
             self.rec_empty_overlay = tk.Label(table_host, text='Nenhuma receita cadastrada.\nClique em + Nova Receita para adicionar a primeira receita.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
-        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_import,rec_export,rec_original,rec_history],'bulk':[self.rec_bulk_delete_btn]}
+        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_more,rec_history],'bulk':[self.rec_bulk_delete_btn]}
         self._update_action_states()
 
     def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
@@ -3467,22 +3644,48 @@ class App(tk.Tk):
         with db() as c:
             existing=c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone() if is_edit else None
             current_items=c.execute('SELECT material_id,qty,unit FROM base_recipe_items WHERE recipe_id=?',(edit_id,)).fetchall() if is_edit else []
-        d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','900x580')
+        d=Modal(self,'Editar Receita' if is_edit else 'Nova Receita','920x580')
         name=tk.StringVar(value=existing['name'] if existing else '')
         yield_qty=tk.StringVar(value=fmt_num(existing['yield_qty']) if existing and existing['yield_qty'] is not None else '')
         yield_unit=tk.StringVar(value=existing['yield_unit'] if existing and existing['yield_unit'] else 'g')
         notes=tk.StringVar(value=existing['notes'] or '' if existing else '')
-        top=ttk.Frame(d,padding=16);top.pack(fill='x')
-        ttk.Label(top,text='Nome *').grid(row=0,column=0,sticky='w');rounded_entry(top,name,width=30)[0].grid(row=1,column=0,padx=(0,8),sticky='ew')
-        ttk.Label(top,text='Rendimento').grid(row=0,column=1,sticky='w');numeric_entry(top,yield_qty,width=16).grid(row=1,column=1,padx=8)
-        ttk.Label(top,text='Unidade').grid(row=0,column=2,sticky='w');ttk.Combobox(top,textvariable=yield_unit,values=UNITS,state='readonly',width=10).grid(row=1,column=2,padx=8)
-        ttk.Label(top,text='Observações').grid(row=0,column=3,sticky='w');rounded_entry(top,notes,width=30)[0].grid(row=1,column=3,padx=8,sticky='ew')
-        box=ttk.LabelFrame(d,text='Composição — somente itens do Cadastro',padding=12);box.pack(fill='both',expand=True,padx=16,pady=10)
+        
+        try: text_col = self.colors.get('text', '#18223A')
+        except: text_col = '#18223A'
+        
+        def make_field(parent, label, var, w_chars, w_pixels=None, is_dropdown=False, opts=None, bg=None, is_num=False):
+            bg = bg or parent.cget('bg')
+            wrap = tk.Frame(parent, bg=bg)
+            tk.Label(wrap, text=label, bg=bg, fg=text_col, font=('Segoe UI', 9)).pack(anchor='w', padx=4, pady=(1,0))
+            if is_dropdown:
+                wd = RoundedDropdown(wrap, var, opts or [], width=w_pixels or 140, align='left')
+            elif is_num:
+                wd = numeric_entry(wrap, var, width=w_chars)
+            else:
+                wd, _ = rounded_entry(wrap, var, width=w_chars)
+            wd.pack(fill='x', expand=True, padx=4, pady=(0,8))
+            return wrap, wd
+
+        top = tk.Frame(d, bg=d.cget('bg'), padx=24, pady=16); top.pack(fill='x')
+        make_field(top, 'Nome *', name, 30)[0].pack(side='left', fill='x', expand=True)
+        make_field(top, 'Rendimento', yield_qty, 12, is_num=True)[0].pack(side='left')
+        make_field(top, 'Unidade', yield_unit, 10, is_dropdown=True, opts=UNITS)[0].pack(side='left')
+        make_field(top, 'Observações', notes, 24)[0].pack(side='left', fill='x', expand=True)
+        
+        box_outer = tk.Frame(d, bg=d.cget('bg'), padx=16, pady=4); box_outer.pack(fill='both', expand=True)
+        tk.Label(box_outer, text='Composição — somente itens do Cadastro', bg=d.cget('bg'), fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 4))
+        
+        box_top = RoundedPanel(box_outer, fill='#FFFFFF', radius=12, bg=d.cget('bg'))
+        box_top.pack(fill='x', pady=(0, 8))
+        
         material_var=tk.StringVar();qty_var=tk.StringVar();unit_var=tk.StringVar(value='g')
-        ttk.Label(box,text='Insumo').grid(row=0,column=0,sticky='w'); material_cb=ttk.Combobox(box,textvariable=material_var,width=40)
-        material_cb.grid(row=1,column=0,padx=(0,6),sticky='ew')
-        ttk.Label(box,text='Quantidade').grid(row=0,column=1,sticky='w');numeric_entry(box,qty_var,width=14).grid(row=1,column=1,padx=6)
-        ttk.Label(box,text='Unidade').grid(row=0,column=2,sticky='w');unit_cb=ttk.Combobox(box,textvariable=unit_var,values=UNITS,state='readonly',width=12);unit_cb.grid(row=1,column=2,padx=6)
+        
+        _, material_wd = make_field(box_top, 'Insumo', material_var, 30, w_pixels=300, is_dropdown=True, bg='#FFFFFF')
+        material_wd.master.pack(side='left', fill='x', expand=True, padx=(4,0), pady=4)
+        make_field(box_top, 'Quantidade', qty_var, 12, is_num=True, bg='#FFFFFF')[0].pack(side='left', pady=4)
+        _, unit_wd = make_field(box_top, 'Unidade', unit_var, 10, w_pixels=120, is_dropdown=True, opts=UNITS, bg='#FFFFFF')
+        unit_wd.master.pack(side='left', pady=4)
+        
         items=[]
         if current_items:
             for r in current_items:
@@ -3490,22 +3693,114 @@ class App(tk.Tk):
                 if m: items.append((m['id'],m['name'],r['qty'],r['unit']))
         if imported_items:
             items.extend(imported_items)
-        tree=ttk.Treeview(box,columns=('item','qty','unit','cost'),show='headings')
-        for k,t,w in [('item','Item',360),('qty','Quantidade',100),('unit','Un.',70),('cost','Custo',110)]:tree.heading(k,text=t);tree.column(k,width=w)
-        tree.grid(row=2,column=0,columnspan=4,sticky='nsew',pady=12);box.rowconfigure(2,weight=1);box.columnconfigure(0,weight=1)
+            
+        _, table_host = self._build_page_table_panel(box_outer)
+        
+        header_canvas = tk.Canvas(table_host, bg=self.colors['panel'], bd=0, highlightthickness=0, height=36)
+        header_canvas.pack(fill='x', padx=2, pady=(0,0))
+        
+        tree=ttk.Treeview(table_host, columns=('item','qty','unit','cost','dummy','edit','delete'), show='tree')
+        tree.column('#0', width=60, minwidth=60, stretch=False)
+        for k, w, a in [('item', 360, 'w'), ('qty', 100, 'center'), ('unit', 70, 'center'), ('cost', 110, 'center'), ('dummy', 0, 'w'), ('edit', 30, 'center'), ('delete', 30, 'center')]:
+            tree.column(k, width=w, minwidth=w, anchor=a, stretch=(k=='dummy'))
+        tree.pack(fill='both', expand=True)
+        
+        header_specs = [('item', 'Item', 360), ('qty', 'Quantidade', 100), ('unit', 'Un.', 70), ('cost', 'Custo', 110), ('dummy', '', 0), ('edit', '', 30), ('delete', '', 30)]
+        
+        def redraw_header(_event=None):
+            c = header_canvas; c.delete('all')
+            w = max(c.winfo_width(), 2); h = max(c.winfo_height(), 2)
+            r = min(h/2, 18); fill = '#EEF4FB'
+            c.create_rectangle(r, 0, w-r, h, fill=fill, outline=''); c.create_rectangle(0, r, w, h-r, fill=fill, outline='')
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill); c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill); c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+            x0 = 0
+            for idx, (key, txt, cw) in enumerate(header_specs):
+                if key == 'dummy': cw = int(tree.column('dummy', 'width'))
+                if key in ('edit', 'delete'): x0 += cw; continue
+                align = 'w' if key == 'item' else 'center'
+                anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
+                if idx == 0: x0 += 60 
+                c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
+                x0 += cw
+                
+            all_checked = len(self._checked_rows.get(str(tree), set())) == len(tree.get_children()) and tree.get_children()
+            c.create_image(30, h/2, image=self._img_chk_on if all_checked else self._img_chk_off, anchor='center', tags=('master_chk',))
+            c.tag_bind('master_chk', '<Button-1>', lambda e: toggle_master_chk())
+            c.tag_bind('master_chk', '<Enter>', lambda e: c.config(cursor='hand2'))
+            c.tag_bind('master_chk', '<Leave>', lambda e: c.config(cursor='arrow'))
+            
+        def toggle_master_chk():
+            cset = self._checked_rows.get(str(tree), set())
+            children = tree.get_children()
+            if len(cset) == len(children) and children: cset.clear()
+            else: cset.update(children)
+            self._checked_rows[str(tree)] = cset
+            redraw_header(); _redraw_overlay()
+            
+        header_canvas.bind('<Configure>', redraw_header)
+        
+        ov = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+        ov.place(relx=1.0, x=0, y=36, width=60, relheight=1.0, height=-36, anchor='ne')
+        ov._icon_refs = []
+        ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+        ov_left.place(relx=0, x=0, y=36, width=60, relheight=1.0, height=-36, anchor='nw')
+        
+        def _redraw_overlay(*_):
+            ov.delete('all'); ov_left.delete('all')
+            ov._icon_refs.clear()
+            img_e = self._make_row_icon('edit')
+            img_d = self._make_row_icon('delete')
+            if img_e: ov._icon_refs.append(img_e)
+            if img_d: ov._icon_refs.append(img_d)
+            ex, dx = 15, 45
+            selected = set(tree.selection())
+            for iid in tree.get_children():
+                bb = tree.bbox(iid)
+                if not bb: continue
+                _, ry, _, rh = bb
+                bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
+                
+                ov_left.create_rectangle(0, ry, 60, ry + rh, fill=bg_color, outline='', tags=(f'c_{iid}',))
+                is_checked = iid in self._checked_rows.get(str(tree), set())
+                cy = ry + rh // 2
+                ov_left.create_image(30, cy, image=self._img_chk_on if is_checked else self._img_chk_off, anchor='center', tags=(f'c_{iid}',))
+                ov_left.tag_bind(f'c_{iid}', '<Button-1>', lambda ev, i=iid: (self._toggle_checkbox(tree, i), redraw_header(), _redraw_overlay()))
+                ov_left.tag_bind(f'c_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
+                ov_left.tag_bind(f'c_{iid}', '<Leave>', lambda ev, i=iid: ov_left.config(cursor='arrow'))
+                
+                ov.create_rectangle(0, ry, 60, ry + rh, fill=bg_color, outline='')
+                if img_e:
+                    ov.create_image(ex, cy, image=img_e, anchor='center', tags=(f'e_{iid}',))
+                    ov.tag_bind(f'e_{iid}', '<Button-1>', lambda ev, i=iid: (tree.selection_set(i), edit_item()))
+                    ov.tag_bind(f'e_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
+                    ov.tag_bind(f'e_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
+                if img_d:
+                    ov.create_image(dx, cy, image=img_d, anchor='center', tags=(f'd_{iid}',))
+                    ov.tag_bind(f'd_{iid}', '<Button-1>', lambda ev, i=iid: (tree.selection_set(i), delete_item()))
+                    ov.tag_bind(f'd_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
+                    ov.tag_bind(f'd_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
+
+        tree.bind('<Configure>', lambda e: (redraw_header(), _redraw_overlay()), add='+')
+        tree.bind('<<TreeviewSelect>>', _redraw_overlay, add='+')
+        
         def load_materials(*_):
             vals=[f'{r["id"]} — {r["name"]} ({r["code"]})' for r in list_names('materials')]
-            material_cb['values']=vals
+            material_wd._opts = vals
         def load_units(*_):
-            if '—' not in material_var.get(): unit_cb['values']=UNITS; return
-            mid=int(material_var.get().split(' — ')[0]); custom=[r['name'] for r in custom_units_for_material(mid)]; unit_cb['values']=UNITS+tuple(custom)
-        material_cb.bind('<<ComboboxSelected>>',load_units)
+            if '—' not in material_var.get(): unit_wd._opts = UNITS; return
+            mid=int(material_var.get().split(' — ')[0]); custom=[r['name'] for r in custom_units_for_material(mid)]; unit_wd._opts = UNITS+tuple(custom)
+            
+        material_var.trace_add('write', load_units)
+        
         def refresh_items():
             for x in tree.get_children():tree.delete(x)
-            for mid,n,q,u in items:
+            for i, (mid,n,q,u) in enumerate(items):
                 try: cst=material_cost(mid,q,u)
                 except Exception as e: cst=f'Erro'
-                tree.insert('','end',values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
+                tree.insert('','end',iid=str(i),values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
+            redraw_header(); _redraw_overlay()
+                
         def add_item():
             try:
                 if ' — ' not in material_var.get(): raise ValueError('Selecione um Insumo do Cadastro.')
@@ -3513,16 +3808,14 @@ class App(tk.Tk):
                 if q<=0:raise ValueError('A Quantidade deve ser maior que zero.')
                 items.append((mid,material_var.get().split(' — ')[1].split(' (')[0],q,u));material_var.set('');qty_var.set('');refresh_items()
             except Exception as e:safe_error(d,'Não foi possível adicionar o item',e)
-        ttk.Button(box,text='Adicionar',command=add_item).grid(row=1,column=3,padx=8)
-        edit_item_btn=ttk.Button(box,text='✏️',command=lambda: edit_item(),width=3)
-        delete_item_btn=ttk.Button(box,text='🗑️',command=lambda: delete_item(),width=3)
-        edit_item_btn.grid(row=3,column=0,sticky='w',pady=(0,4))
-        delete_item_btn.grid(row=3,column=1,sticky='w',pady=(0,4))
+            
+        RoundedActionButton(box_top, 'Adicionar', add_item, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left', padx=12, pady=(16,4))
+        
         def edit_item():
             sel=tree.selection()
             if not sel:
                 messagebox.showwarning('Receita','Selecione um item da composição para editar.',parent=d); return
-            idx=tree.index(sel[0]); mid,n,q,u=items[idx]
+            idx=int(sel[0]); mid,n,q,u=items[idx]
             material_var.set(f'{mid} — {n}')
             load_units()
             qty_var.set(fmt_num(q)); unit_var.set(u)
@@ -3532,9 +3825,19 @@ class App(tk.Tk):
             sel=tree.selection()
             if not sel:
                 messagebox.showwarning('Receita','Selecione um item da composição para excluir.',parent=d); return
-            idx=tree.index(sel[0]); items.pop(idx); refresh_items()
+            idx=int(sel[0]); items.pop(idx); refresh_items()
+
+        def bulk_delete_items():
+            cset = self._checked_rows.get(str(tree), set())
+            if not cset: return
+            if not messagebox.askyesno('Receita', f'Excluir {len(cset)} itens marcados da composição?', parent=d): return
+            indices = sorted([int(i) for i in cset], reverse=True)
+            for idx in indices: items.pop(idx)
+            cset.clear()
+            refresh_items()
 
         tree.bind('<Double-1>',lambda e: edit_item())
+        
         def save():
             try:
                 n=name.get().strip()
@@ -3557,14 +3860,17 @@ class App(tk.Tk):
                     save_uploaded_document('RECIPE_BASE', rid, imported_source)
                 snapshot_costs();d.destroy();self.refresh_all();self.notify('Receita salva com sucesso.')
             except Exception as e:safe_error(d,'Não foi possível salvar a Receita',e)
-        ttk.Label(d,text='* campo obrigatório; Rendimento pode ser definido depois.').pack(anchor='w',padx=16)
+            
+        ttk.Label(d,text='* campo obrigatório; Rendimento pode ser definido depois.').pack(anchor='w',padx=16,pady=(0,4))
+        
         act=d.action_host
         left=tk.Frame(act,bg=d.cget('bg'));left.pack(side='left',fill='y')
-        FlatEmojiButton(left,'✏️',edit_item).pack(side='left',padx=(0,8),pady=7)
-        FlatEmojiButton(left,'🗑️',delete_item).pack(side='left',pady=7)
+        RoundedActionButton(left, '<delete> Excluir Selecionados', bulk_delete_items, width=160, height=38, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030').pack(side='left', pady=7)
+        
         right=tk.Frame(act,bg=d.cget('bg'));right.pack(side='right',fill='y')
         RoundedActionButton(right,'Salvar',save,width=92,height=38,fill='#F28C28',hover='#BA5200').pack(side='left',padx=(6,0),pady=7)
         RoundedActionButton(right,'Cancelar',d.destroy,width=92,height=38,fill='#6B7280',hover='#4B5563').pack(side='left',padx=(6,0),pady=7)
+        
         load_materials();refresh_items()
 
     def new_recipe(self): self.recipe_form()
@@ -3754,6 +4060,10 @@ class App(tk.Tk):
         self._prod_header_specs=[('code','Código',100),('name','Produto',380),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('dummy','',0),('edit','',30),('delete','',30)]
         self._prod_header_imgs={}
         
+        valid_keys = [spec[0] for spec in self._prod_header_specs]
+        disp = [c for c in valid_keys if c not in self._prod_hidden_cols and c != 'dummy']
+        self.prod_tree['displaycolumns'] = disp
+        
         def redraw_prod_header(_event=None):
             c=self.prod_header; c.delete('all')
             w=max(c.winfo_width(),2); h=max(c.winfo_height(),2)
@@ -3765,20 +4075,34 @@ class App(tk.Tk):
             c.create_arc(0,h-2*r,2*r,h,start=180,extent=90,fill=fill,outline=fill)
             c.create_arc(w-2*r,h-2*r,w,h,start=270,extent=90,fill=fill,outline=fill)
             try:
-                total_w = sum(int(self.prod_tree.column(col, 'width')) for col in ['#0'] + list(self.prod_tree['columns']))
+                total_w = sum(int(self.prod_tree.column(col, 'width')) for col in ['#0'] + list(self.prod_tree['displaycolumns']))
                 x_offset = float(self.prod_tree.xview()[0]) * total_w
             except Exception: x_offset = 0
             x0 = -x_offset
-            cols=[('#0','')]+[(f'#{i}',txt) for i,(key,txt, _) in enumerate(self._prod_header_specs,1)]
-            for idx,(col,txt) in enumerate(cols):
+            
+            disp = self.prod_tree['displaycolumns']
+            if disp == ('#all',): disp = self.prod_tree['columns']
+            spec_dict = {key: txt for key, txt, _ in self._prod_header_specs}
+            
+            cols = [('#0', '', 'dummy')]
+            for i, col_id in enumerate(disp, 1):
+                cols.append((f'#{i}', spec_dict.get(col_id, ''), col_id))
+                
+            for idx,(col,txt,key) in enumerate(cols):
                 try: cw=int(self.prod_tree.column(col,'width'))
                 except Exception: cw=0
                 if col == '#0': cw = 60
-                if col in ('#0', '#8', '#9'):
+                if key in ('dummy', 'edit', 'delete'):
                     x0+=cw; continue
-                align = 'w' if col in ('#1', '#2') else 'center'
+                align = 'w' if key in ('code', 'name') else 'center'
                 anchor_x = x0+12 if align == 'w' else x0+cw/2
-                c.create_text(anchor_x,h/2,text=txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                
+                arrow_txt = ''
+                if getattr(self, '_prod_order_by', 'name') == key:
+                    arrow_txt = ' ↑' if getattr(self, '_prod_order_dir', 'ASC') == 'ASC' else ' ↓'
+                full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
+                
+                c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
                 c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
                 x0+=cw
             cw0 = 60
@@ -3847,32 +4171,150 @@ class App(tk.Tk):
         with db() as c:
             existing=c.execute('SELECT * FROM products WHERE id=?',(edit_id,)).fetchone() if is_edit else None
             current=c.execute('SELECT * FROM product_items WHERE product_id=?',(edit_id,)).fetchall() if is_edit else []
-        d=Modal(self,'Editar Produto' if is_edit else 'Novo Produto','920x580')
+        d=Modal(self,'Editar Produto' if is_edit else 'Novo Produto','1000x580')
         name=tk.StringVar(value=existing['name'] if existing else '')
         weight=tk.StringVar(value=fmt_num(existing['weight_qty']) if existing and existing['weight_qty'] is not None else '')
         weight_unit=tk.StringVar(value=existing['weight_unit'] if existing and existing['weight_unit'] else 'g')
         price=tk.StringVar(value=fmt(existing['sale_price']) if existing and existing['sale_price'] is not None else '')
         notes=tk.StringVar(value=existing['notes'] or '' if existing else '')
-        top=ttk.Frame(d,padding=16);top.pack(fill='x')
-        ttk.Label(top,text='Nome *').grid(row=0,column=0,sticky='w');rounded_entry(top,name,width=32)[0].grid(row=1,column=0,padx=(0,8),sticky='ew')
-        ttk.Label(top,text='Peso/Rendimento').grid(row=0,column=1,sticky='w');numeric_entry(top,weight,width=16).grid(row=1,column=1,padx=8)
-        ttk.Label(top,text='Unidade').grid(row=0,column=2,sticky='w');ttk.Combobox(top,textvariable=weight_unit,values=UNITS,state='readonly',width=10).grid(row=1,column=2,padx=8)
-        ttk.Label(top,text='Preço de venda').grid(row=0,column=3,sticky='w');masked_money_entry(top, price, width=16).grid(row=1,column=3,padx=8)
-        ttk.Label(top,text='Observações').grid(row=0,column=4,sticky='w');rounded_entry(top,notes,width=28)[0].grid(row=1,column=4,padx=8,sticky='ew')
-        box=ttk.LabelFrame(d,text='Composição por unidade vendida',padding=12);box.pack(fill='both',expand=True,padx=16,pady=10)
-        typ=tk.StringVar(value='');ref=tk.StringVar();qty=tk.StringVar();unit=tk.StringVar(value='');items=[]
-        ttk.Label(box,text='Origem').grid(row=0,column=0,sticky='w');ttk.Combobox(box,textvariable=typ,values=('INSUMO','RECEITA','PRODUTO'),state='readonly',width=16).grid(row=1,column=0,padx=(0,6))
-        ttk.Label(box,text='Item').grid(row=0,column=1,sticky='w');cb=ttk.Combobox(box,textvariable=ref,width=40);cb.grid(row=1,column=1,padx=6,sticky='ew')
-        ttk.Label(box,text='Quantidade').grid(row=0,column=2,sticky='w');numeric_entry(box,qty,width=12).grid(row=1,column=2,padx=6)
-        ttk.Label(box,text='Unidade').grid(row=0,column=3,sticky='w');unit_cb=ttk.Combobox(box,textvariable=unit,values=UNITS,state='readonly',width=9);unit_cb.grid(row=1,column=3,padx=6)
-        tree=ttk.Treeview(box,columns=('type','item','qty','unit','cost'),show='headings')
-        for k,t,w in [('type','Origem',120),('item','Componente',330),('qty','Qtd.',90),('unit','Un.',70),('cost','Custo',100)]:tree.heading(k,text=t);tree.column(k,width=w)
-        tree.grid(row=2,column=0,columnspan=5,sticky='nsew',pady=12);box.rowconfigure(2,weight=1);box.columnconfigure(1,weight=1)
+        
+        try: text_col = self.colors.get('text', '#18223A')
+        except: text_col = '#18223A'
+        
+        def make_field(parent, label, var, w_chars, w_pixels=None, is_dropdown=False, opts=None, bg=None, is_num=False, is_money=False):
+            bg = bg or parent.cget('bg')
+            wrap = tk.Frame(parent, bg=bg)
+            tk.Label(wrap, text=label, bg=bg, fg=text_col, font=('Segoe UI', 9)).pack(anchor='w', padx=4, pady=(1,0))
+            if is_dropdown:
+                wd = RoundedDropdown(wrap, var, opts or [], width=w_pixels or 140, align='left')
+            elif is_money:
+                wd = masked_money_entry(wrap, var, width=w_chars)
+            elif is_num:
+                wd = numeric_entry(wrap, var, width=w_chars)
+            else:
+                wd, _ = rounded_entry(wrap, var, width=w_chars)
+            wd.pack(fill='x', expand=True, padx=4, pady=(0,8))
+            return wrap, wd
+
+        top = tk.Frame(d, bg=d.cget('bg'), padx=24, pady=16); top.pack(fill='x')
+        make_field(top, 'Nome *', name, 30)[0].pack(side='left', fill='x', expand=True)
+        make_field(top, 'Peso/Rend.', weight, 12, is_num=True)[0].pack(side='left')
+        make_field(top, 'Unidade', weight_unit, 10, is_dropdown=True, opts=UNITS)[0].pack(side='left')
+        make_field(top, 'Preço Venda', price, 16, is_money=True)[0].pack(side='left')
+        make_field(top, 'Observações', notes, 24)[0].pack(side='left', fill='x', expand=True)
+        
+        box_outer = tk.Frame(d, bg=d.cget('bg'), padx=16, pady=4); box_outer.pack(fill='both', expand=True)
+        tk.Label(box_outer, text='Composição por unidade vendida', bg=d.cget('bg'), fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 4))
+        
+        box_top = RoundedPanel(box_outer, fill='#FFFFFF', radius=12, bg=d.cget('bg'))
+        box_top.pack(fill='x', pady=(0, 8))
+        
+        typ=tk.StringVar(value='INSUMO');ref=tk.StringVar();qty=tk.StringVar();unit=tk.StringVar(value='g');items=[]
+        
+        _, typ_wd = make_field(box_top, 'Origem', typ, 16, w_pixels=140, is_dropdown=True, opts=('INSUMO','RECEITA','PRODUTO'), bg='#FFFFFF')
+        typ_wd.master.pack(side='left', pady=4, padx=(4,0))
+        _, cb = make_field(box_top, 'Item', ref, 40, w_pixels=320, is_dropdown=True, bg='#FFFFFF')
+        cb.master.pack(side='left', fill='x', expand=True, pady=4)
+        make_field(box_top, 'Quantidade', qty, 12, is_num=True, bg='#FFFFFF')[0].pack(side='left', pady=4)
+        _, unit_cb = make_field(box_top, 'Unidade', unit, 10, w_pixels=100, is_dropdown=True, opts=UNITS, bg='#FFFFFF')
+        unit_cb.master.pack(side='left', pady=4)
+        
         for r in current:
             with db() as c:
                 table={'MATERIAL':'materials','RECIPE_BASE':'base_recipes','PRODUCT':'products'}.get(r['item_type'])
                 rr=c.execute(f'SELECT id,name FROM {table} WHERE id=?',(r['ref_id'],)).fetchone() if table else None
             if rr: items.append((r['item_type'],r['ref_id'],rr['name'],r['qty_per_unit'],r['unit']))
+            
+        _, table_host = self._build_page_table_panel(box_outer)
+        
+        header_canvas = tk.Canvas(table_host, bg=self.colors['panel'], bd=0, highlightthickness=0, height=36)
+        header_canvas.pack(fill='x', padx=2, pady=(0,0))
+        
+        tree=ttk.Treeview(table_host, columns=('type','item','qty','unit','cost','dummy','edit','delete'), show='tree')
+        tree.column('#0', width=60, minwidth=60, stretch=False)
+        for k, w, a in [('type', 120, 'w'), ('item', 330, 'w'), ('qty', 90, 'center'), ('unit', 70, 'center'), ('cost', 100, 'center'), ('dummy', 0, 'w'), ('edit', 30, 'center'), ('delete', 30, 'center')]:
+            tree.column(k, width=w, minwidth=w, anchor=a, stretch=(k=='dummy'))
+        tree.pack(fill='both', expand=True)
+        
+        header_specs = [('type', 'Origem', 120), ('item', 'Componente', 330), ('qty', 'Qtd.', 90), ('unit', 'Un.', 70), ('cost', 'Custo', 100), ('dummy', '', 0), ('edit', '', 30), ('delete', '', 30)]
+        
+        def redraw_header(_event=None):
+            c = header_canvas; c.delete('all')
+            w = max(c.winfo_width(), 2); h = max(c.winfo_height(), 2)
+            r = min(h/2, 18); fill = '#EEF4FB'
+            c.create_rectangle(r, 0, w-r, h, fill=fill, outline=''); c.create_rectangle(0, r, w, h-r, fill=fill, outline='')
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill); c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill); c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+            x0 = 0
+            for idx, (key, txt, cw) in enumerate(header_specs):
+                if key == 'dummy': cw = int(tree.column('dummy', 'width'))
+                if key in ('edit', 'delete'): x0 += cw; continue
+                align = 'w' if key in ('type', 'item') else 'center'
+                anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
+                if idx == 0: x0 += 60 
+                c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
+                x0 += cw
+                
+            all_checked = len(self._checked_rows.get(str(tree), set())) == len(tree.get_children()) and tree.get_children()
+            c.create_image(30, h/2, image=self._img_chk_on if all_checked else self._img_chk_off, anchor='center', tags=('master_chk',))
+            c.tag_bind('master_chk', '<Button-1>', lambda e: toggle_master_chk())
+            c.tag_bind('master_chk', '<Enter>', lambda e: c.config(cursor='hand2'))
+            c.tag_bind('master_chk', '<Leave>', lambda e: c.config(cursor='arrow'))
+            
+        def toggle_master_chk():
+            cset = self._checked_rows.get(str(tree), set())
+            children = tree.get_children()
+            if len(cset) == len(children) and children: cset.clear()
+            else: cset.update(children)
+            self._checked_rows[str(tree)] = cset
+            redraw_header(); _redraw_overlay()
+            
+        header_canvas.bind('<Configure>', redraw_header)
+        
+        ov = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+        ov.place(relx=1.0, x=0, y=36, width=60, relheight=1.0, height=-36, anchor='ne')
+        ov._icon_refs = []
+        ov_left = tk.Canvas(table_host, bd=0, highlightthickness=0, cursor='arrow', bg=self.colors['field'])
+        ov_left.place(relx=0, x=0, y=36, width=60, relheight=1.0, height=-36, anchor='nw')
+        
+        def _redraw_overlay(*_):
+            ov.delete('all'); ov_left.delete('all')
+            ov._icon_refs.clear()
+            img_e = self._make_row_icon('edit')
+            img_d = self._make_row_icon('delete')
+            if img_e: ov._icon_refs.append(img_e)
+            if img_d: ov._icon_refs.append(img_d)
+            ex, dx = 15, 45
+            selected = set(tree.selection())
+            for iid in tree.get_children():
+                bb = tree.bbox(iid)
+                if not bb: continue
+                _, ry, _, rh = bb
+                bg_color = self.colors['accent_soft'] if iid in selected else self.colors['field']
+                
+                ov_left.create_rectangle(0, ry, 60, ry + rh, fill=bg_color, outline='', tags=(f'c_{iid}',))
+                is_checked = iid in self._checked_rows.get(str(tree), set())
+                cy = ry + rh // 2
+                ov_left.create_image(30, cy, image=self._img_chk_on if is_checked else self._img_chk_off, anchor='center', tags=(f'c_{iid}',))
+                ov_left.tag_bind(f'c_{iid}', '<Button-1>', lambda ev, i=iid: (self._toggle_checkbox(tree, i), redraw_header(), _redraw_overlay()))
+                ov_left.tag_bind(f'c_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
+                ov_left.tag_bind(f'c_{iid}', '<Leave>', lambda ev, i=iid: ov_left.config(cursor='arrow'))
+                
+                ov.create_rectangle(0, ry, 60, ry + rh, fill=bg_color, outline='')
+                if img_e:
+                    ov.create_image(ex, cy, image=img_e, anchor='center', tags=(f'e_{iid}',))
+                    ov.tag_bind(f'e_{iid}', '<Button-1>', lambda ev, i=iid: (tree.selection_set(i), edit_item()))
+                    ov.tag_bind(f'e_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
+                    ov.tag_bind(f'e_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
+                if img_d:
+                    ov.create_image(dx, cy, image=img_d, anchor='center', tags=(f'd_{iid}',))
+                    ov.tag_bind(f'd_{iid}', '<Button-1>', lambda ev, i=iid: (tree.selection_set(i), delete_item()))
+                    ov.tag_bind(f'd_{iid}', '<Enter>', lambda ev, i=iid: ov.config(cursor='hand2'))
+                    ov.tag_bind(f'd_{iid}', '<Leave>', lambda ev, i=iid: ov.config(cursor='arrow'))
+
+        tree.bind('<Configure>', lambda e: (redraw_header(), _redraw_overlay()), add='+')
+        tree.bind('<<TreeviewSelect>>', _redraw_overlay, add='+')
+        
         def load_ref(*_):
             if not typ.get(): return
             typemap={'INSUMO':'materials','RECEITA':'base_recipes','PRODUTO':'products'}
@@ -3881,8 +4323,19 @@ class App(tk.Tk):
             for r in list_names(table):
                 if table=='products' and current_pid and r['id']==current_pid:continue
                 vals.append(f'{r["id"]} — {r["name"]}')
-            cb['values']=vals;ref.set('');unit_cb['values']=UNITS
+            cb._opts = vals; ref.set(''); unit_cb._opts = UNITS
+            
         typ.trace_add('write',load_ref)
+        
+        def refresh_items():
+            for x in tree.get_children():tree.delete(x)
+            for i, it in enumerate(items):
+                t,r,n,qv,uv=it
+                try:cst=item_cost(t,r,qv,uv)
+                except Exception:cst=0
+                tree.insert('','end',iid=str(i),values=({'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}.get(t,t),n,qv,uv,fmt(cst)))
+            redraw_header(); _redraw_overlay()
+                
         def add():
             try:
                 if '—' not in ref.get():raise ValueError('Selecione um componente relacionado ao Cadastro, Receita ou Produto.')
@@ -3894,31 +4347,36 @@ class App(tk.Tk):
                 internal={'INSUMO':'MATERIAL','RECEITA':'RECIPE_BASE','PRODUTO':'PRODUCT'}[typ.get()]
                 items.append((internal,rid,rr['name'],qv,uv));refresh_items();qty.set('')
             except Exception as e:safe_error(d,'Não foi possível adicionar o componente',e)
-        def refresh_items():
-            for x in tree.get_children():tree.delete(x)
-            for it in items:
-                t,r,n,qv,uv=it
-                try:cst=item_cost(t,r,qv,uv)
-                except Exception:cst=0
-                tree.insert('','end',values=({'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}.get(t,t),n,qv,uv,fmt(cst)))
-        ttk.Button(box,text='Adicionar',command=add).grid(row=1,column=4,padx=7)
+            
+        RoundedActionButton(box_top, 'Adicionar', add, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left', padx=12, pady=(16,4))
+        
         def edit_item():
             sel=tree.selection()
             if not sel:
                 messagebox.showwarning('Produto','Selecione um componente para editar.',parent=d); return
-            idx=tree.index(sel[0]); t,r,n,qv,uv=items[idx]
+            idx=int(sel[0]); t,r,n,qv,uv=items[idx]
             display={'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}[t]
             typ.set(display); load_ref()
             ref.set(f'{r} — {n}'); qty.set(fmt_num(qv)); unit.set(uv)
             items.pop(idx); refresh_items()
+            
         def delete_item():
             sel=tree.selection()
             if not sel:
                 messagebox.showwarning('Produto','Selecione um componente para excluir.',parent=d); return
-            items.pop(tree.index(sel[0])); refresh_items()
-        FlatEmojiButton(box,'✏️',edit_item).grid(row=3,column=0,sticky='w',padx=0,pady=(0,4))
-        FlatEmojiButton(box,'🗑️',delete_item).grid(row=3,column=1,sticky='w',padx=8,pady=(0,4))
+            items.pop(int(sel[0])); refresh_items()
+            
+        def bulk_delete_items():
+            cset = self._checked_rows.get(str(tree), set())
+            if not cset: return
+            if not messagebox.askyesno('Produto', f'Excluir {len(cset)} itens marcados da composição?', parent=d): return
+            indices = sorted([int(i) for i in cset], reverse=True)
+            for idx in indices: items.pop(idx)
+            cset.clear()
+            refresh_items()
+            
         tree.bind('<Double-1>',lambda e: edit_item())
+        
         def save():
             try:
                 n=name.get().strip()
@@ -3941,14 +4399,17 @@ class App(tk.Tk):
                     for t,r,qv,uv in [(i[0],i[1],i[3],i[4]) for i in items]:c.execute('INSERT INTO product_items(product_id,item_type,ref_id,qty_per_unit,unit) VALUES(?,?,?,?,?)',(pid,t,r,qv,uv))
                 snapshot_costs();d.destroy();self.refresh_all();self.notify('Produto salvo com sucesso.')
             except Exception as e:safe_error(d,'Não foi possível salvar o Produto',e)
-        #
+            
+        ttk.Label(d,text='* campo obrigatório; Peso/Rendimento pode ser definido depois.').pack(anchor='w',padx=16,pady=(0,4))
+        
         act=d.action_host
         left=tk.Frame(act,bg=d.cget('bg'));left.pack(side='left',fill='y')
-        FlatEmojiButton(left,'✏️',edit_item).pack(side='left',padx=(0,8),pady=7)
-        FlatEmojiButton(left,'🗑️',delete_item).pack(side='left',pady=7)
+        RoundedActionButton(left, '<delete> Excluir Selecionados', bulk_delete_items, width=160, height=38, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030').pack(side='left', pady=7)
+        
         right=tk.Frame(act,bg=d.cget('bg'));right.pack(side='right',fill='y')
         RoundedActionButton(right,'Salvar',save,width=92,height=38,fill='#F28C28',hover='#BA5200').pack(side='left',padx=(6,0),pady=7)
         RoundedActionButton(right,'Cancelar',d.destroy,width=92,height=38,fill='#6B7280',hover='#4B5563').pack(side='left',padx=(6,0),pady=7)
+        
         load_ref();refresh_items()
 
     def new_product(self): self.product_form()
