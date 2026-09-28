@@ -18,3 +18,10 @@
 - **UI Checkboxes:** Substituído checkboxes textuais em nativo por imagens renderizadas PIL (resolvendo problemas de highlight e rendering feio do Windows).
 - **Sidebar & Responsividade:** O minsize da janela foi reduzido para (1000x600). A Sidebar ganhou matemática de re-ancoragem (Efeito Sanfona) garantindo que botões (como a Engrenagem de Configurações) jamais vazem os limites, independente do monitor.
 - **Engrenagem de Colunas:** Implementado `_show_generic_col_menu` compartilhado globalmente. A engrenagem da tela Cadastro, Receitas e Produtos agora funcionam de forma autônoma para ocultar/mostrar colunas e persistem via banco.
+
+## Regras de Backup e Versionamento (Auto-Commit)
+- **12h00 (Backup Diário):** A IA aciona uma verificação de `git status`.
+- **18h00 (Nova Versão):** A IA aciona uma verificação de `git status` para gerar uma nova versão.
+- **Protocolo de Segurança Absoluto:**
+  1. Se não houver alterações, ignorar silenciosamente.
+  2. Se houver alterações, **MAS** a IA estiver ativamente escrevendo código ou no meio de uma tarefa com o usuário, a IA **É OBRIGADA** a perguntar e pedir permissão antes de fazer o commit. NUNCA suba código incompleto ou potencialmente quebrado sem aprovação explícita.
