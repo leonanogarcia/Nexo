@@ -19,3 +19,8 @@
 
 ## 4. Relations & Integrity
 - **ON DELETE Rule:** Items should be archived (`archived = 1`) or use cascading rules if deletion is permitted. Attempting to delete a material linked to a recipe currently throws an `IntegrityError`. This is a known architectural rule to be addressed.
+
+## 5. Identificadores de Ativos (SKUs) - Regra de Ouro
+- O campo `code` gerado para Insumos (`INS_...`), Receitas (`REC_...`) e Produtos (`PRD_...`) é o **identificador logístico e visual absoluto** do item para o usuário (como se fosse um RG do item).
+- **Imutabilidade:** O código é gerado automaticamente na criação da entidade e NUNCA deve ser alterado manualmente. Telas de edição são estritamente proibidas de permitir a edição deste campo.
+- **Auditoria e BI:** Este código serve como âncora visual para rastreabilidade de estoque e comparação histórica. É por isso que ele deve ser preservado de alterações indevidas.

@@ -68,3 +68,12 @@ O sistema deve abandonar janelas nativas do Windows (`messagebox`, `simpledialog
 - Históricos na tabela `edit_history` são vitais para o BI, mas não podem inchar infinitamente.
 - O sistema mantém o parâmetro `history_retention_months` (tabela `system_settings`), editável na tela de Configurações.
 - Uma rotina automática rodará na inicialização do app excluindo qualquer linha no `edit_history` cuja idade ultrapasse os meses estipulados.
+
+### D. Padrões Visuais para Modais de Histórico (CustomHistoryModal)
+Qualquer histórico transacional (Insumos, Receitas, Produtos) DEVE utilizar a classe CustomHistoryModal e respeitar as seguintes regras:
+- **Separação de Títulos:** A barra nativa do Windows deve exibir "Histórico: Nome do Item", mas o Label interno em negrito deve exibir APENAS o "Nome do Item" para evitar redundância ("Histórico: " é cortado via código).
+- **Cabeçalho da Tabela:** É PROIBIDO o uso do cabeçalho cinza nativo do Treeview (show='headings'). O motor do histórico utiliza show='tree' com o '#0' esmagado, e desenha um 	k.Canvas arredondado com hover e setas de ordenação, exatamente como nas tabelas principais.
+- **Scrollbar:** É OBRIGATÓRIO o uso da barra flutuante customizada VerticalPillScrollbar para não quebrar o layout moderno. Nada de barras de rolagem nativas cinzas.
+- **Pureza de Dados (Golden Rule):** O histórico deve exibir APENAS dados voláteis pertinentes à transação ou snapshot de custo (Data/Hora, Qtd, Unidade, Custo, Marca). É **expressamente proibido** injetar dados cadastrais estáticos ou mestre (como Categoria, Código, Código de Barras, Status Ativo/Inativo) nas tabelas de histórico, pois isso polui a UI e repete o mesmo dado de hoje em linhas do passado falsamente.
+- **Injeção do Hoje:** A condição atual do item (valores extraídos vivos da tabela no momento do clique) deve ser mapeada na ordem correta e injetada no array com a data Agora (Hoje). Ela deve participar da lista ordenável organicamente, sem fixação mágica, permitindo que os filtros operem sobre ela livremente.
+- **Formatação Automática de Data:** Registros antigos importados sem hora definida (ex: "2026-09-22") devem ser completados com "00:00" para manter o espaçamento visual perfeito na coluna "Data/Hora".

@@ -531,10 +531,10 @@ def conversion_to_base(material_id, unit, qty):
     with db() as c:
         row = c.execute('SELECT base_unit,factor_to_base FROM custom_units WHERE material_id=? AND name=?', (material_id, unit)).fetchone()
     if row:
-        current_base = configured_base_unit(dimension_of_unit(row['base_unit']))
-        if row['base_unit'] != current_base:
-            raise ValueError(f'A conversão configurável "{unit}" precisa ser atualizada para a unidade interna atual ({current_base}).')
-        return qty * row['factor_to_base'], current_base
+        f_from, current_base = unit_factor_to_internal(row['base_unit'])
+        if f_from is None:
+            raise ValueError(f'A unidade base "{row["base_unit"]}" configurada para "{unit}" não é válida.')
+        return qty * row['factor_to_base'] * f_from, current_base
     raise ValueError(f'Não existe conversão configurada para "{unit}" neste insumo.')
 
 
@@ -952,7 +952,8 @@ class RoundedActionButton(tk.Frame):
         c_text = ' '.join(c_text.split())
         calc_w = f.measure(c_text) + (24 if c_text != text else 0) + 36
         if c_text.strip(): width = max(width, calc_w)
-        super().__init__(parent,bg=parent.cget('bg'),bd=0,highlightthickness=0,width=width,height=height,cursor='hand2',**kwargs)
+        bg_color = kwargs.pop('bg', parent.cget('bg'))
+        super().__init__(parent,bg=bg_color,bd=0,highlightthickness=0,width=width,height=height,cursor='hand2',**kwargs)
         self.pack_propagate(False); self._base_fill=fill; self._hover_fill=hover; self._current_fill=fill; self._fg=fg; self._text=text; self._command=command; self._font=font; self._tkfont=f
         self._canvas=tk.Canvas(self,bg=self.cget('bg'),bd=0,highlightthickness=0); self._canvas.pack(fill='both',expand=True)
         self._img_ref=None; self._icon=self._detect_icon(text); self._label=self._clean_text(text)
@@ -1067,14 +1068,15 @@ class RoundedActionButton(tk.Frame):
             self._canvas.create_text(w/2,cy,text=self._label,fill=self._fg,font=self._font,anchor='center')
 
 class RoundedEntry(tk.Frame):
-    def __init__(self,parent,textvariable,width=280,height=32,placeholder='Pesquisar',**kwargs):
+    def __init__(self,parent,textvariable,width=280,height=32,placeholder='Pesquisar',icon=True,**kwargs):
+        self._icon=icon
         super().__init__(parent,bg=parent.cget('bg'),bd=0,highlightthickness=0,width=width,height=height,**kwargs)
         self.pack_propagate(False); self.grid_propagate(False)
         self.config(width=width, height=height)
         self._bg='#FFFFFF'; self._line='#B0C0D6'; self._placeholder=placeholder
         self._canvas=tk.Canvas(self,bg=self.cget('bg'),bd=0,highlightthickness=0); self._canvas.place(relwidth=1,relheight=1)
         self.entry=tk.Entry(self,textvariable=textvariable,bg=self._bg,fg='#18223A',insertbackground='#18223A',relief='flat',bd=0,highlightthickness=0,font=('Segoe UI',10))
-        self.entry.place(x=42,rely=.5,anchor='w',relwidth=1,width=-56,relheight=.56)
+        self.entry.place(x=42 if self._icon else 16,rely=.5,anchor='w',relwidth=1,width=-56 if self._icon else -32,relheight=.56)
         self._var=textvariable
         self._var.trace_add('write',lambda *a:self._update_placeholder())
         self.entry.bind('<FocusIn>',lambda e:self._update_placeholder())
@@ -1087,7 +1089,7 @@ class RoundedEntry(tk.Frame):
     def _update_placeholder(self):
         if not hasattr(self,'_placeholder_label'): return
         show = (not self._var.get()) and (self.focus_get() != self.entry)
-        self._placeholder_label.place_forget() if not show else self._placeholder_label.place(x=42,rely=.5,anchor='w',relheight=.56)
+        self._placeholder_label.place_forget() if not show else self._placeholder_label.place(x=42 if self._icon else 16,rely=.5,anchor='w',relheight=.56)
 
     def _redraw(self):
         w=self.winfo_width(); h=self.winfo_height(); r=h/2
@@ -1100,11 +1102,13 @@ class RoundedEntry(tk.Frame):
             im=im.resize((w,h),Image.Resampling.LANCZOS); self._img=ImageTk.PhotoImage(im); self._canvas.create_image(0,0,image=self._img,anchor='nw')
         except Exception:
             pass
-        cx, cy_icon = 19, h / 2 - 3
-        self._canvas.create_oval(cx-5, cy_icon-5, cx+5, cy_icon+5, outline='#9AA9BF', width=2)
-        self._canvas.create_line(cx+3, cy_icon+3, cx+8, cy_icon+8, fill='#9AA9BF', width=2, capstyle='round')
+        if self._icon:
+            cx, cy_icon = 19, h / 2 - 3
+            self._canvas.create_oval(cx-5, cy_icon-5, cx+5, cy_icon+5, outline='#9AA9BF', width=2)
+            self._canvas.create_line(cx+3, cy_icon+3, cx+8, cy_icon+8, fill='#9AA9BF', width=2, capstyle='round')
         if not hasattr(self,'_placeholder_label'):
             self._placeholder_label=tk.Label(self,text=self._placeholder,bg=self._bg,fg='#9AA9BF',font=('Segoe UI',10))
+            self._placeholder_label.bind('<Button-1>',lambda e:self.entry.focus_set())
             self._update_placeholder()
 
 
@@ -3239,6 +3243,30 @@ class App(tk.Tk):
             txt = tk.Text(btn_frame, height=4, font=('Segoe UI', 10), bg='#F9FBFC', bd=1, relief='solid', highlightthickness=0)
             txt.pack(fill='x', expand=True)
             
+            diffs = []
+            key_names = {
+                'name': 'Nome', 'purchase_qty': 'Quantidade de Compra', 'purchase_unit': 'Unidade de Compra',
+                'purchase_value': 'Valor de Compra', 'brand': 'Marca', 'category': 'Categoria', 'barcode': 'Cód. Barras',
+                'yield_qty': 'Rendimento', 'yield_unit': 'Unid. Rendimento', 'sale_price': 'Preço de Venda',
+                'weight_qty': 'Peso', 'weight_unit': 'Unid. Peso', 'notes': 'Observações'
+            }
+            for k, va in after.items():
+                if k == 'items': continue
+                vb = before.get(k) if isinstance(before, dict) else None
+                str_va = str(float(va)) if isinstance(va, (int, float)) and not isinstance(va, bool) else str(va).strip() if va is not None else ""
+                str_vb = str(float(vb)) if isinstance(vb, (int, float)) and not isinstance(vb, bool) else str(vb).strip() if vb is not None else ""
+                if str_va != str_vb:
+                    friendly_k = key_names.get(k, k)
+                    diffs.append(f"{friendly_k} (de '{str_vb}' para '{str_va}')")
+                    
+            if not diffs:
+                if 'items' in after:
+                    diffs.append("Alterou a Composição")
+                else:
+                    diffs.append("Nenhuma alteração detectada")
+            
+            txt.insert('1.0', ", ".join(diffs))
+            
             def save_reason():
                 r = txt.get('1.0', 'end').strip()
                 if not r:
@@ -3402,34 +3430,49 @@ class App(tk.Tk):
         with db() as c:
             mid=c.execute('SELECT id FROM materials WHERE code=?',(code,)).fetchone()['id']
             rows=c.execute('SELECT purchase_date,qty,unit,value,COALESCE(brand,\'\') FROM purchases WHERE material_id=? ORDER BY id DESC',(mid,)).fetchall()
-        ListDialog(self,'Histórico de compras',(('data','Data',100),('qtd','Qtd.',90),('un','Un.',65),('valor','Valor',100),('marca','Marca',140)),rows)
+        v = self.mat_tree.item(s[0])['values']
+        curr_row = (v[4], v[5], v[6], v[3]) if len(v) > 6 else ('-', '-', '-', '-')
+        CustomHistoryModal(self, f"Histórico: {v[2]}", (('data', 'Data/Hora', 165), ('qtd', 'Qtd.', 90), ('un', 'Un.', 65), ('valor', 'Custo', 100), ('marca', 'Marca', 140)), rows, current_row_data=curr_row)
 
     def material_conversion_dialog(self):
-        d=Modal(self, 'Conversões de Insumos', '740x520')
-        ttk.Label(d, text='Selecione o insumo para configurar suas unidades (Ex: xícara, colher).').pack(anchor='w', padx=16, pady=(12, 4))
+        d = Modal(self, 'Conversões de Insumos', '600x520')
         
-        sel_frame = ttk.Frame(d, padding=10)
-        sel_frame.pack(fill='x')
-        ttk.Label(sel_frame, text='Insumo: ').pack(side='left', padx=5)
+        # Subtitle
+        tk.Label(d, text='Selecione o insumo para configurar suas unidades (Ex: xícara, colher).', 
+                 bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('muted', '#60769D')).pack(anchor='w', padx=24, pady=(24, 12))
+        
+        # Insumo Combobox Area
+        sel_frame = tk.Frame(d, bg=self.colors.get('bg', '#F4F7FC'))
+        sel_frame.pack(fill='x', padx=24, pady=(0, 16))
+        
+        tk.Label(sel_frame, text='Insumo: ', bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 9, 'bold')).pack(side='left')
         mat_var = tk.StringVar()
-        mat_cb = ttk.Combobox(sel_frame, textvariable=mat_var, width=55, state='readonly')
-        mat_cb.pack(side='left', padx=5)
+        mat_cb = RoundedDropdown(sel_frame, mat_var, [], width=480, height=36, align='left')
+        mat_cb.pack(side='left', padx=12)
         
         mats = []
         with db() as c:
             for r in c.execute('SELECT id, code, name FROM materials ORDER BY name').fetchall():
                 mats.append(f"{r['id']} - {r['name']} ({r['code']})")
-        mat_cb['values'] = mats
+        mat_cb._opts = mats; mat_cb.after_idle(mat_cb._redraw)
 
-        form=ttk.Frame(d,padding=10);form.pack(fill='x')
-        name=tk.StringVar(); base=tk.StringVar(value='g'); factor=tk.StringVar()
-        ttk.Label(form,text='Unidade configurável *').grid(row=0,column=0,padx=5,sticky='w'); ttk.Entry(form,textvariable=name,width=24).grid(row=1,column=0,padx=5)
-        ttk.Label(form,text='Unid. interna *').grid(row=0,column=1,padx=5,sticky='w'); ttk.Combobox(form,textvariable=base,values=('mg','g','kg','ml','l','un'),state='readonly',width=12).grid(row=1,column=1,padx=5)
-        ttk.Label(form,text='Equivale a *').grid(row=0,column=2,padx=5,sticky='w'); ttk.Entry(form,textvariable=factor,width=18).grid(row=1,column=2,padx=5)
+        # Form Area
+        form = tk.Frame(d, bg=self.colors.get('bg', '#F4F7FC'))
+        form.pack(fill='x', padx=24)
         
-        tree=ttk.Treeview(d,columns=('name','base','factor'),show='headings')
-        for k,t,w in [('name','Unidade Configurável',240),('base','Un. Interna',140),('factor','Equivale a',160)]: tree.heading(k,text=t);tree.column(k,width=w)
-        tree.pack(fill='both',expand=True,padx=16,pady=12)
+        name = tk.StringVar(); base = tk.StringVar(value='g'); factor = tk.StringVar()
+        
+        lbl_cfg = tk.Label(form, text='Unidade configurável *', bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('text', '#18223A'))
+        lbl_cfg.grid(row=0, column=0, padx=(0, 12), sticky='w', pady=(0, 4))
+        RoundedEntry(form, name, width=200, height=36, placeholder='Ex: Xícara', icon=False).grid(row=1, column=0, padx=(0, 12))
+        
+        lbl_int = tk.Label(form, text='Un. Interna *', bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('text', '#18223A'))
+        lbl_int.grid(row=0, column=1, padx=(0, 12), sticky='w', pady=(0, 4))
+        RoundedDropdown(form, base, ('mg','g','kg','ml','l','un'), width=90, height=36).grid(row=1, column=1, padx=(0, 12))
+        
+        lbl_eq = tk.Label(form, text='Equivale a *', bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('text', '#18223A'))
+        lbl_eq.grid(row=0, column=2, padx=(0, 12), sticky='w', pady=(0, 4))
+        RoundedEntry(form, factor, width=120, height=36, placeholder='Ex: 200', icon=False).grid(row=1, column=2, padx=(0, 12))
         
         def refresh(*_):
             for x in tree.get_children(): tree.delete(x)
@@ -3438,7 +3481,7 @@ class App(tk.Tk):
             for r in custom_units_for_material(mid):
                 tree.insert('','end',values=(r['name'],r['base_unit'],r['factor_to_base']))
                 
-        mat_cb.bind('<<ComboboxSelected>>', refresh)
+        mat_var.trace_add('write', lambda *_: refresh())
         
         def add():
             try:
@@ -3459,21 +3502,62 @@ class App(tk.Tk):
             except Exception as e:
                 safe_error(d,'Não foi possível salvar a conversão',e)
                 
-        ttk.Button(form,text='Salvar',command=add).grid(row=1,column=3,padx=8)
+        RoundedActionButton(form, 'Salvar', add, width=100, height=36, fill='#F28C28', hover='#F6A45A', fg='#FFFFFF').grid(row=1, column=3, sticky='s', pady=0)
         
-        def del_conv():
-            s = tree.selection()
-            if not s or not mat_var.get(): return
-            mid = int(mat_var.get().split(' - ')[0])
-            n = tree.item(s[0])['values'][0]
-            with db() as c: c.execute('DELETE FROM custom_units WHERE material_id=? AND name=?', (mid, n))
-            refresh()
-            self.notify('Conversão removida.')
+        # Table Area
+        table_frame = tk.Frame(d, bg=self.colors.get('bg', '#F4F7FC'))
+        table_frame.pack(fill='both', expand=True, padx=24, pady=(24, 24))
+        
+        header_canvas = tk.Canvas(table_frame, height=36, bg=self.colors.get('bg', '#F4F7FC'), highlightthickness=0)
+        header_canvas.pack(side='top', fill='x')
+        
+        tree_container = tk.Frame(table_frame, bg=self.colors.get('bg', '#F4F7FC'))
+        tree_container.pack(side='top', fill='both', expand=True)
+        
+        tree = ttk.Treeview(tree_container, columns=('name','base','factor'), show='tree')
+        tree.column('#0', width=0, stretch=False)
+        tree.pack(side='left', fill='both', expand=True)
+        
+        vsb = VerticalPillScrollbar(tree_container, tree)
+        
+        columns = [('name', 'Unidade Configurável', 240), ('base', 'Un. Interna', 140), ('factor', 'Equivale a', 160)]
+        for k, t, w in columns:
+            tree.column(k, width=w, anchor='center')
             
-        btn_bar = ttk.Frame(d)
-        btn_bar.pack(fill='x', padx=16, pady=(0, 12))
-        ttk.Button(btn_bar, text='Excluir selecionada', command=del_conv).pack(side='left')
-        ttk.Button(btn_bar, text='Fechar', command=d.destroy).pack(side='right')
+        def draw_header(e=None):
+            c = header_canvas
+            c.delete('all')
+            w = max(c.winfo_width(), 2)
+            h = max(c.winfo_height(), 2)
+            r = min(h/2, 18)
+            fill = '#EEF4FB'
+            
+            c.create_rectangle(r, 0, w-r, h, fill=fill, outline='')
+            c.create_rectangle(0, r, w, h-r, fill=fill, outline='')
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+            
+            try: x_offset = float(tree.xview()[0]) * sum(int(tree.column(col[0], 'width')) for col in columns)
+            except Exception: x_offset = 0
+            
+            x0 = -x_offset
+            for idx, (key, txt, width) in enumerate(columns):
+                try: cw = int(tree.column(key, 'width'))
+                except Exception: cw = width
+                
+                align = 'w' if key == 'name' else 'center'
+                anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
+                
+                c.create_text(anchor_x, h/2, text=txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
+                if idx < len(columns) - 1:
+                    c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                x0 += cw
+                
+        header_canvas.bind('<Configure>', draw_header)
+        tree.bind('<Configure>', lambda e: tree.after_idle(draw_header))
+        d.after_idle(draw_header)
 
     # ---------- Receitas ----------
     def recipes_page(self, f):
@@ -3931,7 +4015,7 @@ class App(tk.Tk):
                 items.append((mid,material_var.get().split(' — ')[1].split(' (')[0],q,u));material_var.set('');qty_var.set('');refresh_items()
             except Exception as e:safe_error(d,'Não foi possível adicionar o item',e)
             
-        RoundedActionButton(box_top, 'Adicionar', add_item, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left', padx=12, pady=(16,4))
+        RoundedActionButton(box_top, 'Adicionar', add_item, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557', bg='#FFFFFF').pack(side='left', padx=12, pady=(16,4))
         
         def edit_item():
             sel=tree.selection()
@@ -4138,7 +4222,9 @@ class App(tk.Tk):
         with db() as c:r=c.execute('SELECT id FROM base_recipes WHERE code=?',(code,)).fetchone()
         if not r:return
         with db() as c:rows=c.execute("SELECT substr(recorded_at,1,7),cost,recorded_at FROM cost_history WHERE entity_type='RECIPE_BASE' AND entity_id=? ORDER BY id DESC",(r['id'],)).fetchall()
-        ListDialog(self,'Histórico de custo da Receita',(('mes','Mês',100),('custo','Custo',120),('registro','Registro',180)),rows)
+        v = self.rec_tree.item(s[0])['values']
+        curr_row = (v[4],) if len(v) > 4 else ('-')
+        CustomHistoryModal(self, f"Histórico: {v[1]}", (('registro', 'Data/Hora', 165), ('custo', 'Custo', 120)), [(r[2], r[1]) for r in rows], current_row_data=curr_row)
 
     def open_original_document(self):
         s=self.rec_tree.selection()
@@ -4520,7 +4606,7 @@ class App(tk.Tk):
                 items.append((internal,rid,rr['name'],qv,uv));refresh_items();qty.set('')
             except Exception as e:safe_error(d,'Não foi possível adicionar o componente',e)
             
-        RoundedActionButton(box_top, 'Adicionar', add, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left', padx=12, pady=(16,4))
+        RoundedActionButton(box_top, 'Adicionar', add, width=100, height=32, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557', bg='#FFFFFF').pack(side='left', padx=12, pady=(16,4))
         
         def edit_item():
             sel=tree.selection()
@@ -4711,7 +4797,9 @@ class App(tk.Tk):
         with db() as c:p=c.execute('SELECT id FROM products WHERE code=?',(code,)).fetchone()
         if not p:return
         with db() as c:rows=c.execute('SELECT substr(recorded_at,1,7),cost,recorded_at FROM cost_history WHERE entity_type=\'PRODUCT\' AND entity_id=? ORDER BY id DESC',(p['id'],)).fetchall()
-        ListDialog(self,'Histórico de custo',(('mes','Mês',100),('custo','Custo',120),('registro','Registro',180)),rows)
+        v = self.prod_tree.item(s[0])['values']
+        curr_row = (v[4],) if len(v) > 4 else ('-')
+        CustomHistoryModal(self, f"Histórico: {v[1]}", (('registro', 'Data/Hora', 165), ('custo', 'Custo', 120)), [(r[2], r[1]) for r in rows], current_row_data=curr_row)
 
     # ---------- Configurações ----------
     def settings_page(self,f):
@@ -5049,6 +5137,234 @@ class App(tk.Tk):
             self.after_idle(self.refresh_general)
 
 
+class VerticalPillScrollbar(tk.Canvas):
+    def __init__(self, parent, tree, **kwargs):
+        super().__init__(parent, width=8, bg=parent.cget('bg'), bd=0, highlightthickness=0, **kwargs)
+        self.tree = tree
+        self.tree.configure(yscrollcommand=self._on_scroll)
+        self.bind('<Configure>', self._redraw)
+        self.bind('<ButtonPress-1>', self._on_press)
+        self.bind('<B1-Motion>', self._on_drag)
+        self._pos = (0.0, 1.0)
+        self._drag_data = {'y': 0, 'start_pos': 0.0}
+
+    def _on_scroll(self, first, last):
+        first, last = float(first), float(last)
+        self._pos = (first, last)
+        if first <= 0.001 and last >= 0.999:
+            if self.winfo_ismapped():
+                self.pack_forget()
+        else:
+            if not self.winfo_ismapped():
+                self.pack(side='right', fill='y', pady=20, padx=(0, 4))
+            self.tk.call('raise', self._w)
+        self._redraw()
+
+    def _redraw(self, e=None):
+        w, h = self.winfo_width(), self.winfo_height()
+        if h < 10: return
+        self.delete('all')
+        first, last = self._pos
+        if first <= 0.001 and last >= 0.999: return
+        r = w / 2
+        y1 = max(r, first * h)
+        y2 = min(h - r, last * h)
+        if y2 - y1 < 20:
+            mid = (y1 + y2) / 2
+            y1, y2 = mid - 10, mid + 10
+            y1 = max(r, y1)
+            y2 = min(h - r, max(y1+20, y2))
+        self.create_line(w / 2, y1, w / 2, y2, fill='#A0ABB9', width=w, capstyle='round')
+
+    def _on_press(self, e):
+        h = self.winfo_height()
+        first, last = self._pos
+        y1 = first * h; y2 = last * h
+        if y1 <= e.y <= y2:
+            self._drag_data['y'] = e.y
+            self._drag_data['start_pos'] = first
+        else:
+            new_first = max(0.0, min(1.0 - (last-first), (e.y / h) - (last-first)/2))
+            self.tree.yview_moveto(new_first)
+
+    def _on_drag(self, e):
+        h = self.winfo_height()
+        dy = e.y - self._drag_data['y']
+        first, last = self._pos
+        delta_pos = dy / h
+        new_first = max(0.0, min(1.0 - (last-first), self._drag_data['start_pos'] + delta_pos))
+        self.tree.yview_moveto(new_first)
+
+class CustomHistoryModal(Modal):
+    def __init__(self, master, title, columns, rows, current_row_data=None):
+        super().__init__(master, title, '760x520')
+        
+        self.colors = master.colors if hasattr(master, 'colors') else {'bg': '#F4F7FC', 'primary': '#0D6EFD', 'text': '#18223A', 'line': '#E2EAF5'}
+        self.configure(bg=self.colors.get('bg', '#F4F7FC'))
+        
+        # Footer
+        act_frame = tk.Frame(self, bg=self.colors.get('bg', '#F4F7FC'))
+        act_frame.pack(side='bottom', fill='x', padx=24, pady=20)
+        RoundedActionButton(act_frame, '📄 Exportar Relatório', self.export_csv, width=180, height=36, fill='#EAFaf1', hover='#D4E6DC', fg='#1E833F').pack(side='right')
+
+        # Header Area
+        top_bar = tk.Frame(self, bg=self.colors.get('bg', '#F4F7FC'))
+        top_bar.pack(side='top', fill='x', padx=24, pady=(24, 16))
+        
+        # Big Title
+        internal_title = title.replace("Histórico: ", "")
+        tk.Label(top_bar, text=internal_title, bg=self.colors.get('bg', '#F4F7FC'), fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 16, 'bold')).pack(side='left')
+        
+        # Search Box
+        search_frame = tk.Frame(top_bar, bg=self.colors.get('bg', '#F4F7FC'))
+        search_frame.pack(side='right')
+        self.search_var = tk.StringVar()
+        search_entry = RoundedEntry(search_frame, textvariable=self.search_var, width=180, height=32, placeholder="Filtrar...")
+        search_entry.pack()
+        self.search_var.trace_add('write', lambda *_: self._on_search())
+        
+        # Table Area
+        table_frame = tk.Frame(self, bg=self.colors.get('bg', '#F4F7FC'))
+        table_frame.pack(fill='both', expand=True, padx=24, pady=(0, 0))
+        
+        self.header_canvas = tk.Canvas(table_frame, height=36, bg=self.colors.get('bg', '#F4F7FC'), highlightthickness=0)
+        self.header_canvas.pack(side='top', fill='x')
+        
+        tree_container = tk.Frame(table_frame, bg=self.colors.get('bg', '#F4F7FC'))
+        tree_container.pack(side='top', fill='both', expand=True)
+        
+        self.tree = ttk.Treeview(tree_container, columns=[c[0] for c in columns], show='tree')
+        self.tree.column('#0', width=0, stretch=False)
+        self.tree.pack(side='left', fill='both', expand=True)
+        
+        # New Scrollbar
+        self.vsb = VerticalPillScrollbar(tree_container, self.tree)
+        
+        # Formatting & Sorting setup
+        self._sort_dirs = {}
+        for k, t, w in columns:
+            self.tree.column(k, width=w, anchor='center')
+            
+        self.raw_rows = rows
+        self.columns = columns
+        
+        # Inject current value as first row if it's not already there
+        self.display_rows = list(rows)
+        if current_row_data is not None:
+            from datetime import datetime
+            now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S") + " (Hoje)"
+            mock_row = [now_str]
+            for v in current_row_data:
+                mock_row.append(v)
+            self.display_rows.insert(0, tuple(mock_row))
+
+        self._populate_tree(self.display_rows)
+        
+        self.header_canvas.bind('<Configure>', self._draw_header)
+        self.tree.bind('<Configure>', lambda e: self.tree.after_idle(self._draw_header))
+        self.after_idle(self._draw_header)
+
+    def _draw_header(self, e=None):
+        c = self.header_canvas
+        c.delete('all')
+        w = max(c.winfo_width(), 2)
+        h = max(c.winfo_height(), 2)
+        r = min(h/2, 18)
+        fill = '#EEF4FB'
+        
+        c.create_rectangle(r, 0, w-r, h, fill=fill, outline='')
+        c.create_rectangle(0, r, w, h-r, fill=fill, outline='')
+        c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+        c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+        c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+        c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+        
+        try: x_offset = float(self.tree.xview()[0]) * sum(int(self.tree.column(c[0], 'width')) for c in self.columns)
+        except Exception: x_offset = 0
+        
+        x0 = -x_offset
+        for idx, (key, txt, width) in enumerate(self.columns):
+            try: cw = int(self.tree.column(key, 'width'))
+            except Exception: cw = width
+            
+            align = 'w' if key in ('data', 'registro', 'marca') else 'center'
+            anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
+            
+            arrow_txt = ''
+            if key in self._sort_dirs:
+                arrow_txt = ' ▼' if not self._sort_dirs[key] else ' ▲'
+            
+            full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
+            tid = c.create_text(anchor_x, h/2, text=full_txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
+            
+            hitbox = c.create_rectangle(x0, 0, x0+cw, h, fill='', outline='', tags=(f'hdr_{key}',))
+            c.tag_bind(f'hdr_{key}', '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
+            c.tag_bind(f'hdr_{key}', '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
+            c.tag_bind(f'hdr_{key}', '<Button-1>', lambda e, k=key: self._sort_col(k))
+            c.tag_bind(f'hdr_{key}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
+            c.tag_bind(f'hdr_{key}', '<Leave>', lambda e: c.config(cursor=''), add='+')
+            
+            if idx < len(self.columns) - 1:
+                c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+            x0 += cw
+
+    def _sort_col(self, col):
+        rev = self._sort_dirs.get(col, False)
+        l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
+        try: l.sort(key=lambda t: float(t[0].replace('R$ ','').replace('.','').replace(',','.')), reverse=not rev)
+        except: l.sort(reverse=not rev)
+        for index, (val, k) in enumerate(l):
+            self.tree.move(k, '', index)
+        self._sort_dirs = {col: not rev}
+        self._draw_header()
+
+    def _populate_tree(self, rows):
+        self.tree.delete(*self.tree.get_children())
+        for r in rows:
+            formatted = list(r)
+            for i, val in enumerate(formatted):
+                col_key = self.columns[i][0]
+                if col_key in ('custo', 'valor'):
+                    try:
+                        v = float(str(val).replace('R$ ','').replace('.','').replace(',','.'))
+                        formatted[i] = f"R$ {v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                    except: pass
+                if col_key in ('registro', 'data') and isinstance(val, str):
+                    val_str = val
+                    is_hoje = '(Hoje)' in val_str
+                    val_str = val_str.replace(' (Hoje)', '')
+                    if 'T' in val_str and len(val_str) >= 16:
+                        dt, tm = val_str.split('T')
+                        y,m,d = dt.split('-')
+                        formatted[i] = f"{d}/{m}/{y} {tm[:5]}"
+                    elif '-' in val_str and len(val_str) >= 10:
+                        y,m,d = val_str[:10].split('-')
+                        formatted[i] = f"{d}/{m}/{y} 00:00"
+                    if is_hoje: formatted[i] += " (Hoje)"
+            self.tree.insert('', 'end', values=tuple(formatted))
+            
+    def _on_search(self):
+        q = self.search_var.get().strip().lower()
+        if not q:
+            self._populate_tree(self.display_rows)
+            return
+        filtered = []
+        for r in self.display_rows:
+            if any(q in str(v).lower() for v in r):
+                filtered.append(r)
+        self._populate_tree(filtered)
+        
+    def export_csv(self):
+        import csv
+        from tkinter import filedialog, messagebox
+        f = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")])
+        if f:
+            with open(f, 'w', newline='', encoding='utf-8-sig') as file:
+                writer = csv.writer(file, delimiter=';')
+                writer.writerow([c[1] for c in self.columns])
+                for k in self.tree.get_children(''):
+                    writer.writerow(self.tree.item(k)['values'])
+            messagebox.showinfo("Exportar", f"Relatório salvo com sucesso em:\n{f}", parent=self)
 class ListDialog(Modal):
     def __init__(self,master,title,columns,rows):
         super().__init__(master,title,'820x460')
@@ -5062,3 +5378,4 @@ class ListDialog(Modal):
 if __name__=='__main__':
     init_db()
     App().mainloop()
+
