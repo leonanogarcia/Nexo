@@ -1876,7 +1876,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.7.24',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.0',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
