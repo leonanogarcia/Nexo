@@ -41,3 +41,11 @@
 - **Duplo-Clique Exclusivo para Edição:** O duplo-clique em qualquer linha do Treeview SERVE APENAS para invocar o painel de edição do item correspondente. É ESTRITAMENTE PROIBIDO atrelar comportamento de expansão/recolhimento de árvore ao duplo-clique para evitar conflitos de intenção do usuário.
 - **Limpeza Visual de Itens Filhos:** Linhas que representam sub-itens (filhos expandidos) não devem herdar elementos de UI globais da linha mãe que não fazem sentido (por exemplo, a caixa de multisseleção ou ícones de edição geral), garantindo que fique claro visualmente que são apenas parte da composição.
 
+
+## 6. Sincronismo de IA (Importação Automática)
+- **O Botão Camaleão:** O botão de entrada no módulo de receitas possui comportamento duplo:
+  - **IA Desligada (Modo Manual):** O botão se chama 📎 Anexar Documento. O usuário faz upload de um arquivo (foto/pdf), que é apenas anexado ao registro no banco para visualização futura (via botão secundário "Ver Documento Original"). Nenhuma extração é feita.
+  - **IA Ligada (Modo Smart):** O botão se chama ✨ Importar via IA. Ao anexar, além de salvar a foto, o sistema aciona a API de IA configurada (ex: Gemini) para converter a foto em um JSON estruturado com ingredientes, rendimento e unidades.
+- **Janela de Revisão Humana:**
+  - NUNCA inserir dados gerados por IA diretamente no banco. 
+  - Sempre exibir uma tela intermediária "Revisão da IA". O sistema compara os ingredientes lidos com o banco materials. Se não encontrar correspondência perfeita (De-Para), a linha é destacada em Laranja, exigindo que o usuário mapeie manualmente via dropdown antes de permitir o salvamento.

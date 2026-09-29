@@ -26,3 +26,13 @@
 ## 3. Conformidade com o Design System
 - **ATUALIZAÇÃO NECESSÁRIA:** A tela de configurações atual usa `ttk.Entry` quadrados e botões cinzas do Windows. 
 - **REGRA DE OURO:** No momento da modernização, cada um desses cartões (painéis) DEVE obrigatoriamente ter seus inputs trocados por `CapsuleEntry` e os botões por `RoundedActionButton` laranjas.
+
+## 6. Sincronismo de IA (Controle Central)
+- O software delega as requisições de Inteligência Artificial para um provedor externo (Google Gemini / OpenAI), gerenciado por esta seção nas configurações:
+  - **Chave de Ativação Geral:** Liga/Desliga a funcionalidade em todo o sistema.
+  - **Seletor de Provedor e Chave API:** O usuário define a plataforma e insere a própria credencial (API_KEY).
+  - **Botão de Ajuda (i):** Fornece o mini-manual (sem links explícitos no alerta visual) ensinando a criar a chave na plataforma escolhida.
+- **Escudo Financeiro e Limites (Segurança):**
+  - O sistema rastreia localmente quantas requisições de IA foram feitas no dia (reset em 24h).
+  - Um input numérico permite definir o "Alerta de Segurança Diário".
+  - Se ultrapassar, a requisição NÃO é enviada ao provedor e exibe o alerta claro: *"Atenção: Limite de segurança de {limite} leituras diárias atingido. O Nexo salvou o documento apenas como anexo. Para importar automaticamente, aguarde a renovação no dia seguinte (tempo de recarga 24H) ou altere seu limite nas Configurações da IA."*
