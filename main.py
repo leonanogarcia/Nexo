@@ -260,7 +260,11 @@ def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with db() as c:
         c.executescript('''
-        CREATE TABLE IF NOT EXISTS materials(
+        CREATE TABLE IF NOT EXISTS ai_usage_logs(
+            date_str TEXT PRIMARY KEY,
+            request_count INTEGER DEFAULT 0
+          );
+          CREATE TABLE IF NOT EXISTS materials(
           id INTEGER PRIMARY KEY,
           code TEXT UNIQUE,
           name TEXT NOT NULL,
@@ -962,6 +966,12 @@ class RoundedActionButton(tk.Frame):
             w.bind('<Enter>',self._on_enter); w.bind('<Leave>',self._on_leave); w.bind('<Button-1>',self._click)
         self.after_idle(self._redraw)
 
+    def set_text(self, text):
+        self._text = text
+        self._icon = self._detect_icon(text)
+        self._label = self._clean_text(text)
+        self._redraw()
+
     def _detect_icon(self,text):
         if '+' in text: return 'plus'
         if '<clock>' in text: return 'clock'
@@ -1027,7 +1037,7 @@ class RoundedActionButton(tk.Frame):
                         # Recolor the icon to match self._fg exactly
                         r_c, g_c, b_c = self.winfo_rgb(col)
                         r_c, g_c, b_c = r_c//256, g_c//256, b_c//256
-                        data = icon_img.getdata()
+                        data = icon_img.get_flattened_data() if hasattr(icon_img, 'get_flattened_data') else icon_img.getdata()
                         new_data = [(r_c, g_c, b_c, item[3]) for item in data]
                         icon_img.putdata(new_data)
                         
@@ -3574,6 +3584,8 @@ class App(tk.Tk):
         rec_conv=RoundedActionButton(bar, '<convert> Conversões', lambda: self.material_conversion_dialog(), width=135, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
         rec_conv.pack(side='left', padx=(8, 0))
         
+
+        
         def show_rec_more_menu():
             if hasattr(self, '_current_menu') and self._current_menu.winfo_exists():
                 self._current_menu.destroy()
@@ -3618,8 +3630,12 @@ class App(tk.Tk):
             c.create_arc(0, h-2*r-1, 2*r, h-1, start=180, extent=90, style='arc', outline=border)
             c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
             
+            ai_active = int(get_setting('ai_enabled', '0'))
+            import_txt = '✨ Importar' if ai_active else '📎 Anexar Documento'
+            icon_t = 'ai' if ai_active else 'import'
+            
             items = [
-                ('Importar', 'import', lambda: self._run_normal_action(self.rec_tree, self.import_recipe_document)),
+                (import_txt, icon_t, lambda: self._run_normal_action(self.rec_tree, self.ai_import_dialog)),
                 ('Exportar', 'export', lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe)),
                 ('Doc. Original', 'doc', lambda: self._run_normal_action(self.rec_tree, self.open_original_document))
             ]
@@ -3644,7 +3660,11 @@ class App(tk.Tk):
                     c.create_line(ix-2, iy+2, ix+2, iy+2, fill=col, width=2)
                     
                 text_col = self.colors['text']
-                c.create_text(42, oy+17, text=label, fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
+                if label.startswith('✨ '):
+                    c.create_text(24, oy+17, text='✨', fill=col, font=('Segoe UI', 10), anchor='center', tags=f'opt_{i}')
+                    c.create_text(42, oy+17, text=label[2:], fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
+                else:
+                    c.create_text(42, oy+17, text=label, fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
                 
                 def on_click(e, c_cmd=cmd):
                     menu.destroy()
@@ -3666,6 +3686,12 @@ class App(tk.Tk):
                 try: root.unbind('<Button-1>', bind_id)
                 except Exception: pass
             bind_id = root.bind('<Button-1>', close_on_click, add='+')
+              
+            menu.focus_set()
+            def on_focus_out(e):
+                if menu.winfo_exists():
+                    menu.destroy()
+            menu.bind('<FocusOut>', on_focus_out)
             
         rec_more=RoundedActionButton(bar, 'Mais ▾', show_rec_more_menu, width=80, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557')
         rec_more.pack(side='left', padx=(8, 0))
@@ -3816,7 +3842,7 @@ class App(tk.Tk):
         self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_history,rec_conv,rec_more],'bulk':[self.rec_bulk_delete_btn]}
         self._update_action_states()
 
-    def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
+    def recipe_form(self, edit_id=None, imported_recipe=None, imported_source=None):
         is_edit=edit_id is not None
         with db() as c:
             existing=c.execute('SELECT * FROM base_recipes WHERE id=?',(edit_id,)).fetchone() if is_edit else None
@@ -3868,8 +3894,8 @@ class App(tk.Tk):
             for r in current_items:
                 with db() as c: m=c.execute('SELECT id,code,name FROM materials WHERE id=?',(r['material_id'],)).fetchone()
                 if m: items.append((m['id'],m['name'],r['qty'],r['unit']))
-        if imported_items:
-            items.extend(imported_items)
+        if imported_recipe and 'items' in imported_recipe:
+            items.extend(imported_recipe['items'])
             
         _, table_host = self._build_page_table_panel(box_outer)
         
@@ -4100,6 +4126,245 @@ class App(tk.Tk):
         self.refresh_recipes()
         self.after_idle(self._redraw_rec_header)
 
+    def ai_import_dialog(self):
+        from tkinter import filedialog
+        import datetime
+        import json
+        import threading
+        
+        filepath = filedialog.askopenfilename(title="Selecionar Receita", filetypes=[("Documentos e Imagens", "*.png;*.jpg;*.jpeg;*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.txt;*.csv"), ("Todos os Arquivos", "*.*")])
+        if not filepath:
+            return
+            
+        ai_enabled = int(get_setting('ai_enabled', '0'))
+        if not ai_enabled:
+            # Comportamento padrão: apenas anexa e abre nova receita
+            self.recipe_form(imported_source=filepath)
+            return
+            
+        # Comportamento Smart
+        limit = int(get_setting('ai_daily_limit', '50'))
+        today = datetime.date.today().isoformat()
+        
+        with db() as c:
+            row = c.execute('SELECT request_count FROM ai_usage_logs WHERE date_str=?', (today,)).fetchone()
+            count = row['request_count'] if row else 0
+            
+        if count >= limit:
+            messagebox.showwarning("Atenção", f"Limite de segurança de {limit} leituras diárias atingido. O Nexo salvou o documento apenas como anexo. Para importar automaticamente, aguarde a renovação no dia seguinte (tempo de recarga 24H) ou altere seu limite nas Configurações da IA.", parent=self.winfo_toplevel())
+            self.recipe_form(imported_source=filepath)
+            return
+            
+        api_key = get_setting('ai_api_key', '')
+        if not api_key:
+            messagebox.showerror("Atenção", "Chave de API não configurada. Vá em Configurações para inserir a chave do Google Gemini.", parent=self.winfo_toplevel())
+            self.recipe_form(imported_source=filepath)
+            return
+            
+        # Abre tela de "Processando"
+        d = tk.Toplevel(self)
+        d.overrideredirect(True)
+        d.attributes('-topmost', True)
+        d.geometry(f"400x150+{self.winfo_screenwidth()//2 - 200}+{self.winfo_screenheight()//2 - 75}")
+        bg = self.colors['panel']
+        d.configure(bg='#000001'); d.wm_attributes('-transparentcolor', '#000001')
+        p = RoundedPanel(d, fill=bg, radius=16, border=self.colors['line'], bg='#000001')
+        p.pack(fill='both', expand=True, padx=4, pady=4)
+        tk.Label(p, text="✨ Lendo receita com Inteligência Artificial...", bg=bg, fg=self.colors['text'], font=('Segoe UI', 12, 'bold')).pack(pady=(40, 5))
+        tk.Label(p, text="Isso pode levar alguns segundos.", bg=bg, fg=self.colors['muted'], font=('Segoe UI', 9)).pack()
+        d.update()
+        
+        def run_ai():
+            try:
+                import requests
+                import base64
+                import mimetypes
+                
+                with open(filepath, "rb") as f:
+                    file_data = f.read()
+                
+                mime_type = mimetypes.guess_type(filepath)[0] or 'image/jpeg'
+                if mime_type == 'application/pdf':
+                    pass # Gemini 1.5 suporta PDF nativamente
+                
+                b64_data = base64.b64encode(file_data).decode('utf-8')
+                
+                prompt = """
+                Atue como um extrator de receitas culinárias para um sistema ERP de restaurante.
+                Extraia a receita do arquivo fornecido.
+                Retorne ESTRITAMENTE e APENAS um JSON válido, sem markdown, sem explicações adicionais, com o seguinte formato:
+                {
+                    "nome": "Nome da Receita",
+                    "rendimento_qtde": 1,
+                    "rendimento_unidade": "un",
+                    "ingredientes": [
+                        {"nome": "Nome do Ingrediente 1", "qtde": 200, "unidade": "g"},
+                        {"nome": "Nome do Ingrediente 2", "qtde": 1, "unidade": "un"}
+                    ]
+                }
+                Se a unidade ou o rendimento não estiverem claros, deixe em branco ou use "un". Tente inferir a quantidade como número.
+                """
+                
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"text": prompt},
+                            {"inline_data": {"mime_type": mime_type, "data": b64_data}}
+                        ]
+                    }],
+                    "generationConfig": {"temperature": 0.1}
+                }
+                
+                res = requests.post(url, json=payload, timeout=30)
+                res.raise_for_status()
+                data = res.json()
+                
+                text_result = data['candidates'][0]['content']['parts'][0]['text']
+                # Clean markdown blocks if present
+                text_result = text_result.strip()
+                if text_result.startswith('```json'): text_result = text_result[7:]
+                elif text_result.startswith('```'): text_result = text_result[3:]
+                if text_result.endswith('```'): text_result = text_result[:-3]
+                text_result = text_result.strip()
+                
+                recipe_data = json.loads(text_result)
+                
+                # Increment usage count
+                with db() as c:
+                    if count == 0:
+                        c.execute("INSERT INTO ai_usage_logs(date_str, request_count) VALUES(?, 1)", (today,))
+                    else:
+                        c.execute("UPDATE ai_usage_logs SET request_count = request_count + 1 WHERE date_str=?", (today,))
+                        
+                self.after(0, lambda: [d.destroy(), self.ai_review_dialog(recipe_data, filepath)])
+                
+            except Exception as e:
+                self.after(0, lambda err=str(e): [d.destroy(), safe_error(self.winfo_toplevel(), "Falha na Extração", f"Erro ao contatar a IA: {err}\\nAbrindo modo manual."), self.recipe_form(imported_source=filepath)])
+                
+        threading.Thread(target=run_ai, daemon=True).start()
+    def ai_review_dialog(self, recipe_data, filepath):
+        import difflib
+        d = tk.Toplevel(self)
+        d.title("Revisão da Inteligência Artificial")
+        d.geometry("900x700")
+        d.configure(bg=self.colors['bg'])
+        d.transient(self)
+        d.grab_set()
+        
+        top = tk.Frame(d, bg=self.colors['bg'], padx=16, pady=16)
+        top.pack(fill='x')
+        tk.Label(top, text="✨ Eis o que a IA entendeu da sua receita:", bg=self.colors['bg'], fg=self.colors['text'], font=('Segoe UI', 14, 'bold')).pack(anchor='w', pady=(0, 16))
+        
+        info = tk.Frame(top, bg=self.colors['bg'])
+        info.pack(fill='x')
+        tk.Label(info, text="Nome da Receita:", bg=self.colors['bg']).grid(row=0, column=0, sticky='w')
+        name_var = tk.StringVar(value=recipe_data.get('nome', ''))
+        ttk.Entry(info, textvariable=name_var, width=40).grid(row=0, column=1, padx=8, sticky='w')
+        
+        tk.Label(info, text="Rendimento:", bg=self.colors['bg']).grid(row=0, column=2, sticky='w', padx=(16,0))
+        qty_var = tk.StringVar(value=str(recipe_data.get('rendimento_qtde', '1')))
+        ttk.Entry(info, textvariable=qty_var, width=10).grid(row=0, column=3, padx=8, sticky='w')
+        
+        tk.Label(info, text="Unidade:", bg=self.colors['bg']).grid(row=0, column=4, sticky='w')
+        unit_var = tk.StringVar(value=recipe_data.get('rendimento_unidade', 'un'))
+        ttk.Entry(info, textvariable=unit_var, width=10).grid(row=0, column=5, padx=8, sticky='w')
+        
+        tk.Label(d, text="Composição (Mapeamento de Insumos):", bg=self.colors['bg'], fg=self.colors['text'], font=('Segoe UI', 11, 'bold')).pack(anchor='w', padx=16, pady=(8,4))
+        tk.Label(d, text="Os itens em laranja não foram encontrados perfeitamente no seu estoque e precisam ser mapeados.", bg=self.colors['bg'], fg=self.colors['muted'], font=('Segoe UI', 9)).pack(anchor='w', padx=16, pady=(0,8))
+        
+        canvas = tk.Canvas(d, bg=self.colors['bg'], highlightthickness=0, bd=0)
+        canvas.pack(side='top', fill='both', expand=True, padx=16)
+        sb = ttk.Scrollbar(d, orient='vertical', command=canvas.yview)
+        sb.place(in_=canvas, relx=1.0, rely=0, relheight=1.0, anchor='ne')
+        canvas.configure(yscrollcommand=sb.set)
+        
+        pad = tk.Frame(canvas, bg=self.colors['bg'])
+        win = canvas.create_window((0,0), window=pad, anchor='nw')
+        
+        def _sync(_=None):
+            canvas.configure(scrollregion=canvas.bbox('all'))
+            canvas.itemconfigure(win, width=canvas.winfo_width())
+        pad.bind('<Configure>', _sync)
+        canvas.bind('<Configure>', _sync)
+        
+        with db() as c:
+            mats = c.execute("SELECT id, name, purchase_unit FROM materials ORDER BY name").fetchall()
+            
+        mat_options = [f"{m['id']} - {m['name']} ({m['purchase_unit']})" for m in mats]
+        mat_names = [m['name'] for m in mats]
+        name_to_opt = {m['name']: f"{m['id']} - {m['name']} ({m['purchase_unit']})" for m in mats}
+        
+        item_vars = []
+        
+        headers = tk.Frame(pad, bg=self.colors['panel'])
+        headers.pack(fill='x', pady=2)
+        tk.Label(headers, text="Lido na Receita (IA)", width=35, anchor='w', bg=self.colors['panel'], font=('Segoe UI', 9, 'bold')).pack(side='left', padx=4)
+        tk.Label(headers, text="Insumo no Nexo", width=40, anchor='w', bg=self.colors['panel'], font=('Segoe UI', 9, 'bold')).pack(side='left', padx=4)
+        tk.Label(headers, text="Qtde", width=10, anchor='w', bg=self.colors['panel'], font=('Segoe UI', 9, 'bold')).pack(side='left', padx=4)
+        tk.Label(headers, text="Unidade", width=10, anchor='w', bg=self.colors['panel'], font=('Segoe UI', 9, 'bold')).pack(side='left', padx=4)
+        
+        for ing in recipe_data.get('ingredientes', []):
+            row = tk.Frame(pad, bg=self.colors['bg'])
+            row.pack(fill='x', pady=4)
+            
+            raw_name = ing.get('nome', '')
+            lbl = tk.Label(row, text=raw_name, width=35, anchor='w', bg=self.colors['bg'])
+            lbl.pack(side='left', padx=4)
+            
+            cbox_var = tk.StringVar()
+            cbox = ttk.Combobox(row, textvariable=cbox_var, values=mat_options, state='readonly', width=38)
+            cbox.pack(side='left', padx=4)
+            
+            q_var = tk.StringVar(value=str(ing.get('qtde', '0')))
+            ttk.Entry(row, textvariable=q_var, width=10).pack(side='left', padx=4)
+            
+            u_var = tk.StringVar(value=ing.get('unidade', 'g'))
+            ttk.Entry(row, textvariable=u_var, width=10).pack(side='left', padx=4)
+            
+            match = difflib.get_close_matches(raw_name, mat_names, n=1, cutoff=0.5)
+            if match:
+                cbox_var.set(name_to_opt[match[0]])
+            else:
+                lbl.configure(fg='#C53030', font=('Segoe UI', 9, 'bold')) # Orange/Red indicator
+                cbox_var.set('')
+                
+            item_vars.append({'cbox': cbox_var, 'q': q_var, 'u': u_var})
+            
+        bot = tk.Frame(d, bg=self.colors['bg'])
+        bot.pack(fill='x', padx=16, pady=16)
+        
+        def confirm():
+            final_items = []
+            for v in item_vars:
+                sel = v['cbox'].get()
+                if not sel:
+                    messagebox.showwarning("Atenção", "Por favor, mapeie todos os insumos antes de confirmar (selecione no dropdown os itens em branco).", parent=d)
+                    return
+                try:
+                    q = float(v['q'].get().replace(',', '.'))
+                except:
+                    messagebox.showwarning("Atenção", "Quantidade inválida encontrada.", parent=d)
+                    return
+                u = v['u'].get().strip()
+                mid = int(sel.split(' - ')[0])
+                mname = sel.split(' - ')[1].split(' (')[0]
+                final_items.append((mid, mname, q, u))
+                
+            recipe_obj = {
+                'name': name_var.get().strip(),
+                'yield_qty': qty_var.get().strip(),
+                'yield_unit': unit_var.get().strip(),
+                'items': final_items
+            }
+            d.destroy()
+            self.recipe_form(imported_recipe=recipe_obj, imported_source=filepath)
+            
+        RoundedActionButton(bot, 'Cancelar', d.destroy, width=120, height=42, fill='#FFF5F5', hover='#FFEBEB', fg='#C53030').pack(side='left')
+        RoundedActionButton(bot, 'Confirmar e Preencher', confirm, width=220, height=42, fill='#F28C28', hover='#BA5200').pack(side='right')
+
+
+
     def refresh_recipes(self):
         if not hasattr(self,'rec_tree'):return
         for x in self.rec_tree.get_children():self.rec_tree.delete(x)
@@ -4145,29 +4410,6 @@ class App(tk.Tk):
         if hasattr(self, 'rec_empty_overlay'):
             if rows: self.rec_empty_overlay.place_forget()
             else: self.rec_empty_overlay.place(x=0, y=36, relwidth=1, relheight=1, height=-36)
-
-    def import_recipe_document(self):
-        path=filedialog.askopenfilename(parent=self,filetypes=[('Word','*.docx'),('PDF','*.pdf')])
-        if not path:return
-        try:
-            text=extract_docx_text(path) if path.lower().endswith('.docx') else extract_pdf_text(path)
-            parsed=parse_recipe_lines(text)
-            if not parsed:
-                raise ValueError('Não consegui identificar linhas de ingredientes automaticamente. O documento foi lido, mas nada será inventado.')
-            items=[]
-            unresolved=[]
-            with db() as c:
-                materials=c.execute('SELECT id,name FROM materials').fetchall()
-            for name,qty,unit in parsed:
-                matches=[m for m in materials if m['name'].strip().lower()==name.strip().lower()]
-                if matches:
-                    items.append((matches[0]['id'],matches[0]['name'],qty,unit))
-                else:
-                    unresolved.append((name,qty,unit))
-            d=self.recipe_form(imported_items=items, imported_source=path)
-            if unresolved:
-                messagebox.showwarning('Importação', 'Alguns itens não foram associados porque não existem no Cadastro:\n\n'+'\n'.join(f'- {n} ({q} {u})' for n,q,u in unresolved)+'\n\nCadastre-os e adicione-os manualmente.', parent=self)
-        except Exception as e:safe_error(self,'Não foi possível importar o documento',e)
 
     def export_selected_recipe(self):
         s=self.rec_tree.selection()
@@ -4878,6 +5120,42 @@ class App(tk.Tk):
                 
         ttk.Button(bibox,text='Salvar',command=save_retention).pack(side='left')
         tk.Label(bibox,text='Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left', padx=8)
+
+
+        _, aibox = panel('Sincronismo de Inteligência Artificial')
+        
+        ai_enabled = tk.IntVar(value=int(get_setting('ai_enabled', '0')))
+        ai_provider = tk.StringVar(value=get_setting('ai_provider', 'Google Gemini'))
+        ai_api_key = tk.StringVar(value=get_setting('ai_api_key', ''))
+        ai_daily_limit = tk.StringVar(value=get_setting('ai_daily_limit', '50'))
+        
+        row1 = tk.Frame(aibox, bg=self.colors['panel']); row1.pack(fill='x', pady=(0, 12))
+        ttk.Checkbutton(row1, text="Ativar Importação Inteligente (IA)", variable=ai_enabled, style='TCheckbutton').pack(side='left', padx=(0, 16))
+        ttk.Label(row1, text="Provedor:").pack(side='left'); ttk.Combobox(row1, textvariable=ai_provider, values=('Google Gemini', 'OpenAI ChatGPT'), state='readonly', width=20).pack(side='left', padx=8)
+        
+        row2 = tk.Frame(aibox, bg=self.colors['panel']); row2.pack(fill='x', pady=(0, 12))
+        ttk.Label(row2, text="Chave API (Secreta):").pack(side='left')
+        ttk.Entry(row2, textvariable=ai_api_key, width=55, show='*').pack(side='left', padx=8)
+        
+        def show_ai_help():
+            messagebox.showinfo("Ajuda: Chave de API", "Para Google Gemini:\n1. Acesse aistudio.google.com\n2. Faça login com o Google\n3. Clique em 'Get API Key' e 'Create API Key'\n4. Cole o código gerado no campo.\n\nPara OpenAI:\n1. Acesse platform.openai.com/api-keys\n2. Clique em 'Create new secret key'.", parent=self.winfo_toplevel())
+            
+        ttk.Button(row2, text="Ajuda (i)", width=8, command=show_ai_help).pack(side='left')
+        
+        row3 = tk.Frame(aibox, bg=self.colors['panel']); row3.pack(fill='x', pady=(0, 12))
+        ttk.Label(row3, text="Alerta de Segurança Diário (Limitar em):").pack(side='left')
+        ttk.Entry(row3, textvariable=ai_daily_limit, width=10).pack(side='left', padx=8)
+        ttk.Label(row3, text="leituras por dia.").pack(side='left')
+        
+        def save_ai_settings():
+            set_setting('ai_enabled', str(ai_enabled.get()))
+            set_setting('ai_provider', ai_provider.get())
+            set_setting('ai_api_key', ai_api_key.get().strip())
+            set_setting('ai_daily_limit', ai_daily_limit.get().strip())
+            self.notify("Configurações de IA salvas com sucesso.")
+            
+        ttk.Button(aibox, text='Salvar Configurações de IA', command=save_ai_settings).pack(anchor='w')
+        tk.Label(aibox, text='O Nexo processa imagens apenas para fins de extração de dados e não armazena fotos na nuvem.', bg=self.colors['panel'], fg=self.colors['muted'], font=('Segoe UI', 9)).pack(anchor='w', pady=(8, 0))
 
         _, dbbox=panel('Fonte de dados')
         ttk.Label(dbbox,text='SQLite atual').grid(row=0,column=0,sticky='w');self.db_path_var=tk.StringVar(value=str(DB_PATH));ttk.Entry(dbbox,textvariable=self.db_path_var,width=70).grid(row=1,column=0,padx=(0,8),sticky='ew')
