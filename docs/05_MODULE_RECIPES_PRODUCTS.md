@@ -35,3 +35,8 @@
 ## 3. Conformidade com o Design System
 - **ATUALIZAÇÃO NECESSÁRIA:** Atualmente, as janelas internas de Receitas e Produtos ainda usam `ttk.Combobox` quadrados para unidades e insumos. 
 - **REGRA DE OURO:** Qualquer refatoração nesses formulários OBRIGA a troca desses componentes pelos do Design System (`RoundedDropdown`, `CapsuleEntry`), mas garantindo matematicamente que o binding de dados (`<<ComboboxSelected>>` ou rastreador `.trace`) não seja quebrado, pois o formulário inteiro depende dessa ligação de variáveis.
+
+## 4. Interações com a Árvore (Treeview)
+- **Expansão Exclusiva por Seta (Chevron):** A ação de abrir ou fechar itens filhos em uma tabela árvore (como os componentes de uma receita) DEVE ser feita EXCLUSIVAMENTE pelo clique em um ícone vetorial (chevron) localizado na lateral esquerda da linha mãe.
+- **Duplo-Clique Exclusivo para Edição:** O duplo-clique em qualquer linha do Treeview SERVE APENAS para invocar o painel de edição do item correspondente. É ESTRITAMENTE PROIBIDO atrelar comportamento de expansão/recolhimento de árvore ao duplo-clique para evitar conflitos de intenção do usuário.
+- **Limpeza Visual de Itens Filhos:** Linhas que representam sub-itens (filhos expandidos) não devem herdar elementos de UI globais da linha mãe que não fazem sentido (por exemplo, a caixa de multisseleção ou ícones de edição geral), garantindo que fique claro visualmente que são apenas parte da composição.

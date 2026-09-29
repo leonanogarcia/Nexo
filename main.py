@@ -403,9 +403,20 @@ def init_db():
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('mass_base_unit', 'mg'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('volume_base_unit', 'ml'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('count_base_unit', 'un'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('history_retention_months', '36'))
         _ensure_codes(c)
         _ensure_audit_triggers(c)
-
+        
+        # Data Retention Cleanup
+        try:
+            retention_str = c.execute("SELECT value FROM system_settings WHERE key='history_retention_months'").fetchone()
+            if retention_str and retention_str['value']:
+                months = int(retention_str['value'])
+                if months > 0:
+                    cutoff = (datetime.datetime.now() - datetime.timedelta(days=months*30)).isoformat()
+                    c.execute("DELETE FROM edit_history WHERE edited_at < ?", (cutoff,))
+        except Exception:
+            pass
 
 def _ensure_audit_triggers(c):
     specs = {
@@ -2659,11 +2670,26 @@ class App(tk.Tk):
                 is_active = 'inactive' not in tags
                 is_checked = iid in self._checked_rows.get(str(tree), set())
                 cy = ry + rh // 2
-                ov_left.create_image(cw0/2, cy, image=self._img_chk_on if is_checked else self._img_chk_off, anchor='center', tags=(f'c_{iid}',))
                 
+                ov_left.create_image(35, cy, image=self._img_chk_on if is_checked else self._img_chk_off, anchor='center', tags=(f'c_{iid}',))
                 ov_left.tag_bind(f'c_{iid}', '<Button-1>', lambda ev, i=iid: self._toggle_checkbox(tree, i))
                 ov_left.tag_bind(f'c_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
                 ov_left.tag_bind(f'c_{iid}', '<Leave>', lambda ev, i=iid: ov_left.config(cursor='arrow'))
+
+                if len(tree.get_children(iid)) > 0:
+                    cx = 15
+                    is_open = tree.item(iid, 'open')
+                    chev_color = '#687796'
+                    
+                    if is_open:
+                        ov_left.create_line(cx-4, cy-2, cx, cy+3, cx+4, cy-2, fill=chev_color, width=2, capstyle='round', joinstyle='round', tags=(f'chev_{iid}',))
+                    else:
+                        ov_left.create_line(cx-2, cy-4, cx+3, cy, cx-2, cy+4, fill=chev_color, width=2, capstyle='round', joinstyle='round', tags=(f'chev_{iid}',))
+                    
+                    ov_left.create_rectangle(cx-10, cy-10, cx+10, cy+10, fill='', outline='', tags=(f'chev_{iid}',))
+                    ov_left.tag_bind(f'chev_{iid}', '<Button-1>', lambda ev, i=iid: (tree.item(i, open=not tree.item(i, 'open')), _redraw_overlay()))
+                    ov_left.tag_bind(f'chev_{iid}', '<Enter>', lambda ev, i=iid: ov_left.config(cursor='hand2'))
+                    ov_left.tag_bind(f'chev_{iid}', '<Leave>', lambda ev, i=iid: ov_left.config(cursor='arrow'))
                 
                 # Action Buttons Overlay Drawing (Right)
                 ov.create_rectangle(0, ry, 90, ry + rh, fill=bg_color, outline='')
@@ -2922,7 +2948,7 @@ class App(tk.Tk):
         self._setup_canvas_header_drag(self.mat_header, self.mat_tree, ['edit','delete','options'], redraw_mat_header, 'mat')
 
         self.mat_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.mat_tree,'material'))
-        self.mat_tree.bind('<Double-1>',lambda e:self.edit_selected_material())
+        self.mat_tree.bind('<Double-1>',lambda e: (self.edit_selected_material(), 'break')[1])
         
         self.mat_icon_ov=self._attach_row_icon_overlay(
             self.mat_tree, table_host, 10, 11,
@@ -3045,39 +3071,25 @@ class App(tk.Tk):
     def new_material(self): self.material_form()
 
     def delete_selected_material(self):
-        s=self.mat_tree.selection()
-        if not s or self._selection_count(self.mat_tree)!=1:return
-        code=self.mat_tree.item(s[0])['values'][0]
-        with db() as c:r=c.execute('SELECT id,name FROM materials WHERE code=?',(code,)).fetchone()
-        if not r:return
-        with db() as c:
-            refs=(c.execute('SELECT COUNT(*) n FROM base_recipe_items WHERE material_id=?',(r['id'],)).fetchone()['n']
-                  + c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='MATERIAL' AND ref_id=?",(r['id'],)).fetchone()['n'])
-        if refs:
-            if messagebox.askyesno('Insumo vinculado', 'Este Insumo possui vínculos em receitas/produtos. Deseja inativá-lo em vez de excluir?', parent=self):
-                with db() as c:c.execute('UPDATE materials SET active=0,updated_at=? WHERE id=?',(now_iso(),r['id']))
-                self.refresh_all();self.notify('Insumo inativado com sucesso.')
-            return
-        if not messagebox.askyesno('Excluir Insumo', f'Excluir "{r["name"]}"? O histórico de compras e custos também será removido.', parent=self):return
-        with db() as c:
-            c.execute('DELETE FROM purchases WHERE material_id=?', (r['id'],))
-            c.execute("DELETE FROM cost_history WHERE entity_type='MATERIAL' AND entity_id=?", (r['id'],))
-            c.execute('DELETE FROM custom_units WHERE material_id=?', (r['id'],))
-            c.execute('DELETE FROM materials WHERE id=?', (r['id'],))
-        self.refresh_all();self.notify('Insumo excluído com sucesso.')
+        self._bulk_delete_list(self.mat_tree, 'material', use_selection_only=True)
 
     def delete_selected_materials(self):
-        self._bulk_delete_list(self.mat_tree,'material')
+        self._bulk_delete_list(self.mat_tree, 'material')
 
     def delete_selected_recipes(self):
-        self._bulk_delete_list(self.rec_tree,'recipe')
+        self._bulk_delete_list(self.rec_tree, 'recipe')
 
-    def _bulk_delete_list(self, tree, kind):
-        checked=getattr(self,'_checked_rows',{}).get(str(tree),set())
-        if not checked:
+    def _bulk_delete_list(self, tree, kind, use_selection_only=False):
+        if use_selection_only:
             s = tree.selection()
             if s: checked = {s[0]}
             else: return
+        else:
+            checked=getattr(self,'_checked_rows',{}).get(str(tree),set())
+            if not checked:
+                s = tree.selection()
+                if s: checked = {s[0]}
+                else: return
             
         table={'material':'materials','recipe':'base_recipes','product':'products'}[kind]
         rows=[]
@@ -3098,52 +3110,73 @@ class App(tk.Tk):
                 elif kind == 'recipe':
                     refs = c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='RECIPE_BASE' AND ref_id=?",(r['id'],)).fetchone()['n']
                 elif kind == 'product':
-                    refs = 0
+                    refs = c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='PRODUCT' AND ref_id=?",(r['id'],)).fetchone()['n']
                 if refs > 0: linked.append(r)
                 else: unlinked.append(r)
+        
+        # Custom UI Modal
+        top = tk.Toplevel(self)
+        top.overrideredirect(True)
+        top.attributes('-topmost', True)
+        top.geometry(f"540x380+{self.winfo_screenwidth()//2 - 270}+{self.winfo_screenheight()//2 - 190}")
+        bg_color = '#000001'
+        top.attributes('-transparentcolor', bg_color)
+        top.config(bg=bg_color)
+        
+        result = {'confirm': False}
+        
+        panel = RoundedPanel(top, fill='#FFFFFF', radius=18, bg=bg_color, border=self.colors.get('line', '#E2EAF5'))
+        panel.pack(fill='both', expand=True, padx=4, pady=4)
+        
+        title_lbl = 'Excluir Item' if len(rows) == 1 else 'Exclusão em Lote'
+        tk.Label(panel, text=title_lbl, bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 14, 'bold')).pack(pady=(20, 8))
+        
+        desc = tk.Frame(panel, bg='#FFFFFF')
+        desc.pack(fill='both', expand=True, padx=24)
         
         if len(rows) == 1:
             r = rows[0]
             if unlinked:
-                if not messagebox.askyesno('Confirmar exclusão', f"Tem certeza que deseja excluir permanentemente '{r['name']}'?", parent=self): return
-                with db() as c:
-                    if kind == 'material':
-                        c.execute('DELETE FROM purchases WHERE material_id=?', (r['id'],))
-                        c.execute("DELETE FROM cost_history WHERE entity_type='MATERIAL' AND entity_id=?", (r['id'],))
-                        c.execute('DELETE FROM custom_units WHERE material_id=?', (r['id'],))
-                    elif kind == 'recipe':
-                        c.execute("DELETE FROM cost_history WHERE entity_type='RECIPE_BASE' AND entity_id=?", (r['id'],))
-                    elif kind == 'product':
-                        c.execute("DELETE FROM cost_history WHERE entity_type='PRODUCT' AND entity_id=?", (r['id'],))
-                    c.execute(f'DELETE FROM {table} WHERE id=?',(r['id'],))
-                self.refresh_all()
-                self.notify(f"Item '{r['name']}' excluído permanentemente.")
-                return
+                tk.Label(desc, text=f"Tem certeza que deseja excluir permanentemente o item:\n\n{r['name']}?", bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 11)).pack(pady=20)
+                btn_txt, btn_color, btn_hover, btn_fg = 'Excluir Permanentemente', '#C53030', '#9B2C2C', '#FFFFFF'
             else:
                 if r['active'] == 1:
-                    if not messagebox.askyesno('Confirmar inativação', f"O item '{r['name']}' possui vínculos/dependências em receitas ou produtos e não pode ser apagado sem quebrar os custos.\n\nDeseja INATIVAR este item em vez disso?", parent=self): return
-                    with db() as c: c.execute(f'UPDATE {table} SET active=0, updated_at=? WHERE id=?', (now_iso(), r['id']))
-                    self.refresh_all()
-                    self.notify(f"Item '{r['name']}' inativado.")
-                    return
+                    tk.Label(desc, text=f"O item '{r['name']}' possui vínculos em receitas ou produtos e NÃO pode ser excluído permanentemente para não corromper o histórico.", bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 10), wraplength=480).pack(pady=(10,5))
+                    tk.Label(desc, text="Deseja INATIVAR este item?\nEle não aparecerá mais nas listas, mas será preservado.", bg='#FFFFFF', fg='#9B2C2C', font=('Segoe UI', 10, 'bold')).pack(pady=(5,10))
+                    btn_txt, btn_color, btn_hover, btn_fg = 'Inativar / Ocultar', '#DD6B20', '#C05621', '#FFFFFF'
                 else:
-                    if not messagebox.askyesno('Exclusão Fantasma', f"O item '{r['name']}' já está inativo, mas ainda possui vínculos com receitas/produtos.\n\nDeseja OCULTÁ-LO definitivamente do sistema?\n\nEle desaparecerá das listas, mas aparecerá com um alerta ⚠️ nas receitas até ser substituído.", parent=self): return
-                    with db() as c: c.execute(f'UPDATE {table} SET archived=1, updated_at=? WHERE id=?', (now_iso(), r['id']))
-                    self.refresh_all()
-                    self.notify(f"Item '{r['name']}' ocultado definitivamente.")
-                    return
-        
-        msg = f'Você selecionou {len(rows)} itens.\n'
-        if linked:
-            msg += f'\n{len(linked)} itens possuem vínculos/dependências e serão INATIVADOS/OCULTADOS:\n'
-            msg += '\n'.join('  - ' + r['name'] for r in linked) + '\n'
-        if unlinked:
-            msg += f'\nOs outros {len(unlinked)} itens (sem vínculos) serão EXCLUÍDOS permanentemente.\n'
+                    tk.Label(desc, text=f"O item '{r['name']}' já está inativo, mas ainda possui vínculos com receitas/produtos.", bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 10), wraplength=480).pack(pady=(10,5))
+                    tk.Label(desc, text="Deseja OCULTÁ-LO definitivamente do sistema?\nEle aparecerá com um alerta ⚠️ nas receitas até ser substituído.", bg='#FFFFFF', fg='#9B2C2C', font=('Segoe UI', 10, 'bold')).pack(pady=(5,10))
+                    btn_txt, btn_color, btn_hover, btn_fg = 'Ocultar Definitivamente', '#DD6B20', '#C05621', '#FFFFFF'
+        else:
+            tk.Label(desc, text=f"Você selecionou {len(rows)} itens.", bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 11, 'bold')).pack(anchor='w', pady=(0, 10))
+            if linked:
+                l_frame = tk.Frame(desc, bg='#FFFaf0', bd=1, relief='solid', highlightthickness=0)
+                l_frame.pack(fill='x', pady=4)
+                tk.Label(l_frame, text=f"⚠️ {len(linked)} itens possuem vínculos e serão apenas INATIVADOS:", bg='#FFFaf0', fg='#C05621', font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=8, pady=4)
+            if unlinked:
+                u_frame = tk.Frame(desc, bg='#FFF5F5', bd=1, relief='solid', highlightthickness=0)
+                u_frame.pack(fill='x', pady=4)
+                tk.Label(u_frame, text=f"🔴 {len(unlinked)} itens livres serão EXCLUÍDOS permanentemente:", bg='#FFF5F5', fg='#C53030', font=('Segoe UI', 9, 'bold')).pack(anchor='w', padx=8, pady=4)
             
-        msg += '\nDeseja prosseguir? (Se escolher Não, toda a operação será cancelada).'
+            btn_txt = 'Executar Operação Mista' if (linked and unlinked) else ('Inativar Itens' if linked else 'Excluir Itens')
+            btn_color, btn_hover, btn_fg = ('#C53030', '#9B2C2C', '#FFFFFF') if unlinked else ('#DD6B20', '#C05621', '#FFFFFF')
             
-        if not messagebox.askyesno('Confirmar exclusão em lote', msg, parent=self): return
+        def do_confirm():
+            result['confirm'] = True
+            top.destroy()
+            
+        act_frame = tk.Frame(panel, bg='#FFFFFF')
+        act_frame.pack(fill='x', padx=32, pady=(16, 24))
+        RoundedActionButton(act_frame, 'Cancelar', top.destroy, width=120, height=40, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left')
+        RoundedActionButton(act_frame, btn_txt, do_confirm, width=280, height=40, fill=btn_color, hover=btn_hover, fg=btn_fg).pack(side='right')
         
+        top.grab_set()
+        self.wait_window(top)
+        
+        if not result['confirm']:
+            return
+            
         with db() as c:
             for r in unlinked:
                 if kind == 'material':
@@ -3161,9 +3194,12 @@ class App(tk.Tk):
                     c.execute(f'UPDATE {table} SET active=0, updated_at=? WHERE id=?', (now_iso(), r['id']))
                 else:
                     c.execute(f'UPDATE {table} SET archived=1, updated_at=? WHERE id=?', (now_iso(), r['id']))
-                
+                    
         self.refresh_all()
-        self.notify(f'{len(unlinked)} excluídos, {len(linked)} inativados/ocultados.')
+        if len(rows) == 1:
+            self.notify(f"Item '{rows[0]['name']}' alterado com sucesso.")
+        else:
+            self.notify(f'{len(unlinked)} excluídos, {len(linked)} inativados/ocultados.')
 
     def edit_selected_material(self):
         s = self.mat_tree.selection()
@@ -3174,10 +3210,60 @@ class App(tk.Tk):
         if r: self.material_form(r['id'])
 
     def ask_edit_reason(self, entity_type, entity_id, before, after):
-        reason = simpledialog.askstring('Motivo da edição', 'Informe o motivo da alteração:', parent=self)
-        if not reason or not reason.strip():
-            raise ValueError('A edição exige um motivo.')
-        record_edit(entity_type, entity_id, reason.strip(), {'antes': before, 'depois': after})
+        top = tk.Toplevel(self)
+        top.overrideredirect(True)
+        top.attributes('-topmost', True)
+        top.geometry(f"520x340+{self.winfo_screenwidth()//2 - 260}+{self.winfo_screenheight()//2 - 170}")
+        bg_color = '#000001'
+        top.attributes('-transparentcolor', bg_color)
+        top.config(bg=bg_color)
+        
+        result = {'value': None}
+        
+        panel = RoundedPanel(top, fill='#FFFFFF', radius=18, bg=bg_color, border=self.colors.get('line', '#E2EAF5'))
+        panel.pack(fill='both', expand=True, padx=4, pady=4)
+        
+        tk.Label(panel, text='Motivo da Edição', bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 14, 'bold')).pack(pady=(24, 8))
+        tk.Label(panel, text='Escolha como registrar esta alteração no sistema:', bg='#FFFFFF', fg=self.colors.get('muted', '#687796'), font=('Segoe UI', 10)).pack(pady=(0, 20))
+        
+        btn_frame = tk.Frame(panel, bg='#FFFFFF')
+        btn_frame.pack(fill='x', padx=32)
+        
+        def do_correction():
+            result['value'] = 'correction'
+            top.destroy()
+            
+        def do_update():
+            for w in btn_frame.winfo_children(): w.destroy()
+            tk.Label(btn_frame, text='Justificativa da atualização:', bg='#FFFFFF', fg=self.colors.get('text', '#18223A'), font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0,8))
+            txt = tk.Text(btn_frame, height=4, font=('Segoe UI', 10), bg='#F9FBFC', bd=1, relief='solid', highlightthickness=0)
+            txt.pack(fill='x', expand=True)
+            
+            def save_reason():
+                r = txt.get('1.0', 'end').strip()
+                if not r:
+                    messagebox.showwarning("Atenção", "A justificativa não pode ficar vazia.", parent=top)
+                    return
+                result['value'] = r
+                top.destroy()
+                
+            act_frame = tk.Frame(btn_frame, bg='#FFFFFF')
+            act_frame.pack(fill='x', pady=(16,0))
+            RoundedActionButton(act_frame, 'Cancelar', top.destroy, width=100, height=36, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(side='left')
+            RoundedActionButton(act_frame, 'Salvar Atualização', save_reason, width=160, height=36, fill='#F28C28', hover='#693A16', fg='#FFFFFF').pack(side='right')
+            txt.focus_set()
+
+        RoundedActionButton(btn_frame, 'Correção de Erro (Não gera histórico)', do_correction, width=450, height=42, fill='#EFF4FB', hover='#E3EBF6', fg='#1D3557').pack(pady=(0, 12))
+        RoundedActionButton(btn_frame, 'Atualização de Valores (Gravar no histórico)', do_update, width=450, height=42, fill='#F28C28', hover='#693A16', fg='#FFFFFF').pack(pady=(0, 12))
+        RoundedActionButton(btn_frame, 'Cancelar', top.destroy, width=450, height=42, fill='#FFFFFF', hover='#F3F6FA', fg='#687796').pack()
+        
+        top.grab_set()
+        self.wait_window(top)
+        
+        if result['value'] is None:
+            raise ValueError('A edição foi cancelada pelo usuário.')
+        if result['value'] != 'correction':
+            record_edit(entity_type, entity_id, result['value'], {'antes': before, 'depois': after})
 
 
     def _show_generic_col_menu(self, e, popup_attr, tree, header_specs, hidden_cols, setting_key, redraw_callback):
@@ -3514,12 +3600,12 @@ class App(tk.Tk):
         self.rec_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
         self.rec_header.pack(fill='x',padx=2,pady=(0,0))
         
-        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','dummy','edit','delete'),show='tree')
+        self.rec_tree=ttk.Treeview(table_host,columns=('code','name','yield','unit','cost','date','mod_date','status','dummy','edit','delete','options'),show='tree')
         self.rec_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.rec_tree.column('#0',width=60,minwidth=60,stretch=False)
         
-        for k,w in [('code',100),('name',380),('yield',120),('unit',65),('cost',120),('edit',30),('delete',30)]:
-            self.rec_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('yield','unit','cost') else 'w',stretch=False)
+        for k,w in [('code',100),('name',380),('yield',120),('unit',65),('cost',120),('date',130),('mod_date',130),('status',80),('edit',30),('delete',30),('options',30)]:
+            self.rec_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('yield','unit','cost','date','mod_date','status') else 'w',stretch=False)
         self.rec_tree.column('dummy', width=0, minwidth=0, stretch=True)
         
         self.rec_hsb = PillScrollbar(table_host, self.rec_tree)
@@ -3530,7 +3616,7 @@ class App(tk.Tk):
         self.rec_tree.configure(xscrollcommand=hsb_scroll_rec)
         self.rec_tree.pack(fill='both',expand=True)
         
-        self._rec_header_specs=[('code','Código',100),('name','Receita',380),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('dummy','',0),('edit','',30),('delete','',30)]
+        self._rec_header_specs=[('code','Código',100),('name','Receita',380),('yield','Rendimento',120),('unit','Un.',65),('cost','Custo total',120),('date','Data de criação',130),('mod_date','Última modificação',130),('status','Status',80),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
         self._rec_header_imgs={}
         
         valid_keys = [spec[0] for spec in self._rec_header_specs]
@@ -3575,8 +3661,15 @@ class App(tk.Tk):
                     arrow_txt = ' ↑' if getattr(self, '_rec_order_dir', 'ASC') == 'ASC' else ' ↓'
                 full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
                 
-                c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                tag = f'hdr_{key}'
+                tid = c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align, tags=(tag,))
+                c.create_rectangle(x0, 0, x0+cw, h, fill='', outline='', tags=(tag,))
                 c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                
+                c.tag_bind(tag, '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
+                c.tag_bind(tag, '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
+                c.tag_bind(tag, '<Button-1>', lambda e, k=key: self._sort_rec_col(k))
+                
                 x0+=cw
             cw0 = 60
             if cw0 > 0:
@@ -3614,7 +3707,7 @@ class App(tk.Tk):
         self._setup_canvas_header_drag(self.rec_header, self.rec_tree, ['edit','delete'], redraw_rec_header, 'rec')
 
         self.rec_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.rec_tree,'recipe'))
-        self.rec_tree.bind('<Double-1>',lambda e:self.edit_selected_recipe())
+        self.rec_tree.bind('<Double-1>',lambda e: (self.edit_selected_recipe(), 'break')[1])
         
         self.rec_icon_ov=self._attach_row_icon_overlay(self.rec_tree, table_host, 6, 7, self.edit_selected_recipe, self.delete_selected_recipe)
         try:
@@ -3636,7 +3729,7 @@ class App(tk.Tk):
             l_sub.pack()
         except Exception:
             self.rec_empty_overlay = tk.Label(table_host, text='Nenhuma receita cadastrada.\nClique em + Nova Receita para adicionar a primeira receita.', bg=self.colors['field'], fg=self.colors['muted'], font=('Segoe UI', 10))
-        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_more,rec_history],'bulk':[self.rec_bulk_delete_btn]}
+        self._action_buttons[self.rec_tree]={'normal':[rec_add,rec_history,rec_conv,rec_more],'bulk':[self.rec_bulk_delete_btn]}
         self._update_action_states()
 
     def recipe_form(self, edit_id=None, imported_items=None, imported_source=None):
@@ -3721,9 +3814,21 @@ class App(tk.Tk):
                 align = 'w' if key == 'item' else 'center'
                 anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
                 if idx == 0: x0 += 60 
-                c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
-                x0 += cw
                 
+                arrow_txt = ''
+                if sort_state['by'] == key:
+                    arrow_txt = ' ↑' if sort_state['dir'] == 'ASC' else ' ↓'
+                full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
+                
+                tag = f'hdr_{key}'
+                tid = c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=full_txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align, tags=(tag,))
+                c.create_rectangle(x0 - (60 if idx==0 else 0), 0, x0+cw, h, fill='', outline='', tags=(tag,))
+                if key in ('item', 'qty', 'cost'):
+                    c.tag_bind(tag, '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
+                    c.tag_bind(tag, '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
+                    c.tag_bind(tag, '<Button-1>', lambda e, k=key: sort_items(k))
+                    
+                x0 += cw
             all_checked = len(self._checked_rows.get(str(tree), set())) == len(tree.get_children()) and tree.get_children()
             c.create_image(30, h/2, image=self._img_chk_on if all_checked else self._img_chk_off, anchor='center', tags=('master_chk',))
             c.tag_bind('master_chk', '<Button-1>', lambda e: toggle_master_chk())
@@ -3793,12 +3898,29 @@ class App(tk.Tk):
             
         material_var.trace_add('write', load_units)
         
+        sort_state = {'by': 'item', 'dir': 'ASC'}
+        def sort_items(key):
+            if sort_state['by'] == key: sort_state['dir'] = 'DESC' if sort_state['dir'] == 'ASC' else 'ASC'
+            else: sort_state['by'] = key; sort_state['dir'] = 'ASC'
+            refresh_items()
+            
         def refresh_items():
             for x in tree.get_children():tree.delete(x)
+            dec = []
             for i, (mid,n,q,u) in enumerate(items):
                 try: cst=material_cost(mid,q,u)
                 except Exception as e: cst=f'Erro'
-                tree.insert('','end',iid=str(i),values=(n,q,u,fmt(cst) if isinstance(cst,(int,float)) else cst))
+                dec.append({'i': i, 'n': n, 'q': q, 'u': u, 'cst': cst})
+                
+            k = sort_state['by']
+            rev = (sort_state['dir'] == 'DESC')
+            if k == 'item': dec.sort(key=lambda x: x['n'].lower(), reverse=rev)
+            elif k == 'qty': dec.sort(key=lambda x: float(x['q']), reverse=rev)
+            elif k == 'cost': dec.sort(key=lambda x: x['cst'] if isinstance(x['cst'], (int, float)) else 0, reverse=rev)
+            
+            for item in dec:
+                cst = item['cst']
+                tree.insert('','end',iid=str(item['i']),values=(item['n'],item['q'],item['u'],fmt(cst) if isinstance(cst,(int,float)) else cst))
             redraw_header(); _redraw_overlay()
                 
         def add_item():
@@ -3883,22 +4005,16 @@ class App(tk.Tk):
         if r:self.recipe_form(r['id'])
 
     def delete_selected_recipe(self):
-        s=self.rec_tree.selection()
-        if not s:return
-        code=self.rec_tree.item(s[0])['values'][0]
-        with db() as c:r=c.execute('SELECT id,name FROM base_recipes WHERE code=?',(code,)).fetchone()
-        if not r:return
-        with db() as c:
-            refs=0
-            prodrefs=c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='RECIPE_BASE' AND ref_id=?",(r['id'],)).fetchone()['n']
-        if refs or prodrefs:
-            if messagebox.askyesno('Receita vinculada','Esta Receita possui vínculos e não pode ser excluída sem quebrar o histórico. Deseja inativá-la?',parent=self):
-                with db() as c:c.execute('UPDATE base_recipes SET active=0,updated_at=? WHERE id=?',(now_iso(),r['id']))
-                self.refresh_all();self.notify('Receita inativada com sucesso.')
-            return
-        if not messagebox.askyesno('Excluir Receita',f'Excluir "{r["name"]}"? Esta ação remove o registro e sua composição.',parent=self):return
-        with db() as c:c.execute('DELETE FROM base_recipes WHERE id=?',(r['id'],))
-        self.refresh_all()
+        self._bulk_delete_list(self.rec_tree, 'recipe', use_selection_only=True)
+
+    def _sort_rec_col(self, key):
+        if getattr(self, '_rec_order_by', 'name') == key:
+            self._rec_order_dir = 'DESC' if getattr(self, '_rec_order_dir', 'ASC') == 'ASC' else 'ASC'
+        else:
+            self._rec_order_by = key
+            self._rec_order_dir = 'ASC'
+        self.refresh_recipes()
+        self.after_idle(self._redraw_rec_header)
 
     def refresh_recipes(self):
         if not hasattr(self,'rec_tree'):return
@@ -3908,19 +4024,37 @@ class App(tk.Tk):
         status_filter = self.rec_status.get() if hasattr(self, 'rec_status') else 'Ativos'
         status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
         
-        with db() as c:rows=c.execute(f'SELECT id,code,name,yield_qty,yield_unit,COALESCE(active,1) as active FROM base_recipes WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
+        ob = getattr(self, '_rec_order_by', 'name')
+        od = getattr(self, '_rec_order_dir', 'ASC')
+        
+        with db() as c:rows=c.execute(f'SELECT id,code,name,yield_qty,yield_unit,COALESCE(active,1) as active, substr(created_at,1,10) as cdate, substr(COALESCE(updated_at,created_at),1,10) as udate FROM base_recipes WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
+        
+        items = []
         for r in rows:
             try:cost=recipe_cost(r['id'])
             except Exception:cost=0
-            with db() as c:comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY bri.id',(r['id'],)).fetchall()
+            with db() as c:comps=c.execute('SELECT m.name,bri.qty,bri.unit,COALESCE(m.archived,0) as arc FROM base_recipe_items bri JOIN materials m ON m.id=bri.material_id WHERE bri.recipe_id=? ORDER BY m.name COLLATE NOCASE ASC',(r['id'],)).fetchall()
             has_arc = any(comp['arc'] for comp in comps)
             name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
             
             is_active = r['active']
-            iid=self.rec_tree.insert('','end',text='',values=(r['code'],name_disp,fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(cost),'','',''), tags=() if is_active else ('inactive',))
-            for comp in comps:
+            items.append({'r': r, 'cost': cost, 'name_disp': name_disp, 'is_active': is_active, 'comps': comps})
+            
+        if ob == 'name': items.sort(key=lambda x: x['r']['name'].lower(), reverse=(od=='DESC'))
+        elif ob == 'code': items.sort(key=lambda x: str(x['r']['code']).lower() if x['r']['code'] else '', reverse=(od=='DESC'))
+        elif ob == 'yield': items.sort(key=lambda x: x['r']['yield_qty'] or 0, reverse=(od=='DESC'))
+        elif ob == 'cost': items.sort(key=lambda x: x['cost'], reverse=(od=='DESC'))
+        elif ob == 'date': items.sort(key=lambda x: x['r']['cdate'] or '', reverse=(od=='DESC'))
+        elif ob == 'mod_date': items.sort(key=lambda x: x['r']['udate'] or '', reverse=(od=='DESC'))
+        elif ob == 'status': items.sort(key=lambda x: x['is_active'], reverse=(od=='DESC'))
+            
+        for item in items:
+            r = item['r']
+            is_active = item['is_active']
+            iid=self.rec_tree.insert('','end',text='',values=(r['code'],item['name_disp'],fmt_num(r['yield_qty']),r['yield_unit'] or '-',fmt(item['cost']),r['cdate'] or '-',r['udate'] or '-','Ativo' if is_active else 'Inativo','','',''), tags=() if is_active else ('inactive',))
+            for comp in item['comps']:
                 comp_name = f"{comp['name']} (⚠️ Excluído)" if comp['arc'] else comp['name']
-                self.rec_tree.insert(iid,'end',text='',values=('',f'↳ {comp_name}',fmt_num(comp['qty']),comp['unit'],'-','','',''))
+                self.rec_tree.insert(iid,'end',text='',values=('',f'↳ {comp_name}',fmt_num(comp['qty']),comp['unit'],'-','-','-','-','','',''))
         self._reset_checked(self.rec_tree)
         if hasattr(self, 'rec_icon_ov'): self.rec_icon_ov._redraw()
         if hasattr(self, '_redraw_rec_header'): self._redraw_rec_header()
@@ -4041,12 +4175,12 @@ class App(tk.Tk):
         self.prod_header=tk.Canvas(table_host,bg=self.colors['panel'],bd=0,highlightthickness=0,height=36)
         self.prod_header.pack(fill='x',padx=2,pady=(0,0))
         
-        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','dummy','edit','delete'),show='tree')
+        self.prod_tree=ttk.Treeview(table_host,columns=('code','name','weight','cost','price','margin','date','mod_date','status','dummy','edit','delete','options'),show='tree')
         self.prod_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.prod_tree.column('#0',width=60,minwidth=60,stretch=False)
         
-        for k,w in [('code',100),('name',380),('weight',120),('cost',110),('price',110),('margin',90),('edit',30),('delete',30)]:
-            self.prod_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('weight','cost','price','margin') else 'w',stretch=False)
+        for k,w in [('code',100),('name',380),('weight',120),('cost',110),('price',110),('margin',90),('date',130),('mod_date',130),('status',80),('edit',30),('delete',30),('options',30)]:
+            self.prod_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('weight','cost','price','margin','date','mod_date','status') else 'w',stretch=False)
         self.prod_tree.column('dummy', width=0, minwidth=0, stretch=True)
         
         self.prod_hsb = PillScrollbar(table_host, self.prod_tree)
@@ -4057,7 +4191,7 @@ class App(tk.Tk):
         self.prod_tree.configure(xscrollcommand=hsb_scroll_prod)
         self.prod_tree.pack(fill='both',expand=True)
         
-        self._prod_header_specs=[('code','Código',100),('name','Produto',380),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('dummy','',0),('edit','',30),('delete','',30)]
+        self._prod_header_specs=[('code','Código',100),('name','Produto',380),('weight','Peso/Rendimento',120),('cost','Custo total',110),('price','Preço',110),('margin','Margem',90),('date','Data de criação',130),('mod_date','Última modificação',130),('status','Status',80),('dummy','',0),('edit','',30),('delete','',30),('options','',30)]
         self._prod_header_imgs={}
         
         valid_keys = [spec[0] for spec in self._prod_header_specs]
@@ -4102,8 +4236,15 @@ class App(tk.Tk):
                     arrow_txt = ' ↑' if getattr(self, '_prod_order_dir', 'ASC') == 'ASC' else ' ↓'
                 full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
                 
-                c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align)
+                tag = f'hdr_{key}'
+                tid = c.create_text(anchor_x,h/2,text=full_txt,fill='#60769D',font=('Segoe UI',9,'bold'),anchor=align, tags=(tag,))
+                c.create_rectangle(x0, 0, x0+cw, h, fill='', outline='', tags=(tag,))
                 c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                
+                c.tag_bind(tag, '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
+                c.tag_bind(tag, '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
+                c.tag_bind(tag, '<Button-1>', lambda e, k=key: self._sort_prod_col(k))
+                
                 x0+=cw
             cw0 = 60
             if cw0 > 0:
@@ -4141,7 +4282,7 @@ class App(tk.Tk):
         self._setup_canvas_header_drag(self.prod_header, self.prod_tree, ['edit','delete'], redraw_prod_header, 'prod')
 
         self.prod_tree.bind('<Button-1>',lambda e:self._tree_click(e,self.prod_tree,'product'))
-        self.prod_tree.bind('<Double-1>',lambda e:self.edit_selected_product())
+        self.prod_tree.bind('<Double-1>',lambda e: (self.edit_selected_product(), 'break')[1])
         
         self.prod_icon_ov=self._attach_row_icon_overlay(self.prod_tree, table_host, 7, 8, self.edit_selected_product, self.delete_selected_product)
         try:
@@ -4252,9 +4393,21 @@ class App(tk.Tk):
                 align = 'w' if key in ('type', 'item') else 'center'
                 anchor_x = x0 + 12 if align == 'w' else x0 + cw/2
                 if idx == 0: x0 += 60 
-                c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
-                x0 += cw
                 
+                arrow_txt = ''
+                if sort_state['by'] == key:
+                    arrow_txt = ' ↑' if sort_state['dir'] == 'ASC' else ' ↓'
+                full_txt = txt + arrow_txt if align == 'w' else arrow_txt + txt
+                
+                tag = f'hdr_{key}'
+                tid = c.create_text(anchor_x + (60 if idx==0 else 0), h/2, text=full_txt, fill='#60769D', font=('Segoe UI', 9, 'bold'), anchor=align, tags=(tag,))
+                c.create_rectangle(x0 - (60 if idx==0 else 0), 0, x0+cw, h, fill='', outline='', tags=(tag,))
+                if key in ('type', 'item', 'qty', 'cost'):
+                    c.tag_bind(tag, '<Enter>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#BA5200'))
+                    c.tag_bind(tag, '<Leave>', lambda e, t=tid, c=c: c.itemconfig(t, fill='#60769D'))
+                    c.tag_bind(tag, '<Button-1>', lambda e, k=key: sort_items(k))
+                    
+                x0 += cw
             all_checked = len(self._checked_rows.get(str(tree), set())) == len(tree.get_children()) and tree.get_children()
             c.create_image(30, h/2, image=self._img_chk_on if all_checked else self._img_chk_off, anchor='center', tags=('master_chk',))
             c.tag_bind('master_chk', '<Button-1>', lambda e: toggle_master_chk())
@@ -4327,13 +4480,32 @@ class App(tk.Tk):
             
         typ.trace_add('write',load_ref)
         
+        sort_state = {'by': 'item', 'dir': 'ASC'}
+        def sort_items(key):
+            if sort_state['by'] == key: sort_state['dir'] = 'DESC' if sort_state['dir'] == 'ASC' else 'ASC'
+            else: sort_state['by'] = key; sort_state['dir'] = 'ASC'
+            refresh_items()
+            
         def refresh_items():
             for x in tree.get_children():tree.delete(x)
+            dec = []
             for i, it in enumerate(items):
                 t,r,n,qv,uv=it
                 try:cst=item_cost(t,r,qv,uv)
                 except Exception:cst=0
-                tree.insert('','end',iid=str(i),values=({'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}.get(t,t),n,qv,uv,fmt(cst)))
+                dec.append({'i': i, 't': t, 'n': n, 'q': qv, 'u': uv, 'cst': cst})
+                
+            k = sort_state['by']
+            rev = (sort_state['dir'] == 'DESC')
+            if k == 'type': dec.sort(key=lambda x: {'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}.get(x['t'],x['t']).lower(), reverse=rev)
+            elif k == 'item': dec.sort(key=lambda x: x['n'].lower(), reverse=rev)
+            elif k == 'qty': dec.sort(key=lambda x: float(x['q']), reverse=rev)
+            elif k == 'cost': dec.sort(key=lambda x: x['cst'] if isinstance(x['cst'], (int, float)) else 0, reverse=rev)
+            
+            for item in dec:
+                cst = item['cst']
+                t = item['t']
+                tree.insert('','end',iid=str(item['i']),values=({'MATERIAL':'INSUMO','RECIPE_BASE':'RECEITA','PRODUCT':'PRODUTO'}.get(t,t),item['n'],item['q'],item['u'],fmt(cst)))
             redraw_header(); _redraw_overlay()
                 
         def add():
@@ -4422,21 +4594,7 @@ class App(tk.Tk):
         if r:self.product_form(r['id'])
 
     def delete_selected_product(self):
-        s=self.prod_tree.selection()
-        if not s:return
-        code=self.prod_tree.item(s[0])['values'][0]
-        with db() as c:r=c.execute('SELECT id,name FROM products WHERE code=?',(code,)).fetchone()
-        if not r:return
-        with db() as c:
-            refs=c.execute("SELECT COUNT(*) n FROM product_items WHERE item_type='PRODUCT' AND ref_id=?",(r['id'],)).fetchone()['n']
-        if refs:
-            if messagebox.askyesno('Produto vinculado','Este Produto possui vínculos/histórico e não pode ser excluído sem quebrar o histórico. Deseja inativá-lo?',parent=self):
-                with db() as c:c.execute('UPDATE products SET active=0,updated_at=? WHERE id=?',(now_iso(),r['id']))
-                self.refresh_all();self.notify('Produto inativado com sucesso.')
-            return
-        if not messagebox.askyesno('Excluir Produto',f'Excluir "{r["name"]}"? Esta ação remove o registro e sua composição.',parent=self):return
-        with db() as c:c.execute('DELETE FROM products WHERE id=?',(r['id'],))
-        self.refresh_all()
+        self._bulk_delete_list(self.prod_tree, 'product', use_selection_only=True)
 
     def delete_selected_products(self):
         tree=self.prod_tree
@@ -4475,6 +4633,15 @@ class App(tk.Tk):
             for r in rows:c.execute('DELETE FROM products WHERE id=?',(r['id'],))
         self.refresh_all();self.notify(f'{len(rows)} produtos excluídos com sucesso.')
 
+    def _sort_prod_col(self, key):
+        if getattr(self, '_prod_order_by', 'name') == key:
+            self._prod_order_dir = 'DESC' if getattr(self, '_prod_order_dir', 'ASC') == 'ASC' else 'ASC'
+        else:
+            self._prod_order_by = key
+            self._prod_order_dir = 'ASC'
+        self.refresh_products()
+        self.after_idle(self._redraw_prod_header)
+
     def refresh_products(self):
         if not hasattr(self,'prod_tree'):return
         for x in self.prod_tree.get_children():self.prod_tree.delete(x)
@@ -4483,36 +4650,53 @@ class App(tk.Tk):
         status_filter = self.prod_status.get() if hasattr(self, 'prod_status') else 'Ativos'
         status_cond = "COALESCE(active,1)=1 AND COALESCE(archived,0)=0" if status_filter == 'Ativos' else ("COALESCE(active,1)=0 AND COALESCE(archived,0)=0" if status_filter == 'Inativos' else "COALESCE(archived,0)=0")
         
-        with db() as c:rows=c.execute(f'SELECT id,code,name,weight_qty,weight_unit,sale_price,COALESCE(active,1) as active FROM products WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
+        ob = getattr(self, '_prod_order_by', 'name')
+        od = getattr(self, '_prod_order_dir', 'ASC')
+        
+        with db() as c:rows=c.execute(f'SELECT id,code,name,weight_qty,weight_unit,sale_price,COALESCE(active,1) as active, substr(created_at,1,10) as cdate, substr(COALESCE(updated_at,created_at),1,10) as udate FROM products WHERE {status_cond} AND (name LIKE ? OR code LIKE ?) ORDER BY name', (query, query)).fetchall()
+        
+        items = []
         for r in rows:
             try:cost=product_unit_cost(r['id'])
             except Exception:cost=0
             margin=((r['sale_price']-cost)/r['sale_price']*100) if r['sale_price'] else None
-            with db() as c:comps=c.execute('SELECT item_type,ref_id,qty_per_unit AS qty,unit FROM product_items WHERE product_id=? ORDER BY id',(r['id'],)).fetchall()
+            with db() as c:comps=c.execute('SELECT item_type,ref_id,qty_per_unit AS qty,unit FROM product_items WHERE product_id=?',(r['id'],)).fetchall()
+            
             has_arc = False
-            for comp in comps:
-                if comp['item_type'] == 'MATERIAL':
-                    with db() as cd: m = cd.execute('SELECT COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
-                    if m and m['arc']: has_arc = True
-                else:
-                    with db() as cd: m = cd.execute('SELECT COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
-                    if m and m['arc']: has_arc = True
-            
-            name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
-            is_active = r['active']
-            
-            w_disp = (fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-'
-            iid=self.prod_tree.insert('','end',text='',values=(r['code'],name_disp,w_disp,fmt(cost),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-','','',''), tags=() if is_active else ('inactive',))
-            
+            comp_details = []
             for comp in comps:
                 if comp['item_type'] == 'MATERIAL':
                     with db() as cd: m = cd.execute('SELECT name, COALESCE(archived,0) as arc FROM materials WHERE id=?',(comp['ref_id'],)).fetchone()
                 else:
                     with db() as cd: m = cd.execute('SELECT name, COALESCE(archived,0) as arc FROM base_recipes WHERE id=?',(comp['ref_id'],)).fetchone()
-                
                 if m:
-                    n = f"{m['name']} (⚠️ Excluído)" if m['arc'] else m['name']
-                    self.prod_tree.insert(iid,'end',text='',values=('',f'↳ {n}',fmt_num(comp['qty']),comp['unit'],'-','-','','',''))
+                    if m['arc']: has_arc = True
+                    comp_details.append({'name': m['name'], 'arc': m['arc'], 'qty': comp['qty'], 'unit': comp['unit']})
+            
+            comp_details.sort(key=lambda x: x['name'].lower())
+            name_disp = f"⚠️ {r['name']}" if has_arc else r['name']
+            is_active = r['active']
+            items.append({'r': r, 'cost': cost, 'margin': margin, 'name_disp': name_disp, 'is_active': is_active, 'comps': comp_details})
+            
+        if ob == 'name': items.sort(key=lambda x: x['r']['name'].lower(), reverse=(od=='DESC'))
+        elif ob == 'code': items.sort(key=lambda x: str(x['r']['code']).lower() if x['r']['code'] else '', reverse=(od=='DESC'))
+        elif ob == 'weight': items.sort(key=lambda x: x['r']['weight_qty'] or 0, reverse=(od=='DESC'))
+        elif ob == 'cost': items.sort(key=lambda x: x['cost'], reverse=(od=='DESC'))
+        elif ob == 'price': items.sort(key=lambda x: x['r']['sale_price'] or 0, reverse=(od=='DESC'))
+        elif ob == 'margin': items.sort(key=lambda x: x['margin'] if x['margin'] is not None else -9999, reverse=(od=='DESC'))
+        elif ob == 'date': items.sort(key=lambda x: x['r']['cdate'] or '', reverse=(od=='DESC'))
+        elif ob == 'mod_date': items.sort(key=lambda x: x['r']['udate'] or '', reverse=(od=='DESC'))
+        elif ob == 'status': items.sort(key=lambda x: x['is_active'], reverse=(od=='DESC'))
+            
+        for item in items:
+            r = item['r']
+            is_active = item['is_active']
+            w_disp = (fmt_num(r['weight_qty'])+' '+str(r['weight_unit'] or '')).strip() or '-'
+            margin = item['margin']
+            iid=self.prod_tree.insert('','end',text='',values=(r['code'],item['name_disp'],w_disp,fmt(item['cost']),fmt(r['sale_price']),f'{margin:.1f}%' if margin is not None else '-',r['cdate'] or '-',r['udate'] or '-','Ativo' if is_active else 'Inativo','','',''), tags=() if is_active else ('inactive',))
+            for comp in item['comps']:
+                n = f"{comp['name']} (⚠️ Excluído)" if comp['arc'] else comp['name']
+                self.prod_tree.insert(iid,'end',text='',values=('',f'↳ {n}',fmt_num(comp['qty']),comp['unit'],'-','-','-','-','-','','',''))
         self._reset_checked(self.prod_tree)
         if hasattr(self, 'prod_icon_ov'): self.prod_icon_ov._redraw()
         if hasattr(self, '_redraw_prod_header'): self._redraw_prod_header()
@@ -4589,6 +4773,23 @@ class App(tk.Tk):
         self.language_var=tk.StringVar(value=get_setting('language','Português (Brasil)'))
         ttk.Label(langbox,text='Idioma').pack(side='left');ttk.Combobox(langbox,textvariable=self.language_var,values=('Português (Brasil)',),state='readonly',width=22).pack(side='left',padx=8)
         tk.Label(langbox,text='Outros idiomas serão adicionados na camada de tradução sem alterar os dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left')
+
+        _, bibox=panel('Auditoria & BI')
+        self.retention_var=tk.StringVar(value=get_setting('history_retention_months','36'))
+        ttk.Label(bibox,text='Retenção do histórico de edições (Meses)').pack(side='left')
+        ttk.Entry(bibox,textvariable=self.retention_var,width=10).pack(side='left',padx=8)
+        
+        def save_retention():
+            try:
+                v = int(self.retention_var.get().strip())
+                if v < 0: raise ValueError()
+                set_setting('history_retention_months', str(v))
+                self.notify(f"Retenção de histórico definida para {v} meses.")
+            except Exception:
+                safe_error(self.winfo_toplevel(), "Erro", "Digite um número de meses válido (0 para nunca limpar).")
+                
+        ttk.Button(bibox,text='Salvar',command=save_retention).pack(side='left')
+        tk.Label(bibox,text='Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left', padx=8)
 
         _, dbbox=panel('Fonte de dados')
         ttk.Label(dbbox,text='SQLite atual').grid(row=0,column=0,sticky='w');self.db_path_var=tk.StringVar(value=str(DB_PATH));ttk.Entry(dbbox,textvariable=self.db_path_var,width=70).grid(row=1,column=0,padx=(0,8),sticky='ew')
