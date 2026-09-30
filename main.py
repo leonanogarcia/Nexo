@@ -1397,55 +1397,63 @@ class ReferenceSidebar(tk.Canvas):
             self._image_refs[f"shape_{tag}_{x}_{y}_{w}_{h}_{fill}"] = img_tk
             self.create_image(x, y, image=img_tk, anchor='nw', tags=tag)
 
-    def _get_centers(self):
+    def _compute_geometry(self):
         H = max(self.winfo_height(), 600)
-        y = 188
-        bottom = H - 32
-        h = max(380, bottom - y)
+        y_min = 160
+        bottom_max = H - 32
+        available_h = max(380, bottom_max - y_min)
+        
+        target_h = 500
+        if available_h >= target_h:
+            h = target_h
+            y = int(y_min + (available_h - target_h) / 2)
+        else:
+            h = available_h
+            y = y_min
+            
         top_c = y + 50
         bot_c = y + h - 50
         spacing = (bot_c - top_c) / 4
-        return [top_c + i * spacing for i in range(5)]
+        centers = [top_c + i * spacing for i in range(5)]
+        
+        available_w = 150
+        side_w = 68
+        x = (available_w - side_w) // 2
+        return x, y, side_w, h, centers
+
+    def _get_centers(self):
+        return self._compute_geometry()[4]
 
     def _redraw(self):
         self.delete('all'); self._button_items.clear()
         self._image_refs = {}
-        H=max(self.winfo_height(),600)
         
-        # O espaçamento fixo na esquerda do Nexo é 150px
-        available_w = 150
-        side_w = 68
-        x = (available_w - side_w) // 2
-        y = 188
-        bottom = H - 32
-        h=max(380,bottom-y); r=side_w/2
-        sidebar='#111C30' if not self._dark else '#F28C28'
-        shadow='#D8E1EE' if not self._dark else '#0A0A0A'
-        outline='#A9BFE0' if not self._dark else '#F6A24B'
+        x, y, side_w, h, centers = self._compute_geometry()
+        r = side_w / 2
+        sidebar = '#111C30' if not self._dark else '#F28C28'
+        shadow = '#D8E1EE' if not self._dark else '#0A0A0A'
+        outline = '#A9BFE0' if not self._dark else '#F6A24B'
         
         self._draw_pil_shape(x, y+4, side_w, h, r, shadow, tag='shadow', blur=6)
         self._draw_pil_shape(x, y, side_w, h, r, sidebar, outline=outline, line_width=1, tag='sidebar')
         
-        centers = self._get_centers()
-        for key,cy in zip(self._asset_slug.keys(),centers):
-            if key==self._active:
+        for key, cy in zip(self._asset_slug.keys(), centers):
+            if key == self._active:
                 sel_w = side_w - 24
                 sel_h = 60
                 sel_r = 20
                 sel_fill = '#693A16' if not self._dark else '#F6A45A'
                 self._draw_pil_shape(x+12, cy-sel_h/2, sel_w, sel_h, sel_r, sel_fill, tag='selection')
-            img=self._buttons.get(key)
+            img = self._buttons.get(key)
             if img:
-                item=self.create_image(x+side_w/2,cy,image=img,anchor='center',tags=('nav',key))
-                self._button_items[key]=item
+                item = self.create_image(x+side_w/2, cy, image=img, anchor='center', tags=('nav', key))
+                self._button_items[key] = item
 
-    def _hit_key(self,x,y):
-        W=max(self.winfo_width(),150); H=max(self.winfo_height(),600)
-        side_w=min(68, max(64, int(W*0.055))); sx=29 if W>=600 else 8
-        if not (sx <= x <= sx+side_w): return None
-        centers = self._get_centers()
-        for key,cy in zip(self._asset_slug.keys(), centers):
-            if abs(y-cy)<=42: return key
+    def _hit_key(self, x, y):
+        gx, gy, side_w, h, centers = self._compute_geometry()
+        if not (gx <= x <= gx + side_w): return None
+        for key, cy in zip(self._asset_slug.keys(), centers):
+            if abs(y - cy) <= 36: return key
         return None
 
     def _on_click(self,event):
@@ -1471,11 +1479,8 @@ class ReferenceSidebar(tk.Canvas):
         labels={'Geral':'Início','Cadastro':'Cadastro','Receitas':'Receitas','Produtos':'Produtos','Configurações':'Configurações'}
         text = labels.get(key, key)
         
-        available_w = 150
-        side_w = 68
-        x = (available_w - side_w) // 2
-        
-        centers_map=dict(zip(self._asset_slug.keys(), self._get_centers()))
+        gx, gy, side_w, h, centers = self._compute_geometry()
+        centers_map = dict(zip(self._asset_slug.keys(), centers))
         cy = centers_map.get(key, event.y)
 
         tip = tk.Toplevel(self)
@@ -1485,7 +1490,7 @@ class ReferenceSidebar(tk.Canvas):
         except: pass
         tip.configure(bg='#FF00FF')
         
-        tx = int(self.winfo_rootx() + x + side_w + 2)
+        tx = int(self.winfo_rootx() + gx + side_w + 2)
         ty = int(self.winfo_rooty() + cy - 16)
         
         tip_w = len(text) * 8 + 24
@@ -1876,7 +1881,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.0',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.1',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -2790,7 +2795,7 @@ class App(tk.Tk):
         self.mat_tree.tag_configure('inactive', foreground='#9AA9BF')
         self.mat_tree.column('#0',width=60,minwidth=60,stretch=False)
         
-        for k,w in [('code',100),('name',220),('brand',150),('qty',110),('unit',65),('value',100),('category',130),('date',135),('mod_date',135),('status',90),('edit',30),('delete',30),('options',30)]:
+        for k,w in [('code',100),('barcode',130),('name',220),('brand',150),('qty',110),('unit',65),('value',100),('category',130),('date',135),('mod_date',135),('status',90),('edit',30),('delete',30),('options',30)]:
             self.mat_tree.column(k,width=w,minwidth=w,anchor='center' if k in ('qty','unit','value','category','date','mod_date','status') else 'w',stretch=False)
         self.mat_tree.column('dummy', width=0, minwidth=0, stretch=True)
             

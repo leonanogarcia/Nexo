@@ -1,7 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-python -m pip install python-docx pypdf reportlab
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+  set "PATH=%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+)
+python -m pip install pillow requests python-docx pypdf reportlab
 if errorlevel 1 (
   echo.
   echo Nao foi possivel instalar as dependencias opcionais.
