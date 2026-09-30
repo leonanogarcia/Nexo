@@ -9,7 +9,10 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 
 try:
     import ctypes
-    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    # DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED (-5):
+    # Escala automaticamente a janela para o tamanho proporcional correto em qualquer escala (ex: 4K a 300%),
+    # preservando nitidez de texto e componentes GDI.
+    ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-5))
 except Exception:
     pass
 
