@@ -1885,7 +1885,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.2   ',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y', padx=(0, 10))
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.3   ',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y', padx=(0, 10))
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -5154,36 +5154,117 @@ class App(tk.Tk):
         CustomHistoryModal(self, f"Histórico: {v[1]}", (('registro', 'Data/Hora', 165), ('custo', 'Custo', 120)), [(r[2], r[1]) for r in rows], current_row_data=curr_row)
 
     # ---------- Configurações ----------
+
+    class SettingsTab(tk.Frame):
+        def __init__(self, parent, text, key, on_click, app):
+            super().__init__(parent, bg=app.colors['bg'], bd=0, highlightthickness=0)
+            self.key = key
+            self.text = text
+            self.on_click = on_click
+            self.app = app
+            self.is_active = False
+            self.pack_propagate(False)
+            self.config(height=42, width=200)
+            
+            self.panel = RoundedPanel(self, fill=app.colors['bg'], border='', radius=21, bg=app.colors['bg'])
+            self.panel.pack(fill='both', expand=True, padx=4, pady=2)
+            
+            self.lbl = tk.Label(self.panel, text=text, bg=app.colors['bg'], fg=app.colors['muted'], font=('Segoe UI', 10))
+            self.lbl.pack(side='left', padx=16)
+            
+            def click(e): self.on_click(self.key)
+            def enter(e):
+                if not self.is_active:
+                    hover_fill = '#FEF3E9' if not getattr(self.app, '_dark', False) else '#2A1D11'
+                    self.panel.set_style(fill=hover_fill)
+                    self.lbl.config(bg=hover_fill, fg=self.app.colors['text'], cursor='hand2')
+                    self.panel._canvas.config(cursor='hand2')
+                    self.config(cursor='hand2')
+            def leave(e):
+                self.set_active(self.is_active)
+                
+            for w in (self, self.panel, self.panel._canvas, self.lbl):
+                w.bind('<Button-1>', click)
+                w.bind('<Enter>', enter)
+                w.bind('<Leave>', leave)
+                
+        def set_active(self, active):
+            self.is_active = active
+            bg = self.app.colors['bg']
+            if active:
+                fill = '#FEF3E9' if not getattr(self.app, '_dark', False) else '#2A1D11'
+                fg = '#F28C28' if not getattr(self.app, '_dark', False) else '#F6A45A'
+                font = ('Segoe UI', 10, 'bold')
+            else:
+                fill = bg
+                fg = self.app.colors['muted']
+                font = ('Segoe UI', 10, 'normal')
+                
+            self.panel.set_style(fill=fill, bg=bg)
+            self.lbl.config(bg=fill, fg=fg, font=font)
+
     def settings_page(self,f):
         outer=tk.Frame(f,bg=self.colors['bg'])
         outer.pack(fill='both',expand=True)
-        canvas=tk.Canvas(outer,bg=self.colors['bg'],highlightthickness=0,bd=0)
-        canvas.pack(side='left',fill='both',expand=True)
-        sb=ttk.Scrollbar(outer,orient='vertical',command=canvas.yview)
-        sb.pack(side='right',fill='y')
-        canvas.configure(yscrollcommand=sb.set)
-        pad=tk.Frame(canvas,bg=self.colors['bg'])
-        win=canvas.create_window((0,0),window=pad,anchor='nw')
-        def _sync(_=None):
-            canvas.configure(scrollregion=canvas.bbox('all'))
-            canvas.itemconfigure(win,width=canvas.winfo_width())
-        pad.bind('<Configure>', _sync)
-        canvas.bind('<Configure>', _sync)
+        
+        # --- NOVO LAYOUT: SIDEBAR E CONTENT ---
+        sidebar_frame = tk.Frame(outer, bg=self.colors['bg'], width=220)
+        sidebar_frame.pack(side='left', fill='y', padx=(0, 24))
+        sidebar_frame.pack_propagate(False)
+        
+        content_frame = tk.Frame(outer, bg=self.colors['bg'])
+        content_frame.pack(side='right', fill='both', expand=True)
+        
         self.settings_vars={}
+        self._settings_pages = {}
+        self._settings_tabs = {}
+        
+        def on_tab_click(key):
+            for k, tab in self._settings_tabs.items():
+                if k == key:
+                    tab.set_active(True)
+                    self._settings_pages[k].pack(fill='both', expand=True)
+                else:
+                    tab.set_active(False)
+                    self._settings_pages[k].pack_forget()
 
-        def panel(title):
-            shell=RoundedPanel(pad, fill=self.colors['panel'], border=self.colors['line'], radius=18, bg=self.colors['bg'])
-            shell.pack(fill='x', pady=(0,10))
-            tk.Label(shell,text=title,bg=self.colors['panel'],fg=self.colors['text'],font=('Segoe UI',11,'bold')).pack(anchor='w',padx=14,pady=(12,6))
+        def add_category(key, title):
+            tab = self.SettingsTab(sidebar_frame, title, key, on_tab_click, self)
+            tab.pack(fill='x', pady=(0, 4))
+            self._settings_tabs[key] = tab
+            
+            # Content container with scrollbar
+            page_outer = tk.Frame(content_frame, bg=self.colors['bg'])
+            
+            canvas=tk.Canvas(page_outer,bg=self.colors['bg'],highlightthickness=0,bd=0)
+            canvas.pack(side='left',fill='both',expand=True)
+            sb=ttk.Scrollbar(page_outer,orient='vertical',command=canvas.yview)
+            sb.pack(side='right',fill='y')
+            canvas.configure(yscrollcommand=sb.set)
+            pad=tk.Frame(canvas,bg=self.colors['bg'])
+            win=canvas.create_window((0,0),window=pad,anchor='nw')
+            def _sync(_=None, c=canvas, p=pad, w=win):
+                c.configure(scrollregion=c.bbox('all'))
+                c.itemconfigure(w,width=c.winfo_width())
+            pad.bind('<Configure>', _sync)
+            canvas.bind('<Configure>', _sync)
+            
+            self._settings_pages[key] = page_outer
+            return pad
+
+        def panel(parent_pad, title):
+            shell=RoundedPanel(parent_pad, fill=self.colors['panel'], border=self.colors.get('line', '#E5ECF5'), radius=18, bg=self.colors['bg'])
+            shell.pack(fill='x', pady=(0,16))
+            tk.Label(shell,text=title,bg=self.colors['panel'],fg=self.colors['text'],font=('Segoe UI',12,'bold')).pack(anchor='w',padx=20,pady=(16,6))
             body=tk.Frame(shell,bg=self.colors['panel'])
-            body.pack(fill='x',padx=14,pady=(0,12))
+            body.pack(fill='x',padx=20,pady=(0,20))
             return shell, body
 
-        _, appearance=panel('Aparência')
-        stored_theme=get_setting('theme','light'); theme=tk.StringVar(value={'light':'Claro','dark':'Escuro','system':'Sistema'}.get(stored_theme,'Escuro'));self.settings_vars['theme']=theme
-        ttk.Label(appearance,text='Tema').pack(side='left');ttk.Combobox(appearance,textvariable=theme,values=('Claro','Escuro','Sistema'),state='readonly',width=12).pack(side='left',padx=8);ttk.Button(appearance,text='Aplicar',command=self.apply_theme_from_settings).pack(side='left')
-
-        _, company=panel('Empresa')
+        # --- CONSTRUÇÃO DAS PÁGINAS ---
+        # 1. Geral
+        pad_geral = add_category('geral', '⚙️ Geral')
+        
+        _, company=panel(pad_geral, 'Empresa')
         name=tk.StringVar(value=get_setting('company_name','Nexo'));self.settings_vars['company']=name
         logo=tk.StringVar(value=get_setting('company_logo',''));self.settings_vars['logo']=logo
         ttk.Label(company,text='Nome da empresa').grid(row=0,column=0,sticky='w');ttk.Entry(company,textvariable=name,width=36).grid(row=1,column=0,padx=(0,10),sticky='ew')
@@ -5192,48 +5273,18 @@ class App(tk.Tk):
         tk.Label(company,text='Formatos aceitos: PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO. Mínimo recomendado: 500 px no menor lado.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9),wraplength=980,justify='left').grid(row=2,column=0,columnspan=4,sticky='w',padx=6,pady=(8,0))
         company.columnconfigure(0,weight=1); company.columnconfigure(1,weight=1)
 
-        _, costs=panel('Custos operacionais')
-        self.cost_vars={}; settings=get_cost_settings()
-        for i,n in enumerate(('Gás','Energia','Água')):
-            ttk.Label(costs,text=f'{n} (%)').grid(row=0,column=i,sticky='w',padx=6);v=tk.StringVar(value=fmt_num(settings.get(n,20)));self.cost_vars[n]=v;ttk.Entry(costs,textvariable=v,width=12).grid(row=1,column=i,padx=6)
-        ttk.Button(costs,text='Salvar custos',command=self.save_cost_settings).grid(row=1,column=3,padx=10)
-        tk.Label(costs,text='Esses percentuais entram no custo final do Produto e ficam registrados no histórico.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=2,column=0,columnspan=4,sticky='w',padx=6,pady=8)
+        _, appearance=panel(pad_geral, 'Aparência')
+        stored_theme=get_setting('theme','light'); theme=tk.StringVar(value={'light':'Claro','dark':'Escuro','system':'Sistema'}.get(stored_theme,'Escuro'));self.settings_vars['theme']=theme
+        ttk.Label(appearance,text='Tema').pack(side='left');ttk.Combobox(appearance,textvariable=theme,values=('Claro','Escuro','Sistema'),state='readonly',width=12).pack(side='left',padx=8);ttk.Button(appearance,text='Aplicar',command=self.apply_theme_from_settings).pack(side='left')
 
-        _, units=panel('Unidades internas')
-        self.base_vars={}
-        for i,(key,label,vals) in enumerate((('mass_base_unit','Massa',UNITS_MASS),('volume_base_unit','Volume',UNITS_VOLUME),('count_base_unit','Quantidade',UNITS_COUNT))):
-            ttk.Label(units,text=label).grid(row=0,column=i,padx=6,sticky='w');v=tk.StringVar(value=get_setting(key,BASE_UNITS_DEFAULT[dimension_of_unit(vals[0]) or 'count']));self.base_vars[key]=v;ttk.Combobox(units,textvariable=v,values=vals,state='readonly',width=10).grid(row=1,column=i,padx=6)
-        ttk.Button(units,text='Salvar unidades internas',command=self.save_base_units).grid(row=1,column=3,padx=8)
-
-        _, convbox=panel('Unidades configuráveis por insumo')
-        tk.Label(convbox,text='Ex.: xícara de leite pode equivaler a 240 ml; xícara de farinha pode equivaler a outro valor.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=0,column=0,sticky='w',pady=(0,8))
-        ttk.Button(convbox,text='Gerenciar conversões',command=self.settings_conversion_dialog).grid(row=1,column=0,sticky='w')
-
-        _, langbox=panel('Idioma')
+        _, langbox=panel(pad_geral, 'Idioma')
         self.language_var=tk.StringVar(value=get_setting('language','Português (Brasil)'))
         ttk.Label(langbox,text='Idioma').pack(side='left');ttk.Combobox(langbox,textvariable=self.language_var,values=('Português (Brasil)',),state='readonly',width=22).pack(side='left',padx=8)
         tk.Label(langbox,text='Outros idiomas serão adicionados na camada de tradução sem alterar os dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left')
 
-        _, bibox=panel('Auditoria & BI')
-        self.retention_var=tk.StringVar(value=get_setting('history_retention_months','36'))
-        ttk.Label(bibox,text='Retenção do histórico de edições (Meses)').pack(side='left')
-        ttk.Entry(bibox,textvariable=self.retention_var,width=10).pack(side='left',padx=8)
-        
-        def save_retention():
-            try:
-                v = int(self.retention_var.get().strip())
-                if v < 0: raise ValueError()
-                set_setting('history_retention_months', str(v))
-                self.notify(f"Retenção de histórico definida para {v} meses.")
-            except Exception:
-                safe_error(self.winfo_toplevel(), "Erro", "Digite um número de meses válido (0 para nunca limpar).")
-                
-        ttk.Button(bibox,text='Salvar',command=save_retention).pack(side='left')
-        tk.Label(bibox,text='Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left', padx=8)
-
-
-        _, aibox = panel('Sincronismo de Inteligência Artificial')
-        
+        # 2. IA
+        pad_ia = add_category('ia', '🧠 Inteligência Artificial')
+        _, aibox = panel(pad_ia, 'Sincronismo de Inteligência Artificial')
         ai_enabled = tk.IntVar(value=int(get_setting('ai_enabled', '0')))
         ai_provider = tk.StringVar(value=get_setting('ai_provider', 'Google Gemini'))
         ai_api_key = tk.StringVar(value=get_setting('ai_api_key', ''))
@@ -5267,7 +5318,47 @@ class App(tk.Tk):
         ttk.Button(aibox, text='Salvar Configurações de IA', command=save_ai_settings).pack(anchor='w')
         tk.Label(aibox, text='O Nexo processa imagens apenas para fins de extração de dados e não armazena fotos na nuvem.', bg=self.colors['panel'], fg=self.colors['muted'], font=('Segoe UI', 9)).pack(anchor='w', pady=(8, 0))
 
-        _, dbbox=panel('Fonte de dados')
+        # 3. Métricas
+        pad_met = add_category('metricas', '📈 Métricas de Custo')
+        _, costs=panel(pad_met, 'Custos operacionais')
+        self.cost_vars={}; settings=get_cost_settings()
+        for i,n in enumerate(('Gás','Energia','Água')):
+            ttk.Label(costs,text=f'{n} (%)').grid(row=0,column=i,sticky='w',padx=6);v=tk.StringVar(value=fmt_num(settings.get(n,20)));self.cost_vars[n]=v;ttk.Entry(costs,textvariable=v,width=12).grid(row=1,column=i,padx=6)
+        ttk.Button(costs,text='Salvar custos',command=self.save_cost_settings).grid(row=1,column=3,padx=10)
+        tk.Label(costs,text='Esses percentuais entram no custo final do Produto e ficam registrados no histórico.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=2,column=0,columnspan=4,sticky='w',padx=6,pady=8)
+
+        # 4. Unidades
+        pad_un = add_category('unidades', '⚖️ Unidades de Medida')
+        _, units=panel(pad_un, 'Unidades internas')
+        self.base_vars={}
+        for i,(key,label,vals) in enumerate((('mass_base_unit','Massa',UNITS_MASS),('volume_base_unit','Volume',UNITS_VOLUME),('count_base_unit','Quantidade',UNITS_COUNT))):
+            ttk.Label(units,text=label).grid(row=0,column=i,padx=6,sticky='w');v=tk.StringVar(value=get_setting(key,BASE_UNITS_DEFAULT[dimension_of_unit(vals[0]) or 'count']));self.base_vars[key]=v;ttk.Combobox(units,textvariable=v,values=vals,state='readonly',width=10).grid(row=1,column=i,padx=6)
+        ttk.Button(units,text='Salvar unidades internas',command=self.save_base_units).grid(row=1,column=3,padx=8)
+
+        _, convbox=panel(pad_un, 'Unidades configuráveis por insumo')
+        tk.Label(convbox,text='Ex.: xícara de leite pode equivaler a 240 ml; xícara de farinha pode equivaler a outro valor.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=0,column=0,sticky='w',pady=(0,8))
+        ttk.Button(convbox,text='Gerenciar conversões',command=self.settings_conversion_dialog).grid(row=1,column=0,sticky='w')
+
+        # 5. DB e BI
+        pad_db = add_category('banco', '💾 Banco de Dados & BI')
+        _, bibox=panel(pad_db, 'Auditoria & BI')
+        self.retention_var=tk.StringVar(value=get_setting('history_retention_months','36'))
+        ttk.Label(bibox,text='Retenção do histórico de edições (Meses)').pack(side='left')
+        ttk.Entry(bibox,textvariable=self.retention_var,width=10).pack(side='left',padx=8)
+        
+        def save_retention():
+            try:
+                v = int(self.retention_var.get().strip())
+                if v < 0: raise ValueError()
+                set_setting('history_retention_months', str(v))
+                self.notify(f"Retenção de histórico definida para {v} meses.")
+            except Exception:
+                safe_error(self.winfo_toplevel(), "Erro", "Digite um número de meses válido (0 para nunca limpar).")
+                
+        ttk.Button(bibox,text='Salvar',command=save_retention).pack(side='left')
+        tk.Label(bibox,text='Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left', padx=8)
+
+        _, dbbox=panel(pad_db, 'Fonte de dados')
         ttk.Label(dbbox,text='SQLite atual').grid(row=0,column=0,sticky='w');self.db_path_var=tk.StringVar(value=str(DB_PATH));ttk.Entry(dbbox,textvariable=self.db_path_var,width=70).grid(row=1,column=0,padx=(0,8),sticky='ew')
         ttk.Button(dbbox,text='Escolher arquivo SQLite',command=self.choose_db_file).grid(row=1,column=1)
         ttk.Button(dbbox,text='Aplicar banco',command=self.apply_db_file).grid(row=1,column=2,padx=6)
@@ -5276,13 +5367,16 @@ class App(tk.Tk):
         tk.Label(dbbox,text='SQLite local/arquivo de rede funciona nesta versão. Conectores PostgreSQL/MySQL podem ser adicionados depois.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9),wraplength=980,justify='left').grid(row=2,column=0,columnspan=3,sticky='w',pady=8)
         dbbox.columnconfigure(0,weight=1)
 
-        _, audit=panel('Auditoria do banco')
+        _, audit=panel(pad_db, 'Auditoria do banco')
         tk.Label(audit,text='Veja as últimas operações, diferencie INSERT/UPDATE/DELETE e confira o antes/depois das edições.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(anchor='w')
         ttk.Button(audit,text='Visualizar banco / auditoria',command=self.audit_database_dialog).pack(anchor='w',pady=(8,0))
 
-        _, docs=panel('Documentos')
+        _, docs=panel(pad_db, 'Documentos')
         tk.Label(docs,text=f'Arquivos originais ficam em: {DOCS_DIR}',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(anchor='w')
-        self.refresh_settings_widgets=pad
+        
+        # Init
+        self.refresh_settings_widgets = pad_geral # Fallback for compatibility if needed
+        on_tab_click('geral')
 
     def settings_conversion_dialog(self):
         d=Modal(self,'Unidades configuráveis por insumo','820x600')
