@@ -505,6 +505,7 @@ def save_file_config():
 def set_setting(key, value):
     with db() as c:
         c.execute('INSERT INTO system_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, str(value)))
+        c.commit()
 
 
 def get_cost_settings():
@@ -1884,7 +1885,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.1',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y')
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.1   ',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y', padx=(0, 10))
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -1906,9 +1907,9 @@ class App(tk.Tk):
         try:
             with db() as c:
                 c.execute('SELECT 1').fetchone()
-            self.status.set(f'Banco de dados: Conectado ✓  ·  {DB_PATH.name}')
+            self.status.set(f'Banco de dados: Conectado ✓  ·  {DB_PATH.name}   ')
         except Exception:
-            self.status.set(f'Banco de dados: Desconectado ✕  ·  {DB_PATH.name}')
+            self.status.set(f'Banco de dados: Desconectado ✕  ·  {DB_PATH.name}   ')
 
     def show_page(self,key):
         if getattr(self,'current_page',None) == key:
@@ -1917,11 +1918,11 @@ class App(tk.Tk):
         self._pages[key].pack(fill='both',expand=True,padx=(0, 24),pady=(0,8))
         self.current_page=key
         titles={
-            'Geral':('Início','Visão geral do seu negócio'),
-            'Cadastro':('Cadastro','Gerencie insumos, compras e fornecedores'),
-            'Receitas':('Receitas','Monte e acompanhe o custo das receitas base'),
-            'Produtos':('Produtos','Custos, composição e precificação dos produtos'),
-            'Configurações':('Configurações','Preferências, dados e parâmetros do Nexo'),
+            'Geral':('Início','Visão geral do seu negócio   '),
+            'Cadastro':('Cadastro','Gerencie insumos, compras e fornecedores   '),
+            'Receitas':('Receitas','Monte e acompanhe o custo das receitas base   '),
+            'Produtos':('Produtos','Custos, composição e precificação dos produtos   '),
+            'Configurações':('Configurações','Preferências, dados e parâmetros do Nexo   '),
         }
         title,subtitle=titles[key]
         self.header_title.config(text=title)
@@ -3639,13 +3640,13 @@ class App(tk.Tk):
             c.create_arc(w-2*r-1, h-2*r-1, w-1, h-1, start=270, extent=90, style='arc', outline=border)
             
             ai_active = int(get_setting('ai_enabled', '0'))
-            import_txt = '✨ Importar' if ai_active else '📎 Anexar Documento'
+            import_txt = '✨ Importar' if ai_active else 'Anexar'
             icon_t = 'ai' if ai_active else 'import'
             
             items = [
                 (import_txt, icon_t, lambda: self._run_normal_action(self.rec_tree, self.ai_import_dialog)),
-                ('Exportar', 'export', lambda: self._run_normal_action(self.rec_tree, self.export_selected_recipe)),
-                ('Doc. Original', 'doc', lambda: self._run_normal_action(self.rec_tree, self.open_original_document))
+                ('Download', 'download', lambda: self._run_normal_action(self.rec_tree, self.download_attached_document)),
+                ('View', 'eye', lambda: self._run_normal_action(self.rec_tree, self.view_attached_document))
             ]
             
             for i, (label, icon_type, cmd) in enumerate(items):
@@ -3654,35 +3655,47 @@ class App(tk.Tk):
                 
                 ix, iy = 24, oy + 17
                 col = '#687796'
-                if icon_type == 'import':
-                    c.create_line(ix, iy-5, ix, iy+3, fill=col, width=2)
-                    c.create_line(ix-3, iy, ix, iy+3, ix+3, iy, fill=col, width=2)
-                    c.create_line(ix-5, iy+6, ix+5, iy+6, fill=col, width=2)
-                elif icon_type == 'export':
-                    c.create_line(ix, iy-4, ix, iy+4, fill=col, width=2)
-                    c.create_line(ix-3, iy-1, ix, iy-4, ix+3, iy-1, fill=col, width=2)
-                    c.create_line(ix-5, iy+6, ix+5, iy+6, fill=col, width=2)
-                elif icon_type == 'doc':
-                    c.create_rectangle(ix-4, iy-6, ix+4, iy+6, outline=col, width=2)
-                    c.create_line(ix-2, iy-2, ix+2, iy-2, fill=col, width=2)
-                    c.create_line(ix-2, iy+2, ix+2, iy+2, fill=col, width=2)
-                    
                 text_col = self.colors['text']
+                
+                is_disabled = False
+                if not self.rec_tree.selection() and label != '✨ Importar':
+                    is_disabled = True
+                    col = '#9BA5B7'
+                    text_col = '#9BA5B7'
+                
+                if icon_type == 'import':
+                    if not hasattr(c, 'clip_img'):
+                        try:
+                            from PIL import Image, ImageTk
+                            c.clip_img = ImageTk.PhotoImage(Image.open('assets/icons/clip.png'))
+                        except Exception:
+                            c.clip_img = None
+                    if getattr(c, 'clip_img', None):
+                        c.create_image(ix, iy, image=c.clip_img)
+                elif icon_type == 'download':
+                    c.create_line(ix, iy-4, ix, iy+4, fill=col, width=2)
+                    c.create_line(ix-3, iy+1, ix, iy+4, ix+3, iy+1, fill=col, width=2)
+                    c.create_line(ix-5, iy+6, ix+5, iy+6, fill=col, width=2)
+                elif icon_type == 'eye':
+                    c.create_oval(ix-6, iy-4, ix+6, iy+4, outline=col, width=2)
+                    c.create_oval(ix-2, iy-2, ix+2, iy+2, fill=col, outline='')
+                    
                 if label.startswith('✨ '):
                     c.create_text(24, oy+17, text='✨', fill=col, font=('Segoe UI', 10), anchor='center', tags=f'opt_{i}')
                     c.create_text(42, oy+17, text=label[2:], fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
                 else:
                     c.create_text(42, oy+17, text=label, fill=text_col, font=('Segoe UI', 10), anchor='w', tags=f'opt_{i}')
                 
-                def on_click(e, c_cmd=cmd):
-                    menu.destroy()
-                    c_cmd()
-                hover = '#20375F' if getattr(self, '_dark', False) else '#F4F7FC'
-                c.tag_bind(f'opt_{i}', '<Enter>', lambda e, hb=hitbox: c.itemconfig(hb, fill=hover))
-                c.tag_bind(f'opt_{i}', '<Leave>', lambda e, hb=hitbox: c.itemconfig(hb, fill=bg))
-                c.tag_bind(f'opt_{i}', '<Button-1>', on_click)
-                c.tag_bind(f'opt_{i}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
-                c.tag_bind(f'opt_{i}', '<Leave>', lambda e: c.config(cursor='arrow'), add='+')
+                if not is_disabled:
+                    def on_click(e, c_cmd=cmd):
+                        menu.destroy()
+                        c_cmd()
+                    hover = '#20375F' if getattr(self, '_dark', False) else '#F4F7FC'
+                    c.tag_bind(f'opt_{i}', '<Enter>', lambda e, hb=hitbox: c.itemconfig(hb, fill=hover))
+                    c.tag_bind(f'opt_{i}', '<Leave>', lambda e, hb=hitbox: c.itemconfig(hb, fill=bg))
+                    c.tag_bind(f'opt_{i}', '<Button-1>', on_click)
+                    c.tag_bind(f'opt_{i}', '<Enter>', lambda e: c.config(cursor='hand2'), add='+')
+                    c.tag_bind(f'opt_{i}', '<Leave>', lambda e: c.config(cursor='arrow'), add='+')
             
             root = self.winfo_toplevel()
             def close_on_click(e):
@@ -4140,13 +4153,22 @@ class App(tk.Tk):
         import json
         import threading
         
-        filepath = filedialog.askopenfilename(title="Selecionar Receita", filetypes=[("Documentos e Imagens", "*.png;*.jpg;*.jpeg;*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.txt;*.csv"), ("Todos os Arquivos", "*.*")])
+        filepath = filedialog.askopenfilename(title="Selecionar Receita", filetypes=[("Imagens e PDFs", "*.png;*.jpg;*.jpeg;*.pdf")])
         if not filepath:
             return
             
         ai_enabled = int(get_setting('ai_enabled', '0'))
         if not ai_enabled:
-            # Comportamento padrão: apenas anexa e abre nova receita
+            # Comportamento Anexar: salva o arquivo na receita selecionada
+            sel = self.rec_tree.selection()
+            if sel:
+                code = self.rec_tree.item(sel[0])['values'][0]
+                with db() as c:
+                    r = c.execute('SELECT id FROM base_recipes WHERE code=?', (code,)).fetchone()
+                if r:
+                    save_uploaded_document('RECIPE_BASE', r['id'], filepath)
+                    self.show_toast("Item anexado com sucesso!")
+                    return
             self.recipe_form(imported_source=filepath)
             return
             
@@ -4160,6 +4182,15 @@ class App(tk.Tk):
             
         if count >= limit:
             messagebox.showwarning("Atenção", f"Limite de segurança de {limit} leituras diárias atingido. O Nexo salvou o documento apenas como anexo. Para importar automaticamente, aguarde a renovação no dia seguinte (tempo de recarga 24H) ou altere seu limite nas Configurações da IA.", parent=self.winfo_toplevel())
+            sel = self.rec_tree.selection()
+            if sel:
+                code = self.rec_tree.item(sel[0])['values'][0]
+                with db() as c:
+                    r = c.execute('SELECT id FROM base_recipes WHERE code=?', (code,)).fetchone()
+                if r:
+                    save_uploaded_document('RECIPE_BASE', r['id'], filepath)
+                    self.show_toast("Item anexado com sucesso!")
+                    return
             self.recipe_form(imported_source=filepath)
             return
             
@@ -4213,7 +4244,6 @@ class App(tk.Tk):
                 Se a unidade ou o rendimento não estiverem claros, deixe em branco ou use "un". Tente inferir a quantidade como número.
                 """
                 
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
                 payload = {
                     "contents": [{
                         "parts": [
@@ -4224,9 +4254,36 @@ class App(tk.Tk):
                     "generationConfig": {"temperature": 0.1}
                 }
                 
-                res = requests.post(url, json=payload, timeout=30)
-                res.raise_for_status()
-                data = res.json()
+                modelos_fallback = ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.6-flash']
+                data = None
+                ultimo_erro = "Erro desconhecido ao contatar a IA."
+                import time
+                
+                for modelo in modelos_fallback:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={api_key}"
+                    sucesso = False
+                    for tentativa in range(3):
+                        res = requests.post(url, json=payload, timeout=30)
+                        if res.status_code == 200:
+                            data = res.json()
+                            sucesso = True
+                            break
+                        else:
+                            try:
+                                erro_json = res.json()
+                                erro_msg = erro_json.get('error', {}).get('message', res.text)
+                                if "high demand" in erro_msg.lower():
+                                    ultimo_erro = "Servidores do Google estão sobrecarregados no momento."
+                                else:
+                                    ultimo_erro = erro_msg
+                            except:
+                                ultimo_erro = f"Erro {res.status_code}: {res.text}"
+                            time.sleep(1)
+                    if sucesso:
+                        break
+                        
+                if not data:
+                    raise Exception(f"{ultimo_erro}\nTodos os modelos de IA falharam após múltiplas tentativas.")
                 
                 text_result = data['candidates'][0]['content']['parts'][0]['text']
                 # Clean markdown blocks if present
@@ -4476,14 +4533,59 @@ class App(tk.Tk):
         curr_row = (v[4],) if len(v) > 4 else ('-')
         CustomHistoryModal(self, f"Histórico: {v[1]}", (('registro', 'Data/Hora', 165), ('custo', 'Custo', 120)), [(r[2], r[1]) for r in rows], current_row_data=curr_row)
 
-    def open_original_document(self):
+    def download_attached_document(self):
         s=self.rec_tree.selection()
         if not s:return
         code=self.rec_tree.item(s[0])['values'][0]
         with db() as c:r=c.execute('SELECT id,name FROM base_recipes WHERE code=?',(code,)).fetchone()
         doc=latest_document('RECIPE_BASE',r['id']) if r else None
-        if not doc or not Path(doc['stored_path']).exists():messagebox.showinfo('Documento','Esta Receita não possui documento original armazenado.',parent=self);return
-        import os; os.startfile(doc['stored_path'])
+        if not doc or not Path(doc['stored_path']).exists():
+            messagebox.showinfo('Documento','Esta Receita não possui documento original armazenado.',parent=self)
+            return
+        src_path = Path(doc['stored_path'])
+        dest_path = filedialog.asksaveasfilename(
+            title="Salvar Cópia do Documento",
+            defaultextension=src_path.suffix,
+            initialfile=f"Receita_{code}{src_path.suffix}",
+            parent=self.winfo_toplevel()
+        )
+        if dest_path:
+            import shutil
+            shutil.copy2(src_path, dest_path)
+            messagebox.showinfo("Download Concluído", f"Cópia salva em:\n{dest_path}", parent=self.winfo_toplevel())
+
+    def view_attached_document(self):
+        s=self.rec_tree.selection()
+        if not s:return
+        code=self.rec_tree.item(s[0])['values'][0]
+        with db() as c:r=c.execute('SELECT id,name FROM base_recipes WHERE code=?',(code,)).fetchone()
+        doc=latest_document('RECIPE_BASE',r['id']) if r else None
+        if not doc or not Path(doc['stored_path']).exists():
+            messagebox.showinfo('Documento','Esta Receita não possui documento original armazenado.',parent=self)
+            return
+            
+        src_path = Path(doc['stored_path'])
+        ext = src_path.suffix.lower()
+        if ext == '.pdf':
+            import os; os.startfile(src_path)
+        elif ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']:
+            v = tk.Toplevel(self)
+            v.title("Visualizador do Anexo")
+            v.geometry("600x700")
+            v.transient(self.winfo_toplevel())
+            v.configure(bg=self.colors['bg'])
+            from PIL import Image, ImageTk
+            try:
+                img = Image.open(src_path)
+                img.thumbnail((580, 680), Image.LANCZOS)
+                ph = ImageTk.PhotoImage(img)
+                lbl = tk.Label(v, image=ph, bg=self.colors['bg'])
+                lbl.image = ph
+                lbl.pack(expand=True, fill='both')
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao exibir imagem: {e}", parent=self.winfo_toplevel())
+        else:
+            messagebox.showinfo("Formato", "Formato não suportado para visualização interna. Por favor, faça o Download.", parent=self.winfo_toplevel())
 
     # ---------- Produtos ----------
     def products_page(self,f):
