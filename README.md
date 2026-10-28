@@ -1,6 +1,6 @@
 # Nexo — Gestão de Custos e Precificação
 
-Versão 0.8.1 — responsividade da barra lateral e alinhamento de colunas em telas de diferentes resoluções.
+Versão 0.8.4 — modernização das abas Início e Configurações no padrão Nexo (componentes em cápsula, gráficos de pizza no resumo e modal dedicado de BI).
 
 ## Interface atual
 - Início: indicadores, BI mensal de compras por item e por marca e evolução de custos de Receitas Base e Produtos.

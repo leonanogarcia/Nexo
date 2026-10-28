@@ -1446,7 +1446,7 @@ class ReferenceSidebar(tk.Canvas):
                 sel_w = side_w - 24
                 sel_h = 60
                 sel_r = 20
-                sel_fill = '#693A16' if not self._dark else '#F6A45A'
+                sel_fill = '#693A16' if not self._dark else '#111C30'
                 self._draw_pil_shape(x+12, cy-sel_h/2, sel_w, sel_h, sel_r, sel_fill, tag='selection')
             img = self._buttons.get(key)
             if img:
@@ -1885,7 +1885,7 @@ class App(tk.Tk):
 
         footer=tk.Frame(main,bg=bg,height=26); footer.pack(fill='x',padx=24,pady=(0,7)); footer.pack_propagate(False)
         self.status_label=tk.Label(footer,textvariable=self.status,bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='w'); self.status_label.pack(side='left',fill='y')
-        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.3   ',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y', padx=(0, 10))
+        self.footer_brand=tk.Label(footer,text='Nexo · Gestão de Custos e Precificação · v0.8.4   ',bg=bg,fg='#60769D',font=('Segoe UI',8),anchor='e'); self.footer_brand.pack(side='right',fill='y', padx=(0, 10))
         self._update_db_status(); bind_text_capitalization(self)
 
     def _place_nexo_brand(self, root, dark):
@@ -1946,15 +1946,15 @@ class App(tk.Tk):
 
     # ---------- Geral ----------
     def general(self, f):
-        # Dashboard principal inspirado diretamente no layout de referência.
-        bg=self.colors['bg']; panel=self.colors['panel']; panel_alt=self.colors['panel_alt']
+        # Dashboard principal inspirado diretamente no layout de referência em formato cápsula.
+        bg=self.colors['bg']; panel=self.colors['panel']; panel_alt=self.colors.get('panel_alt', '#142544' if getattr(self,'_dark',False) else '#F8FAFD')
+        dark=getattr(self, '_dark', get_setting('theme','light')=='dark')
         canvas=tk.Canvas(f, bg=bg, highlightthickness=0, bd=0)
-        scrollbar=ttk.Scrollbar(f, orient='vertical', command=canvas.yview)
         body=tk.Frame(canvas, bg=bg)
         body.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
         win=canvas.create_window((0,0), window=body, anchor='nw')
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side='left',fill='both',expand=True); scrollbar.pack(side='right',fill='y')
+        canvas.pack(side='left',fill='both',expand=True)
+        VerticalPillScrollbar(f, canvas)
         canvas.bind('<Configure>', lambda e: canvas.itemconfigure(win,width=e.width))
         self.general_canvas=canvas
         canvas.bind_all('<MouseWheel>', self._general_mousewheel, add='+')
@@ -1964,103 +1964,132 @@ class App(tk.Tk):
         cards=tk.Frame(body,bg=bg); cards.pack(fill='x',pady=(0,14))
         self.general_cards_widgets=[]
         card_defs=[
-            ('Produtos','cube',self.colors['cyan'],'#103D3B','cadastrados'),
-            ('Receitas base','doc',self.colors['pink'],'#30245F','cadastradas'),
-            ('Insumos','cube',self.colors['blue'],'#17376A','cadastrados'),
-            ('Embalagens','tag',self.colors['orange'],'#503A1C','cadastradas'),
+            ('Produtos','cadastrados','Produtos'),
+            ('Receitas base','cadastradas','Receitas'),
+            ('Insumos','cadastrados','Cadastro'),
         ]
-        for i,(label,kind,accent,soft,suffix) in enumerate(card_defs):
-            card=RoundedPanel(cards,fill=panel,border=self.colors['line'],radius=16,height=126,bg=bg)
-            card.pack(side='left',fill='both',expand=True,padx=(0 if i==0 else 6,0 if i==3 else 6)); card.pack_propagate(False)
-            ico=tk.Canvas(card,width=48,height=48,bg=panel,highlightthickness=0,bd=0)
-            ico.place(x=16,y=14)
-            ico.create_oval(2,2,46,46,fill=soft,outline='')
-            # símbolos simples e vetoriais para manter o programa sem dependências externas.
-            if kind=='doc':
-                ico.create_rectangle(17,12,31,35,outline=accent,width=2)
-                ico.create_line(20,20,28,20,fill=accent,width=2); ico.create_line(20,25,28,25,fill=accent,width=2)
-            elif kind=='tag':
-                ico.create_polygon(14,16,27,11,36,20,24,33,14,25,fill='',outline=accent,width=2)
-                ico.create_oval(20,17,24,21,outline=accent,width=2)
-            else:
-                ico.create_polygon(15,18,24,13,33,18,24,23,fill='',outline=accent,width=2)
-                ico.create_line(15,18,15,29,24,35,33,29,33,18,fill=accent,width=2)
-                ico.create_line(24,23,24,35,fill=accent,width=2)
-            tk.Label(card,text=label,bg=panel,fg='#DCE5FA',font=('Segoe UI',10,'bold'),anchor='w').place(x=16,y=69,relwidth=.78)
-            value=tk.Label(card,text='0',bg=panel,fg='#FFFFFF',font=('Segoe UI',20,'bold'),anchor='w')
-            value.place(x=16,y=91,width=74,height=28)
-            tk.Label(card,text=suffix,bg=panel,fg=self.colors['muted'],font=('Segoe UI',9),anchor='w').place(x=80,y=98)
-            tk.Label(card,text='›',bg=panel,fg='#7790BE',font=('Segoe UI',20),anchor='center').place(relx=.94,y=85,anchor='center')
+        for i,(label,suffix,target_page) in enumerate(card_defs):
+            card=RoundedPanel(cards,fill=panel,border=self.colors['line'],radius=20,height=90,bg=bg)
+            card.pack(side='left',fill='both',expand=True,padx=(0 if i==0 else 6,0 if i==len(card_defs)-1 else 6)); card.pack_propagate(False)
+            lbl_t=tk.Label(card,text=label,bg=panel,fg=self.colors['text'],font=('Segoe UI',10,'bold'),anchor='w')
+            lbl_t.place(x=20,y=18,relwidth=.78)
+            value=tk.Label(card,text='0',bg=panel,fg=self.colors['text'],font=('Segoe UI',20,'bold'),anchor='w')
+            value.place(x=20,y=43,width=64,height=30)
+            lbl_s=tk.Label(card,text=suffix,bg=panel,fg=self.colors['muted'],font=('Segoe UI',9),anchor='w')
+            lbl_s.place(x=76,y=51)
+            lbl_c=tk.Label(card,text='›',bg=panel,fg='#7790BE',font=('Segoe UI',20),anchor='center')
+            lbl_c.place(relx=.93,rely=.5,anchor='center')
+            def _go(_e=None, pg=target_page):
+                self.show_page(pg)
+                if hasattr(self, 'sidebar_nav'):
+                    self.sidebar_nav.set_active(pg)
+            for w_el in (card, card._canvas, lbl_t, value, lbl_s, lbl_c):
+                w_el.configure(cursor='hand2')
+                w_el.bind('<Button-1>', _go)
             self.general_cards_widgets.append(value)
 
         row=tk.Frame(body,bg=bg); row.pack(fill='x',pady=(0,14))
-        chart_box=RoundedPanel(row,fill=panel,border=self.colors['line'],radius=16,height=272,bg=bg)
+        chart_box=RoundedPanel(row,fill=panel,border=self.colors['line'],radius=20,height=272,bg=bg)
         chart_box.pack(side='left',fill='both',expand=True,padx=(0,7)); chart_box.pack_propagate(False)
         chart_head=tk.Frame(chart_box,bg=panel); chart_head.pack(fill='x',padx=18,pady=(14,0))
         tk.Label(chart_head,text='Custo dos Produtos',bg=panel,fg=self.colors['text'],font=('Segoe UI',12,'bold')).pack(side='left')
-        tk.Label(chart_head,text='Últimos 30 dias ⌄',bg=self.colors['field'],fg='#9EB1D4',font=('Segoe UI',8),padx=10,pady=6).pack(side='right')
+        period_pill=RoundedPanel(chart_head,fill=panel_alt,border=self.colors['line'],radius=14,width=124,height=28,bg=panel)
+        period_pill.pack(side='right'); period_pill.pack_propagate(False)
+        tk.Label(period_pill,text='Últimos 30 dias ⌄',bg=panel_alt,fg=self.colors['muted'],font=('Segoe UI',8,'bold')).pack(expand=True)
         self.purchase_chart=tk.Canvas(chart_box,height=210,bg=panel,highlightthickness=0); self.purchase_chart.pack(fill='both',expand=True,padx=10,pady=(2,8))
 
-        stat=RoundedPanel(row,fill=panel,border=self.colors['line'],radius=16,width=294,height=272,bg=bg)
+        stat=RoundedPanel(row,fill=panel,border=self.colors['line'],radius=20,width=294,height=272,bg=bg)
         stat.pack(side='right',fill='y',padx=(7,0)); stat.pack_propagate(False)
-        inner=RoundedPanel(stat,fill=self.colors['panel_alt'],border=self.colors['line'],radius=13,bg=panel)
-        inner.pack(fill='both',expand=True,padx=18,pady=42)
-        tk.Label(inner,text='◉  Custo médio dos produtos',bg=self.colors['panel_alt'],fg=self.colors['muted'],font=('Segoe UI',9,'bold'),anchor='w').pack(fill='x',padx=16,pady=(18,8))
-        self.general_avg_cost=tk.Label(inner,text='R$ 0,00',bg=self.colors['panel_alt'],fg='#FFFFFF',font=('Segoe UI',24,'bold'),anchor='w')
+        inner=RoundedPanel(stat,fill=panel_alt,border=self.colors['line'],radius=18,bg=panel)
+        inner.pack(fill='both',expand=True,padx=18,pady=36)
+        tk.Label(inner,text='Custo médio dos produtos',bg=panel_alt,fg=self.colors['muted'],font=('Segoe UI',9,'bold'),anchor='w').pack(fill='x',padx=16,pady=(18,8))
+        self.general_avg_cost=tk.Label(inner,text='R$ 0,00',bg=panel_alt,fg=self.colors['text'],font=('Segoe UI',24,'bold'),anchor='w')
         self.general_avg_cost.pack(fill='x',padx=16)
-        self.general_status_pill=tk.Label(inner,text='↑  calculado agora',bg='#123B39',fg='#56D4B4',font=('Segoe UI',9,'bold'),padx=10,pady=5)
-        self.general_status_pill.pack(anchor='w',padx=16,pady=(10,2))
-        tk.Label(inner,text='com base nos custos cadastrados',bg=self.colors['panel_alt'],fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',padx=16,pady=(1,14))
+        pill_bg = '#123B39' if dark else '#E6F9F5'
+        pill_fg = '#56D4B4' if dark else '#0F9D7A'
+        status_pill_wrap=RoundedPanel(inner,fill=pill_bg,border='',radius=14,width=142,height=28,bg=panel_alt)
+        status_pill_wrap.pack(anchor='w',padx=16,pady=(10,4)); status_pill_wrap.pack_propagate(False)
+        self.general_status_pill=tk.Label(status_pill_wrap,text='calculado agora',bg=pill_bg,fg=pill_fg,font=('Segoe UI',9,'bold'))
+        self.general_status_pill.pack(expand=True)
+        tk.Label(inner,text='com base nos custos cadastrados',bg=panel_alt,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',padx=16,pady=(2,14))
 
         lower=tk.Frame(body,bg=bg); lower.pack(fill='x',pady=(0,14))
-        purchases=RoundedPanel(lower,fill=panel,border=self.colors['line'],radius=16,height=224,bg=bg)
+        purchases=RoundedPanel(lower,fill=panel,border=self.colors['line'],radius=20,height=224,bg=bg)
         purchases.pack(side='left',fill='both',expand=True,padx=(0,7)); purchases.pack_propagate(False)
-        tk.Label(purchases,text='▥  Compras',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(fill='x',padx=18,pady=(14,0))
+        tk.Label(purchases,text='Compras',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(fill='x',padx=18,pady=(14,0))
         tk.Label(purchases,text='últimos 30 dias',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',padx=18,pady=(1,7))
         self.general_purchase_lines=tk.Frame(purchases,bg=panel); self.general_purchase_lines.pack(fill='both',expand=True,padx=18,pady=(0,10))
 
-        variation=RoundedPanel(lower,fill=panel,border=self.colors['line'],radius=16,height=224,bg=bg)
+        variation=RoundedPanel(lower,fill=panel,border=self.colors['line'],radius=20,height=224,bg=bg)
         variation.pack(side='right',fill='both',expand=True,padx=(7,0)); variation.pack_propagate(False)
-        tk.Label(variation,text='↗  Variação de preços',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(fill='x',padx=18,pady=(14,0))
+        tk.Label(variation,text='Variação de preços',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(fill='x',padx=18,pady=(14,0))
         tk.Label(variation,text='histórico por insumo',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',padx=18,pady=(1,7))
         self.general_variation_lines=tk.Frame(variation,bg=panel); self.general_variation_lines.pack(fill='both',expand=True,padx=18,pady=(0,10))
 
-        recent=RoundedPanel(body,fill=panel,border=self.colors['line'],radius=16,height=205,bg=bg)
+        recent=RoundedPanel(body,fill=panel,border=self.colors['line'],radius=20,height=220,bg=bg)
         recent.pack(fill='x',pady=(0,14)); recent.pack_propagate(False)
-        top=tk.Frame(recent,bg=panel); top.pack(fill='x',padx=18,pady=(13,4))
-        tk.Label(top,text='◷  Últimas movimentações',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(side='left')
-        tk.Label(top,text='Ver todas  →',bg=panel,fg='#8A6CFF',font=('Segoe UI',9,'bold'),anchor='e').pack(side='right')
-        header=tk.Frame(recent,bg=panel); header.pack(fill='x',padx=18,pady=(4,2))
+        top=tk.Frame(recent,bg=panel); top.pack(fill='x',padx=18,pady=(13,6))
+        tk.Label(top,text='Últimas movimentações',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(side='left')
+        tk.Label(top,text='Ver todas  →',bg=panel,fg='#F28C28',font=('Segoe UI',9,'bold'),anchor='e').pack(side='right')
+        header_pill=RoundedPanel(recent,fill=panel_alt,border='',radius=14,height=28,bg=panel)
+        header_pill.pack(fill='x',padx=18,pady=(0,4)); header_pill.pack_propagate(False)
+        header=tk.Frame(header_pill,bg=panel_alt); header.pack(fill='both',expand=True,padx=12)
         for txt,w in [('Data',22),('Descrição',52),('Tipo',16),('Valor',16)]:
-            tk.Label(header,text=txt,bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w',width=w).pack(side='left',fill='x',expand=(txt=='Descrição'))
+            tk.Label(header,text=txt,bg=panel_alt,fg=self.colors['muted'],font=('Segoe UI',8,'bold'),anchor='w',width=w).pack(side='left',fill='x',expand=(txt=='Descrição'))
         self.general_recent=tk.Frame(recent,bg=panel); self.general_recent.pack(fill='both',expand=True,padx=18,pady=(0,10))
 
-        # BI detalhado permanece acessível abaixo do dashboard, com o mesmo tema.
-        bi=ttk.LabelFrame(body,text='Histórico mensal de compras',padding=10); bi.pack(fill='x',pady=(2,8))
-        ttk.Label(bi,text='Variação do Insumo (todas as marcas)').pack(anchor='w')
-        self.purchase_item_bi=ttk.Treeview(bi,columns=('item','mes','min','max','media'),show='headings',height=6)
-        for k,t,w in [('item','Insumo',240),('mes','Mês',90),('min','Mínimo',105),('max','Máximo',105),('media','Média',105)]: self.purchase_item_bi.heading(k,text=t); self.purchase_item_bi.column(k,width=w)
-        self.purchase_item_bi.pack(fill='x',pady=(3,8))
-        ttk.Label(bi,text='Variação por marca').pack(anchor='w')
-        self.purchase_brand_bi=ttk.Treeview(bi,columns=('item','marca','mes','min','max','media'),show='headings',height=6)
-        for k,t,w in [('item','Insumo',210),('marca','Marca',150),('mes','Mês',90),('min','Mínimo',100),('max','Máximo',100),('media','Média',100)]: self.purchase_brand_bi.heading(k,text=t); self.purchase_brand_bi.column(k,width=w)
-        self.purchase_brand_bi.pack(fill='x')
-        hist=ttk.LabelFrame(body,text='Evolução de custos de Receitas e Produtos',padding=10); hist.pack(fill='x',pady=(8,20))
-        self.cost_bi=ttk.Treeview(hist,columns=('tipo','item','mes','custo'),show='headings',height=8)
-        for k,t,w in [('tipo','Tipo',120),('item','Item',300),('mes','Mês',100),('custo','Custo',130)]: self.cost_bi.heading(k,text=t); self.cost_bi.column(k,width=w)
-        self.cost_bi.pack(fill='x')
+        # BI visual em gráficos de pizza/rosca no Início + botão para abrir Modal de BI detalhado
+        bi_row=tk.Frame(body,bg=bg); bi_row.pack(fill='x',pady=(0,20))
+
+        bi_left=RoundedPanel(bi_row,fill=panel,border=self.colors['line'],radius=20,height=252,bg=bg)
+        bi_left.pack(side='left',fill='both',expand=True,padx=(0,7)); bi_left.pack_propagate(False)
+        bi_l_head=tk.Frame(bi_left,bg=panel); bi_l_head.pack(fill='x',padx=18,pady=(14,2))
+        bi_l_titles=tk.Frame(bi_l_head,bg=panel); bi_l_titles.pack(side='left',fill='x',expand=True)
+        tk.Label(bi_l_titles,text='Histórico mensal de compras',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(anchor='w')
+        tk.Label(bi_l_titles,text='participação por insumo',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(anchor='w')
+        RoundedActionButton(bi_l_head,'Ver detalhes',lambda:self.open_bi_modal('insumo'),width=120,height=32,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=panel).pack(side='right')
+        self.purchase_pie_canvas=tk.Canvas(bi_left,height=175,bg=panel,highlightthickness=0,bd=0)
+        self.purchase_pie_canvas.pack(fill='both',expand=True,padx=14,pady=(2,10))
+        self.purchase_pie_canvas.bind('<Configure>', lambda e: self.after_idle(self._redraw_bi_pies))
+
+        bi_right=RoundedPanel(bi_row,fill=panel,border=self.colors['line'],radius=20,height=252,bg=bg)
+        bi_right.pack(side='right',fill='both',expand=True,padx=(7,0)); bi_right.pack_propagate(False)
+        bi_r_head=tk.Frame(bi_right,bg=panel); bi_r_head.pack(fill='x',padx=18,pady=(14,2))
+        bi_r_titles=tk.Frame(bi_r_head,bg=panel); bi_r_titles.pack(side='left',fill='x',expand=True)
+        tk.Label(bi_r_titles,text='Evolução de custos',bg=panel,fg=self.colors['text'],font=('Segoe UI',11,'bold'),anchor='w').pack(anchor='w')
+        tk.Label(bi_r_titles,text='comparativo de receitas e produtos',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(anchor='w')
+        RoundedActionButton(bi_r_head,'Ver detalhes',lambda:self.open_bi_modal('custos'),width=120,height=32,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=panel).pack(side='right')
+        self.cost_pie_canvas=tk.Canvas(bi_right,height=175,bg=panel,highlightthickness=0,bd=0)
+        self.cost_pie_canvas.pack(fill='both',expand=True,padx=14,pady=(2,10))
+        self.cost_pie_canvas.bind('<Configure>', lambda e: self.after_idle(self._redraw_bi_pies))
 
     def _general_mousewheel(self, event):
-        if getattr(self,'current_page',None) != 'Geral' or not hasattr(self,'general_canvas'):
-            return
+        try:
+            if event.widget.winfo_toplevel() is not self:
+                return
+        except Exception:
+            pass
         delta = -int(event.delta/120) if getattr(event,'delta',0) else (-1 if getattr(event,'num',0)==4 else 1)
-        self.general_canvas.yview_scroll(delta, 'units')
-        return 'break'
+        page = getattr(self, 'current_page', None)
+        if page == 'Geral' and hasattr(self, 'general_canvas'):
+            c = self.general_canvas
+            if c and c.winfo_exists():
+                first, last = c.yview()
+                if (delta < 0 and first > 0.0) or (delta > 0 and last < 1.0):
+                    c.yview_scroll(delta, 'units')
+                return 'break'
+        if page == 'Configurações':
+            c = getattr(self, '_settings_canvases', {}).get(getattr(self, '_active_settings_key', None))
+            if c and c.winfo_exists():
+                first, last = c.yview()
+                if (delta < 0 and first > 0.0) or (delta > 0 and last < 1.0):
+                    c.yview_scroll(delta, 'units')
+                return 'break'
 
     def _draw_bi_chart(self, canvas, title, series, value_label='R$'):
         canvas.delete('all')
         w=max(canvas.winfo_width(),620); h=max(int(canvas['height']),180)
-        bg='#FFFFFF'; fg=self.colors['text']; muted=self.colors['muted']; grid=self.colors['line']; accent=self.colors['accent']
+        bg=self.colors['panel']; fg=self.colors['text']; muted=self.colors['muted']; grid=self.colors['line']; accent=self.colors['accent']
         canvas.configure(bg=bg)
         if not series:
             canvas.create_text(w/2,h/2,text='Ainda não há histórico suficiente para exibir este gráfico.',fill=muted,font=('Segoe UI',10))
@@ -2105,13 +2134,9 @@ class App(tk.Tk):
             return
         panel=self.colors['panel']
         with db() as c:
-            ins = c.execute('SELECT COUNT(*) n FROM materials').fetchone()['n']
-            recipes = c.execute('SELECT COUNT(*) n FROM base_recipes').fetchone()['n']
-            products = c.execute('SELECT COUNT(*) n FROM products').fetchone()['n']
-            try:
-                packaging = c.execute("SELECT COUNT(*) n FROM materials WHERE category='Não comestível'").fetchone()['n']
-            except Exception:
-                packaging = 0
+            ins = c.execute('SELECT COUNT(*) n FROM materials WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0').fetchone()['n']
+            recipes = c.execute('SELECT COUNT(*) n FROM base_recipes WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0').fetchone()['n']
+            products = c.execute('SELECT COUNT(*) n FROM products WHERE COALESCE(active,1)=1 AND COALESCE(archived,0)=0').fetchone()['n']
         costs=[]; prices=[]
         for r in list_names('products'):
             try: costs.append(product_unit_cost(r['id']))
@@ -2120,7 +2145,7 @@ class App(tk.Tk):
                 pr=c.execute('SELECT sale_price FROM products WHERE id=?',(r['id'],)).fetchone()
                 if pr and pr['sale_price'] is not None: prices.append(pr['sale_price'])
         avg_cost = sum(costs)/len(costs) if costs else 0
-        labels = [str(products), str(recipes), str(ins), str(packaging)]
+        labels = [str(products), str(recipes), str(ins)]
         for w, value in zip(self.general_cards_widgets, labels):
             w.config(text=value)
         if hasattr(self,'general_avg_cost'): self.general_avg_cost.config(text=fmt(avg_cost))
@@ -2137,19 +2162,17 @@ class App(tk.Tk):
                                       FROM purchases pu JOIN materials m ON m.id=pu.material_id
                                       GROUP BY m.category ORDER BY total DESC LIMIT 4''').fetchall()
             total=sum(float(r['total'] or 0) for r in rows) or 1
-            palette=[('#24C6A3','Ingredientes (alimentos)'),('#7B5CFF','Embalagens'),('#2F72FF','Insumos (não alimentícios)'),('#F5A524','Custos operacionais')]
+            palette=[('#24C6A3','Comestível'),('#7B5CFF','Não comestível'),('#2F72FF','Doação'),('#F5A524','Outros')]
             for idx,r in enumerate(rows[:4]):
                 row=tk.Frame(self.general_purchase_lines,bg=panel); row.pack(fill='x',pady=2)
                 dot,color_name=palette[idx%len(palette)]
                 category=str(r['category'] or '')
-                if category=='Comestível': name='Ingredientes (alimentos)'
-                elif category=='Não comestível': name='Embalagens'
-                else: name=category or color_name
+                name=category or color_name
                 tk.Label(row,text='●',bg=panel,fg=dot,font=('Segoe UI',9)).pack(side='left')
                 tk.Label(row,text=name,bg=panel,fg=self.colors['text'],font=('Segoe UI',8),anchor='w').pack(side='left',fill='x',expand=True,padx=(6,4))
                 val=float(r['total'] or 0); pct=val/total*100
-                tk.Label(row,text=fmt(val),bg=panel,fg='#DDE6F8',font=('Segoe UI',8),anchor='e').pack(side='left',padx=5)
-                tk.Label(row,text=f'{pct:.0f}%',bg=panel,fg='#7D91B6',font=('Segoe UI',8),width=5,anchor='e').pack(side='right')
+                tk.Label(row,text=fmt(val),bg=panel,fg=self.colors['text'],font=('Segoe UI',8,'bold'),anchor='e').pack(side='left',padx=5)
+                tk.Label(row,text=f'{pct:.0f}%',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),width=5,anchor='e').pack(side='right')
             if not rows:
                 tk.Label(self.general_purchase_lines,text='Nenhuma compra registrada ainda.',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',pady=8)
 
@@ -2178,44 +2201,46 @@ class App(tk.Tk):
                                   FROM purchases pu JOIN materials m ON m.id=pu.material_id
                                   ORDER BY pu.purchase_date DESC, pu.id DESC LIMIT 4''').fetchall()
             if rows:
+                dark=getattr(self, '_dark', get_setting('theme','light')=='dark')
+                tag_bg='#123B39' if dark else '#E6F9F5'
+                tag_fg='#5EE0B8' if dark else '#0F9D7A'
                 for r in rows:
-                    row=tk.Frame(self.general_recent,bg=panel); row.pack(fill='x',pady=1)
+                    row=tk.Frame(self.general_recent,bg=panel); row.pack(fill='x',pady=2)
                     date_text=str(r['date'])
                     desc=r['name'] + (f" - {r['brand']}" if r['brand'] else '')
                     tk.Label(row,text=date_text,bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w',width=22).pack(side='left')
                     tk.Label(row,text=desc,bg=panel,fg=self.colors['text'],font=('Segoe UI',8),anchor='w').pack(side='left',fill='x',expand=True)
-                    tk.Label(row,text='Compra',bg='#123B39',fg='#5EE0B8',font=('Segoe UI',8,'bold'),padx=8,pady=2,width=9).pack(side='left',padx=8)
-                    tk.Label(row,text=fmt(r['value']),bg=panel,fg=self.colors['text'],font=('Segoe UI',8),anchor='e',width=15).pack(side='right')
+                    tag_pill=RoundedPanel(row,fill=tag_bg,border='',radius=11,width=76,height=22,bg=panel)
+                    tag_pill.pack(side='left',padx=8); tag_pill.pack_propagate(False)
+                    tk.Label(tag_pill,text='Compra',bg=tag_bg,fg=tag_fg,font=('Segoe UI',8,'bold')).pack(expand=True)
+                    tk.Label(row,text=fmt(r['value']),bg=panel,fg=self.colors['text'],font=('Segoe UI',8,'bold'),anchor='e',width=15).pack(side='right')
             else:
                 tk.Label(self.general_recent,text='Nenhuma movimentação registrada ainda.',bg=panel,fg=self.colors['muted'],font=('Segoe UI',8),anchor='w').pack(fill='x',pady=8)
 
-        for tree in (self.purchase_item_bi, self.purchase_brand_bi):
-            for x in tree.get_children(): tree.delete(x)
+        # Dados para os gráficos de pizza de BI e para o Modal detalhado
         with db() as c:
-            rows = c.execute('''SELECT m.name, substr(pu.purchase_date,1,7) mes, MIN(pu.value) mn, MAX(pu.value) mx, AVG(pu.value) av
-                                FROM purchases pu JOIN materials m ON m.id=pu.material_id
-                                GROUP BY m.id, mes ORDER BY mes DESC, m.name''').fetchall()
-            for r in rows: self.purchase_item_bi.insert('', 'end', values=(r['name'], r['mes'], fmt(r['mn']), fmt(r['mx']), fmt(r['av'])))
-            rows = c.execute('''SELECT m.name, COALESCE(pu.brand,'') brand, substr(pu.purchase_date,1,7) mes, MIN(pu.value) mn, MAX(pu.value) mx, AVG(pu.value) av
-                                FROM purchases pu JOIN materials m ON m.id=pu.material_id
-                                GROUP BY m.id, pu.brand, mes ORDER BY mes DESC, m.name, pu.brand''').fetchall()
-            for r in rows: self.purchase_brand_bi.insert('', 'end', values=(r['name'], r['brand'], r['mes'], fmt(r['mn']), fmt(r['mx']), fmt(r['av'])))
-        for x in self.cost_bi.get_children(): self.cost_bi.delete(x)
-        with db() as c:
-            rows = c.execute('''SELECT ch.entity_type, ch.entity_id, ch.cost, substr(ch.recorded_at,1,7) mes
-                                FROM cost_history ch ORDER BY ch.recorded_at DESC, ch.id DESC''').fetchall()
-            for r in rows:
-                table = 'base_recipes' if r['entity_type'] == 'RECIPE_BASE' else 'products'
-                name = c.execute(f'SELECT name FROM {table} WHERE id=?', (r['entity_id'],)).fetchone()
-                self.cost_bi.insert('', 'end', values=('Receita' if r['entity_type']=='RECIPE_BASE' else 'Produto', name['name'] if name else '?', r['mes'], fmt(r['cost'])))
-        if not rows:
-            mes=date.today().strftime('%Y-%m')
-            for r in list_names('base_recipes'):
-                try:self.cost_bi.insert('', 'end', values=('Receita',r['name'],mes,fmt(recipe_cost(r['id']))))
-                except Exception:pass
-            for r in list_names('products'):
-                try:self.cost_bi.insert('', 'end', values=('Produto',r['name'],mes,fmt(product_unit_cost(r['id']))))
-                except Exception:pass
+            pie_purch = c.execute('''SELECT m.name, SUM(pu.value) total
+                                     FROM purchases pu JOIN materials m ON m.id=pu.material_id
+                                     GROUP BY m.id ORDER BY total DESC''').fetchall()
+        self._bi_purchase_slices = [(r['name'], float(r['total'] or 0)) for r in pie_purch if float(r['total'] or 0) > 0]
+
+        cost_slices = []
+        for r in list_names('products'):
+            try:
+                v = float(product_unit_cost(r['id']) or 0)
+                if v > 0: cost_slices.append((f"Prod: {r['name']}", v))
+            except Exception:
+                pass
+        for r in list_names('base_recipes'):
+            try:
+                v = float(recipe_cost(r['id']) or 0)
+                if v > 0: cost_slices.append((f"Rec: {r['name']}", v))
+            except Exception:
+                pass
+        cost_slices.sort(key=lambda x: x[1], reverse=True)
+        self._bi_cost_slices = cost_slices
+        self._redraw_bi_pies()
+
         with db() as c:
             hist_series=c.execute('SELECT substr(recorded_at,1,7) mes, AVG(cost) avg_cost FROM cost_history GROUP BY mes ORDER BY mes').fetchall()
         if hist_series:
@@ -2230,6 +2255,276 @@ class App(tk.Tk):
                 except Exception:pass
             cost_series=[(date.today().strftime('%Y-%m'),sum(current)/len(current))] if current else []
         self._draw_bi_chart(self.purchase_chart,'Custo médio por mês',cost_series)
+
+    def _redraw_bi_pies(self):
+        if hasattr(self, 'purchase_pie_canvas') and self.purchase_pie_canvas.winfo_exists():
+            self._draw_pie_chart(self.purchase_pie_canvas, getattr(self, '_bi_purchase_slices', []), 'Sem compras registradas.', '_purch_pie_img')
+        if hasattr(self, 'cost_pie_canvas') and self.cost_pie_canvas.winfo_exists():
+            self._draw_pie_chart(self.cost_pie_canvas, getattr(self, '_bi_cost_slices', []), 'Sem custos calculados.', '_cost_pie_img')
+
+    def _draw_pie_chart(self, canvas, slices, empty_msg, img_attr):
+        canvas.delete('all')
+        panel = self.colors['panel']
+        fg = self.colors['text']
+        muted = self.colors['muted']
+        canvas.configure(bg=panel)
+        w = max(canvas.winfo_width(), 340)
+        h = max(canvas.winfo_height(), 165)
+        if not slices:
+            canvas.create_text(w/2, h/2, text=empty_msg, fill=muted, font=('Segoe UI', 9))
+            return
+        top_slices = list(slices[:4])
+        rest = sum(v for _, v in slices[4:])
+        if rest > 0:
+            top_slices.append(('Outros', rest))
+        total = sum(v for _, v in top_slices) or 1.0
+        palette = ('#F28C28', '#2F72FF', '#18C39B', '#9C5CFF', '#FF5E74')
+
+        pie_size = min(136, h - 16)
+        cx_pie = 16 + pie_size // 2
+        cy_pie = h // 2
+        try:
+            from PIL import Image, ImageDraw, ImageTk
+            scale = 4
+            S = pie_size * scale
+            im = Image.new('RGB', (S, S), panel)
+            d = ImageDraw.Draw(im)
+            start_ang = -90.0
+            for idx, (_, val) in enumerate(top_slices):
+                extent = (val / total) * 360.0
+                end_ang = start_ang + max(extent, 1.5)
+                col = palette[idx % len(palette)]
+                d.pieslice((4, 4, S - 5, S - 5), start=start_ang, end=end_ang, fill=col, outline=panel, width=scale*2)
+                start_ang += extent
+            hole_r = int(S * 0.28)
+            d.ellipse((S//2 - hole_r, S//2 - hole_r, S//2 + hole_r, S//2 + hole_r), fill=panel)
+            im = im.resize((pie_size, pie_size), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(im)
+            setattr(self, img_attr, photo)
+            canvas.create_image(cx_pie, cy_pie, image=photo, anchor='center')
+        except Exception:
+            start_ang = 90.0
+            r = pie_size // 2
+            for idx, (_, val) in enumerate(top_slices):
+                extent = -(val / total) * 360.0
+                col = palette[idx % len(palette)]
+                canvas.create_arc(cx_pie - r, cy_pie - r, cx_pie + r, cy_pie + r, start=start_ang, extent=extent, fill=col, outline=panel, width=2)
+                start_ang += extent
+
+        lx = 16 + pie_size + 18
+        n = len(top_slices)
+        row_h = min(28, max(20, (h - 20) // max(n, 1)))
+        start_y = cy_pie - (n * row_h) // 2 + row_h // 2
+        for idx, (name, val) in enumerate(top_slices):
+            y = start_y + idx * row_h
+            col = palette[idx % len(palette)]
+            pct = (val / total) * 100.0
+            canvas.create_oval(lx, y - 5, lx + 10, y + 5, fill=col, outline='')
+            disp_name = name if len(name) <= 22 else name[:20] + '…'
+            canvas.create_text(lx + 16, y, text=disp_name, fill=fg, font=('Segoe UI', 8, 'bold'), anchor='w')
+            canvas.create_text(w - 44, y, text=fmt(val), fill=fg, font=('Segoe UI', 8), anchor='e')
+            canvas.create_text(w - 6, y, text=f'{pct:.0f}%', fill=muted, font=('Segoe UI', 8, 'bold'), anchor='e')
+
+    def open_bi_modal(self, initial_tab='insumo'):
+        d = Modal(self, 'BI — Histórico de Compras e Evolução de Custos', '920x560')
+        bg = self.colors.get('bg', '#F4F7FC')
+        fg = self.colors.get('text', '#18223A')
+        muted = self.colors.get('muted', '#687796')
+        dark = getattr(self, '_dark', False)
+        d.configure(bg=bg)
+
+        # Rodapé no padrão Nexo
+        act_frame = tk.Frame(d, bg=bg)
+        act_frame.pack(side='bottom', fill='x', padx=24, pady=(12, 20))
+        RoundedActionButton(act_frame, 'Fechar', d.destroy, width=110, height=36, fill='#F28C28', hover='#BA5200', fg='#FFFFFF', bg=bg).pack(side='right', padx=(8, 0))
+
+        # Barra superior (Título + Abas em Cápsula + Pesquisa de 32px)
+        top_bar = tk.Frame(d, bg=bg)
+        top_bar.pack(side='top', fill='x', padx=24, pady=(20, 12))
+
+        tabs_frame = tk.Frame(top_bar, bg=bg)
+        tabs_frame.pack(side='left')
+
+        search_var = tk.StringVar()
+        search_entry = RoundedEntry(top_bar, textvariable=search_var, width=210, height=32, placeholder='Filtrar...')
+        search_entry.pack(side='right')
+
+        # Área da Tabela no padrão Nexo (Canvas arredondado + Treeview show='tree' + VerticalPillScrollbar)
+        table_frame = tk.Frame(d, bg=bg)
+        table_frame.pack(fill='both', expand=True, padx=24)
+
+        header_canvas = tk.Canvas(table_frame, height=36, bg=bg, highlightthickness=0, bd=0)
+        header_canvas.pack(side='top', fill='x')
+
+        tree_container = tk.Frame(table_frame, bg=bg)
+        tree_container.pack(side='top', fill='both', expand=True)
+
+        state = {'tab': initial_tab, 'columns': [], 'rows': [], 'sort_dirs': {}, 'tree': None, 'vsb': None}
+
+        # Carrega os dados das 3 visões do BI
+        with db() as c:
+            r_ins = c.execute('''SELECT m.name, substr(pu.purchase_date,1,7) mes, MIN(pu.value) mn, MAX(pu.value) mx, AVG(pu.value) av
+                                 FROM purchases pu JOIN materials m ON m.id=pu.material_id
+                                 GROUP BY m.id, mes ORDER BY mes DESC, m.name''').fetchall()
+            rows_insumo = [(r['name'], r['mes'], fmt(r['mn']), fmt(r['mx']), fmt(r['av'])) for r in r_ins]
+
+            r_br = c.execute('''SELECT m.name, COALESCE(pu.brand,'') brand, substr(pu.purchase_date,1,7) mes, MIN(pu.value) mn, MAX(pu.value) mx, AVG(pu.value) av
+                                FROM purchases pu JOIN materials m ON m.id=pu.material_id
+                                GROUP BY m.id, pu.brand, mes ORDER BY mes DESC, m.name, pu.brand''').fetchall()
+            rows_marca = [(r['name'], r['brand'] or '—', r['mes'], fmt(r['mn']), fmt(r['mx']), fmt(r['av'])) for r in r_br]
+
+            r_ch = c.execute('''SELECT ch.entity_type, ch.entity_id, ch.cost, substr(ch.recorded_at,1,7) mes
+                                FROM cost_history ch ORDER BY ch.recorded_at DESC, ch.id DESC''').fetchall()
+            rows_custos = []
+            for r in r_ch:
+                tbl = 'base_recipes' if r['entity_type'] == 'RECIPE_BASE' else 'products'
+                nm = c.execute(f'SELECT name FROM {tbl} WHERE id=?', (r['entity_id'],)).fetchone()
+                rows_custos.append(('Receita' if r['entity_type'] == 'RECIPE_BASE' else 'Produto', nm['name'] if nm else '?', r['mes'], fmt(r['cost'])))
+        if not rows_custos:
+            mes_now = date.today().strftime('%Y-%m')
+            for r in list_names('base_recipes'):
+                try: rows_custos.append(('Receita', r['name'], mes_now, fmt(recipe_cost(r['id']))))
+                except Exception: pass
+            for r in list_names('products'):
+                try: rows_custos.append(('Produto', r['name'], mes_now, fmt(product_unit_cost(r['id']))))
+                except Exception: pass
+
+        tab_specs = {
+            'insumo': (
+                'Variação por Insumo',
+                [('item', 'Insumo', 300), ('mes', 'Mês', 120), ('min', 'Mínimo', 140), ('max', 'Máximo', 140), ('media', 'Média', 140)],
+                rows_insumo
+            ),
+            'marca': (
+                'Variação por Marca',
+                [('item', 'Insumo', 230), ('marca', 'Marca', 160), ('mes', 'Mês', 100), ('min', 'Mínimo', 120), ('max', 'Máximo', 120), ('media', 'Média', 120)],
+                rows_marca
+            ),
+            'custos': (
+                'Evolução de Custos',
+                [('tipo', 'Tipo', 140), ('item', 'Receita / Produto', 360), ('mes', 'Mês', 140), ('custo', 'Custo', 180)],
+                rows_custos
+            ),
+        }
+
+        def draw_header(_=None):
+            c = header_canvas
+            c.delete('all')
+            w = max(c.winfo_width(), 2)
+            h = max(c.winfo_height(), 2)
+            r = min(h/2, 18)
+            fill = '#142544' if dark else '#EEF4FB'
+            c.create_rectangle(r, 0, w-r, h, fill=fill, outline='')
+            c.create_rectangle(0, r, w, h-r, fill=fill, outline='')
+            c.create_arc(0, 0, 2*r, 2*r, start=90, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, 0, w, 2*r, start=0, extent=90, fill=fill, outline=fill)
+            c.create_arc(0, h-2*r, 2*r, h, start=180, extent=90, fill=fill, outline=fill)
+            c.create_arc(w-2*r, h-2*r, w, h, start=270, extent=90, fill=fill, outline=fill)
+
+            cols = state['columns']
+            tree = state['tree']
+            if not tree or not cols:
+                return
+            x0 = 0
+            for idx, (key, txt, width) in enumerate(cols):
+                try: cw = int(tree.column(key, 'width'))
+                except Exception: cw = width
+                align = 'w' if key in ('item', 'marca', 'tipo') else 'center'
+                anchor_x = x0 + 14 if align == 'w' else x0 + cw / 2
+                arrow = ''
+                if key in state['sort_dirs']:
+                    arrow = ' ▼' if not state['sort_dirs'][key] else ' ▲'
+                full_txt = txt + arrow if align == 'w' else arrow + txt
+                tid = c.create_text(anchor_x, h/2, text=full_txt, fill='#AFC0E2' if dark else '#60769D', font=('Segoe UI', 9, 'bold'), anchor=align)
+                c.create_rectangle(x0, 0, x0+cw, h, fill='', outline='', tags=(f'hdr_{key}',))
+                c.tag_bind(f'hdr_{key}', '<Enter>', lambda e, t=tid: (c.itemconfig(t, fill='#BA5200'), c.config(cursor='hand2')))
+                c.tag_bind(f'hdr_{key}', '<Leave>', lambda e, t=tid: (c.itemconfig(t, fill='#AFC0E2' if dark else '#60769D'), c.config(cursor='')))
+                c.tag_bind(f'hdr_{key}', '<Button-1>', lambda e, k=key: sort_col(k))
+                if idx < len(cols) - 1:
+                    c.create_line(x0+cw, 6, x0+cw, h-6, fill=self.colors.get('line', '#E5ECF5'))
+                x0 += cw
+
+        def sort_col(col):
+            tree = state['tree']
+            if not tree: return
+            rev = state['sort_dirs'].get(col, False)
+            items = [(tree.set(k, col), k) for k in tree.get_children('')]
+            try:
+                items.sort(key=lambda t: float(t[0].replace('R$ ', '').replace('.', '').replace(',', '.')), reverse=not rev)
+            except Exception:
+                items.sort(key=lambda t: t[0].lower(), reverse=not rev)
+            for idx, (_, k) in enumerate(items):
+                tree.move(k, '', idx)
+            state['sort_dirs'] = {col: not rev}
+            draw_header()
+
+        def populate_filtered(*_):
+            tree = state['tree']
+            if not tree: return
+            tree.delete(*tree.get_children())
+            q = search_var.get().strip().lower()
+            for r in state['rows']:
+                if not q or any(q in str(v).lower() for v in r):
+                    tree.insert('', 'end', values=r)
+
+        tab_pills = {}
+        def switch_tab(tab_key):
+            state['tab'] = tab_key
+            state['sort_dirs'] = {}
+            _, cols, rows = tab_specs[tab_key]
+            state['columns'] = cols
+            state['rows'] = rows
+
+            for k, (pill, lbl) in tab_pills.items():
+                is_act = (k == tab_key)
+                p_fill = '#F28C28' if is_act else ('#172746' if dark else '#EFF4FB')
+                p_fg = '#FFFFFF' if is_act else ('#DDE6FF' if dark else '#1D3557')
+                pill.set_style(fill=p_fill, bg=bg)
+                lbl.configure(bg=p_fill, fg=p_fg, font=('Segoe UI', 9, 'bold' if is_act else 'normal'))
+
+            for w_child in tree_container.winfo_children():
+                w_child.destroy()
+
+            tree = ttk.Treeview(tree_container, columns=[c[0] for c in cols], show='tree')
+            tree.column('#0', width=0, stretch=False)
+            for k, _, w in cols:
+                tree.column(k, width=w, anchor='w' if k in ('item', 'marca', 'tipo') else 'center')
+            tree.pack(side='left', fill='both', expand=True)
+            vsb = VerticalPillScrollbar(tree_container, tree)
+            state['tree'] = tree
+            state['vsb'] = vsb
+            populate_filtered()
+            tree.bind('<Configure>', lambda e: tree.after_idle(draw_header))
+            d.after_idle(draw_header)
+
+        for t_key, (t_label, _, _) in tab_specs.items():
+            pill = RoundedPanel(tabs_frame, fill='#EFF4FB', border='', radius=16, width=165, height=32, bg=bg)
+            pill.pack(side='left', padx=(0, 8)); pill.pack_propagate(False)
+            lbl = tk.Label(pill, text=t_label, bg='#EFF4FB', fg='#1D3557', font=('Segoe UI', 9), cursor='hand2')
+            lbl.pack(expand=True)
+            tab_pills[t_key] = (pill, lbl)
+            for el in (pill, pill._canvas, lbl):
+                el.configure(cursor='hand2')
+                el.bind('<Button-1>', lambda e, k=t_key: switch_tab(k))
+
+        def export_csv():
+            import csv
+            path = filedialog.asksaveasfilename(parent=d, defaultextension='.csv', filetypes=[('CSV (Excel)', '*.csv')], title='Exportar BI')
+            if not path: return
+            try:
+                with open(path, 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f, delimiter=';')
+                    writer.writerow([c[1] for c in state['columns']])
+                    for iid in state['tree'].get_children():
+                        writer.writerow(state['tree'].item(iid)['values'])
+                self.notify('Relatório de BI exportado com sucesso!')
+            except Exception as ex:
+                safe_error(d, 'Erro na exportação', ex)
+
+        RoundedActionButton(act_frame, '📄 Exportar Relatório', export_csv, width=180, height=36, fill='#EAFaf1', hover='#D4E6DC', fg='#1E833F', bg=bg).pack(side='left')
+        header_canvas.bind('<Configure>', draw_header)
+        search_var.trace_add('write', populate_filtered)
+        switch_tab(initial_tab if initial_tab in tab_specs else 'insumo')
 
     def _selection_count(self, tree):
         return len(getattr(self, '_checked_rows', {}).get(str(tree), set()))
@@ -5218,8 +5513,11 @@ class App(tk.Tk):
         self.settings_vars={}
         self._settings_pages = {}
         self._settings_tabs = {}
+        self._settings_canvases = {}
+        self._active_settings_key = 'geral'
         
         def on_tab_click(key):
+            self._active_settings_key = key
             for k, tab in self._settings_tabs.items():
                 if k == key:
                     tab.set_active(True)
@@ -5233,14 +5531,12 @@ class App(tk.Tk):
             tab.pack(fill='x', pady=(0, 4))
             self._settings_tabs[key] = tab
             
-            # Content container with scrollbar
+            # Content container with pill scrollbar
             page_outer = tk.Frame(content_frame, bg=self.colors['bg'])
             
             canvas=tk.Canvas(page_outer,bg=self.colors['bg'],highlightthickness=0,bd=0)
             canvas.pack(side='left',fill='both',expand=True)
-            sb=ttk.Scrollbar(page_outer,orient='vertical',command=canvas.yview)
-            sb.pack(side='right',fill='y')
-            canvas.configure(yscrollcommand=sb.set)
+            VerticalPillScrollbar(page_outer, canvas)
             pad=tk.Frame(canvas,bg=self.colors['bg'])
             win=canvas.create_window((0,0),window=pad,anchor='nw')
             def _sync(_=None, c=canvas, p=pad, w=win):
@@ -5250,6 +5546,7 @@ class App(tk.Tk):
             canvas.bind('<Configure>', _sync)
             
             self._settings_pages[key] = page_outer
+            self._settings_canvases[key] = canvas
             return pad
 
         def panel(parent_pad, title):
@@ -5260,6 +5557,61 @@ class App(tk.Tk):
             body.pack(fill='x',padx=20,pady=(0,20))
             return shell, body
 
+        def lbl(parent, text, font=('Segoe UI', 9, 'bold'), **kw):
+            return tk.Label(parent, text=text, bg=self.colors['panel'], fg=self.colors['text'], font=font, **kw)
+
+        def sub_lbl(parent, text, **kw):
+            return tk.Label(parent, text=text, bg=self.colors['panel'], fg=self.colors['muted'], font=('Segoe UI', 9), **kw)
+
+        def pri_btn(parent, text, command, width=140, height=34):
+            return RoundedActionButton(parent, text, command, width=width, height=height, fill='#F28C28', hover='#BA5200', fg='#FFFFFF', bg=self.colors['panel'])
+
+        def sec_btn(parent, text, command, width=120, height=34):
+            dark = getattr(self, '_dark', False)
+            return RoundedActionButton(parent, text, command, width=width, height=height,
+                                       fill='#172746' if dark else '#EFF4FB',
+                                       hover='#20375F' if dark else '#E3EBF6',
+                                       fg='#DDE6FF' if dark else '#1D3557',
+                                       bg=self.colors['panel'])
+
+        def capsule_toggle(parent, text, var):
+            wrap = tk.Frame(parent, bg=self.colors['panel'], cursor='hand2')
+            sw_c = tk.Canvas(wrap, width=44, height=24, bg=self.colors['panel'], bd=0, highlightthickness=0, cursor='hand2')
+            sw_c.pack(side='left', padx=(0, 8))
+            t_lbl = tk.Label(wrap, text=text, bg=self.colors['panel'], fg=self.colors['text'], font=('Segoe UI', 9, 'bold'), cursor='hand2')
+            t_lbl.pack(side='left')
+
+            def _draw(*_):
+                sw_c.delete('all')
+                on = bool(var.get())
+                track = '#F28C28' if on else ('#24385E' if getattr(self, '_dark', False) else '#CBD5E1')
+                try:
+                    from PIL import Image, ImageDraw, ImageTk
+                    scale = 4
+                    w, h = 44, 24
+                    p_bg = self.colors['panel']
+                    im = Image.new('RGB', (w*scale, h*scale), p_bg)
+                    d = ImageDraw.Draw(im)
+                    d.rounded_rectangle((0, 0, w*scale-1, h*scale-1), radius=(h*scale)//2, fill=track)
+                    r = 9 * scale
+                    cx = (w - 12) * scale if on else 12 * scale
+                    cy = (h * scale) // 2
+                    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill='#FFFFFF')
+                    im = im.resize((w, h), Image.Resampling.LANCZOS)
+                    sw_c._img = ImageTk.PhotoImage(im)
+                    sw_c.create_image(0, 0, image=sw_c._img, anchor='nw')
+                except Exception:
+                    sw_c.create_oval(2, 2, 42, 22, fill=track, outline='')
+
+            def _toggle(_=None):
+                var.set(0 if var.get() else 1)
+
+            var.trace_add('write', _draw)
+            for w_el in (wrap, sw_c, t_lbl):
+                w_el.bind('<Button-1>', _toggle)
+            sw_c.after_idle(_draw)
+            return wrap
+
         # --- CONSTRUÇÃO DAS PÁGINAS ---
         # 1. Geral
         pad_geral = add_category('geral', '⚙️ Geral')
@@ -5267,20 +5619,28 @@ class App(tk.Tk):
         _, company=panel(pad_geral, 'Empresa')
         name=tk.StringVar(value=get_setting('company_name','Nexo'));self.settings_vars['company']=name
         logo=tk.StringVar(value=get_setting('company_logo',''));self.settings_vars['logo']=logo
-        ttk.Label(company,text='Nome da empresa').grid(row=0,column=0,sticky='w');ttk.Entry(company,textvariable=name,width=36).grid(row=1,column=0,padx=(0,10),sticky='ew')
-        ttk.Label(company,text='Logo').grid(row=0,column=1,sticky='w');ttk.Entry(company,textvariable=logo,width=45).grid(row=1,column=1,padx=6,sticky='ew');ttk.Button(company,text='Selecionar',command=lambda:self.select_logo(logo)).grid(row=1,column=2,padx=6)
-        ttk.Button(company,text='Salvar identidade',command=self.save_company_settings).grid(row=1,column=3,padx=6)
-        tk.Label(company,text='Formatos aceitos: PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO. Mínimo recomendado: 500 px no menor lado.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9),wraplength=980,justify='left').grid(row=2,column=0,columnspan=4,sticky='w',padx=6,pady=(8,0))
+        lbl(company, 'Nome da empresa').grid(row=0, column=0, sticky='w', padx=4, pady=(0, 4))
+        w_name, _ = rounded_entry(company, name, width=32)
+        w_name.grid(row=1, column=0, padx=(0, 10), sticky='ew')
+        lbl(company, 'Logo').grid(row=0, column=1, sticky='w', padx=6, pady=(0, 4))
+        w_logo, _ = rounded_entry(company, logo, width=38)
+        w_logo.grid(row=1, column=1, padx=6, sticky='ew')
+        sec_btn(company, 'Selecionar', lambda: self.select_logo(logo), width=115, height=34).grid(row=1, column=2, padx=6)
+        pri_btn(company, 'Salvar identidade', self.save_company_settings, width=155, height=34).grid(row=1, column=3, padx=(6, 0))
+        sub_lbl(company, 'Formatos aceitos: PNG, JPG/JPEG, GIF, BMP, WebP, TIFF e ICO. Mínimo recomendado: 500 px no menor lado.', wraplength=980, justify='left').grid(row=2, column=0, columnspan=4, sticky='w', padx=4, pady=(10, 0))
         company.columnconfigure(0,weight=1); company.columnconfigure(1,weight=1)
 
         _, appearance=panel(pad_geral, 'Aparência')
         stored_theme=get_setting('theme','light'); theme=tk.StringVar(value={'light':'Claro','dark':'Escuro','system':'Sistema'}.get(stored_theme,'Escuro'));self.settings_vars['theme']=theme
-        ttk.Label(appearance,text='Tema').pack(side='left');ttk.Combobox(appearance,textvariable=theme,values=('Claro','Escuro','Sistema'),state='readonly',width=12).pack(side='left',padx=8);ttk.Button(appearance,text='Aplicar',command=self.apply_theme_from_settings).pack(side='left')
+        lbl(appearance, 'Tema').pack(side='left', padx=(0, 8))
+        RoundedDropdown(appearance, theme, ('Claro','Escuro','Sistema'), width=150, height=32, align='left').pack(side='left', padx=(0, 12))
+        pri_btn(appearance, 'Aplicar', self.apply_theme_from_settings, width=105, height=34).pack(side='left')
 
         _, langbox=panel(pad_geral, 'Idioma')
         self.language_var=tk.StringVar(value=get_setting('language','Português (Brasil)'))
-        ttk.Label(langbox,text='Idioma').pack(side='left');ttk.Combobox(langbox,textvariable=self.language_var,values=('Português (Brasil)',),state='readonly',width=22).pack(side='left',padx=8)
-        tk.Label(langbox,text='Outros idiomas serão adicionados na camada de tradução sem alterar os dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left')
+        lbl(langbox, 'Idioma').pack(side='left', padx=(0, 8))
+        RoundedDropdown(langbox, self.language_var, ('Português (Brasil)',), width=200, height=32, align='left').pack(side='left', padx=(0, 12))
+        sub_lbl(langbox, 'Outros idiomas serão adicionados na camada de tradução sem alterar os dados.').pack(side='left')
 
         # 2. IA
         pad_ia = add_category('ia', '🧠 Inteligência Artificial')
@@ -5290,23 +5650,25 @@ class App(tk.Tk):
         ai_api_key = tk.StringVar(value=get_setting('ai_api_key', ''))
         ai_daily_limit = tk.StringVar(value=get_setting('ai_daily_limit', '50'))
         
-        row1 = tk.Frame(aibox, bg=self.colors['panel']); row1.pack(fill='x', pady=(0, 12))
-        ttk.Checkbutton(row1, text="Ativar Importação Inteligente (IA)", variable=ai_enabled, style='TCheckbutton').pack(side='left', padx=(0, 16))
-        ttk.Label(row1, text="Provedor:").pack(side='left'); ttk.Combobox(row1, textvariable=ai_provider, values=('Google Gemini', 'OpenAI ChatGPT'), state='readonly', width=20).pack(side='left', padx=8)
+        row1 = tk.Frame(aibox, bg=self.colors['panel']); row1.pack(fill='x', pady=(0, 14))
+        capsule_toggle(row1, "Ativar Importação Inteligente (IA)", ai_enabled).pack(side='left', padx=(0, 24))
+        lbl(row1, "Provedor:").pack(side='left', padx=(0, 8))
+        RoundedDropdown(row1, ai_provider, ('Google Gemini', 'OpenAI ChatGPT'), width=200, height=32, align='left').pack(side='left')
         
-        row2 = tk.Frame(aibox, bg=self.colors['panel']); row2.pack(fill='x', pady=(0, 12))
-        ttk.Label(row2, text="Chave API (Secreta):").pack(side='left')
-        ttk.Entry(row2, textvariable=ai_api_key, width=55, show='*').pack(side='left', padx=8)
+        row2 = tk.Frame(aibox, bg=self.colors['panel']); row2.pack(fill='x', pady=(0, 14))
+        lbl(row2, "Chave API (Secreta):").pack(side='left', padx=(0, 8))
+        w_apikey, _ = rounded_entry(row2, ai_api_key, width=46, show='*')
+        w_apikey.pack(side='left', padx=(0, 10))
         
         def show_ai_help():
             messagebox.showinfo("Ajuda: Chave de API", "Para Google Gemini:\n1. Acesse aistudio.google.com\n2. Faça login com o Google\n3. Clique em 'Get API Key' e 'Create API Key'\n4. Cole o código gerado no campo.\n\nPara OpenAI:\n1. Acesse platform.openai.com/api-keys\n2. Clique em 'Create new secret key'.", parent=self.winfo_toplevel())
             
-        ttk.Button(row2, text="Ajuda (i)", width=8, command=show_ai_help).pack(side='left')
+        sec_btn(row2, "Ajuda (i)", show_ai_help, width=105, height=34).pack(side='left')
         
-        row3 = tk.Frame(aibox, bg=self.colors['panel']); row3.pack(fill='x', pady=(0, 12))
-        ttk.Label(row3, text="Alerta de Segurança Diário (Limitar em):").pack(side='left')
-        ttk.Entry(row3, textvariable=ai_daily_limit, width=10).pack(side='left', padx=8)
-        ttk.Label(row3, text="leituras por dia.").pack(side='left')
+        row3 = tk.Frame(aibox, bg=self.colors['panel']); row3.pack(fill='x', pady=(0, 14))
+        lbl(row3, "Alerta de Segurança Diário (Limitar em):").pack(side='left', padx=(0, 8))
+        numeric_entry(row3, ai_daily_limit, width=10).pack(side='left', padx=(0, 8))
+        lbl(row3, "leituras por dia.", font=('Segoe UI', 9)).pack(side='left')
         
         def save_ai_settings():
             set_setting('ai_enabled', str(ai_enabled.get()))
@@ -5315,36 +5677,40 @@ class App(tk.Tk):
             set_setting('ai_daily_limit', ai_daily_limit.get().strip())
             self.notify("Configurações de IA salvas com sucesso.")
             
-        ttk.Button(aibox, text='Salvar Configurações de IA', command=save_ai_settings).pack(anchor='w')
-        tk.Label(aibox, text='O Nexo processa imagens apenas para fins de extração de dados e não armazena fotos na nuvem.', bg=self.colors['panel'], fg=self.colors['muted'], font=('Segoe UI', 9)).pack(anchor='w', pady=(8, 0))
+        pri_btn(aibox, 'Salvar Configurações de IA', save_ai_settings, width=215, height=36).pack(anchor='w', pady=(2, 0))
+        sub_lbl(aibox, 'O Nexo processa imagens apenas para fins de extração de dados e não armazena fotos na nuvem.').pack(anchor='w', pady=(8, 0))
 
         # 3. Métricas
         pad_met = add_category('metricas', '📈 Métricas de Custo')
         _, costs=panel(pad_met, 'Custos operacionais')
         self.cost_vars={}; settings=get_cost_settings()
         for i,n in enumerate(('Gás','Energia','Água')):
-            ttk.Label(costs,text=f'{n} (%)').grid(row=0,column=i,sticky='w',padx=6);v=tk.StringVar(value=fmt_num(settings.get(n,20)));self.cost_vars[n]=v;ttk.Entry(costs,textvariable=v,width=12).grid(row=1,column=i,padx=6)
-        ttk.Button(costs,text='Salvar custos',command=self.save_cost_settings).grid(row=1,column=3,padx=10)
-        tk.Label(costs,text='Esses percentuais entram no custo final do Produto e ficam registrados no histórico.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=2,column=0,columnspan=4,sticky='w',padx=6,pady=8)
+            lbl(costs, f'{n} (%)').grid(row=0, column=i, sticky='w', padx=6, pady=(0, 4))
+            v=tk.StringVar(value=fmt_num(settings.get(n,20))); self.cost_vars[n]=v
+            numeric_entry(costs, v, width=12).grid(row=1, column=i, padx=6)
+        pri_btn(costs, 'Salvar custos', self.save_cost_settings, width=140, height=34).grid(row=1, column=3, padx=10)
+        sub_lbl(costs, 'Esses percentuais entram no custo final do Produto e ficam registrados no histórico.').grid(row=2, column=0, columnspan=4, sticky='w', padx=6, pady=(10, 0))
 
         # 4. Unidades
         pad_un = add_category('unidades', '⚖️ Unidades de Medida')
         _, units=panel(pad_un, 'Unidades internas')
         self.base_vars={}
         for i,(key,label,vals) in enumerate((('mass_base_unit','Massa',UNITS_MASS),('volume_base_unit','Volume',UNITS_VOLUME),('count_base_unit','Quantidade',UNITS_COUNT))):
-            ttk.Label(units,text=label).grid(row=0,column=i,padx=6,sticky='w');v=tk.StringVar(value=get_setting(key,BASE_UNITS_DEFAULT[dimension_of_unit(vals[0]) or 'count']));self.base_vars[key]=v;ttk.Combobox(units,textvariable=v,values=vals,state='readonly',width=10).grid(row=1,column=i,padx=6)
-        ttk.Button(units,text='Salvar unidades internas',command=self.save_base_units).grid(row=1,column=3,padx=8)
+            lbl(units, label).grid(row=0, column=i, padx=6, sticky='w', pady=(0, 4))
+            v=tk.StringVar(value=get_setting(key,BASE_UNITS_DEFAULT[dimension_of_unit(vals[0]) or 'count'])); self.base_vars[key]=v
+            RoundedDropdown(units, v, vals, width=120, height=32, align='left').grid(row=1, column=i, padx=6)
+        pri_btn(units, 'Salvar unidades internas', self.save_base_units, width=190, height=34).grid(row=1, column=3, padx=10)
 
         _, convbox=panel(pad_un, 'Unidades configuráveis por insumo')
-        tk.Label(convbox,text='Ex.: xícara de leite pode equivaler a 240 ml; xícara de farinha pode equivaler a outro valor.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).grid(row=0,column=0,sticky='w',pady=(0,8))
-        ttk.Button(convbox,text='Gerenciar conversões',command=self.settings_conversion_dialog).grid(row=1,column=0,sticky='w')
+        sub_lbl(convbox, 'Ex.: xícara de leite pode equivaler a 240 ml; xícara de farinha pode equivaler a outro valor.').grid(row=0, column=0, sticky='w', pady=(0, 10))
+        pri_btn(convbox, 'Gerenciar conversões', self.settings_conversion_dialog, width=180, height=36).grid(row=1, column=0, sticky='w')
 
         # 5. DB e BI
         pad_db = add_category('banco', '💾 Banco de Dados & BI')
         _, bibox=panel(pad_db, 'Auditoria & BI')
         self.retention_var=tk.StringVar(value=get_setting('history_retention_months','36'))
-        ttk.Label(bibox,text='Retenção do histórico de edições (Meses)').pack(side='left')
-        ttk.Entry(bibox,textvariable=self.retention_var,width=10).pack(side='left',padx=8)
+        lbl(bibox, 'Retenção do histórico de edições (Meses)').pack(side='left', padx=(0, 8))
+        numeric_entry(bibox, self.retention_var, width=10).pack(side='left', padx=(0, 10))
         
         def save_retention():
             try:
@@ -5355,41 +5721,56 @@ class App(tk.Tk):
             except Exception:
                 safe_error(self.winfo_toplevel(), "Erro", "Digite um número de meses válido (0 para nunca limpar).")
                 
-        ttk.Button(bibox,text='Salvar',command=save_retention).pack(side='left')
-        tk.Label(bibox,text='Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(side='left', padx=8)
+        pri_btn(bibox, 'Salvar', save_retention, width=100, height=34).pack(side='left', padx=(0, 12))
+        sub_lbl(bibox, 'Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.').pack(side='left')
 
         _, dbbox=panel(pad_db, 'Fonte de dados')
-        ttk.Label(dbbox,text='SQLite atual').grid(row=0,column=0,sticky='w');self.db_path_var=tk.StringVar(value=str(DB_PATH));ttk.Entry(dbbox,textvariable=self.db_path_var,width=70).grid(row=1,column=0,padx=(0,8),sticky='ew')
-        ttk.Button(dbbox,text='Escolher arquivo SQLite',command=self.choose_db_file).grid(row=1,column=1)
-        ttk.Button(dbbox,text='Aplicar banco',command=self.apply_db_file).grid(row=1,column=2,padx=6)
+        lbl(dbbox, 'SQLite atual').grid(row=0, column=0, sticky='w', padx=4, pady=(0, 4))
+        self.db_path_var=tk.StringVar(value=str(DB_PATH))
+        w_db, _ = rounded_entry(dbbox, self.db_path_var, width=52)
+        w_db.grid(row=1, column=0, padx=(0, 10), sticky='ew')
+        sec_btn(dbbox, 'Escolher arquivo SQLite', self.choose_db_file, width=185, height=34).grid(row=1, column=1, padx=4)
+        pri_btn(dbbox, 'Aplicar banco', self.apply_db_file, width=135, height=34).grid(row=1, column=2, padx=(6, 0))
         self.settings_db_status=tk.Label(dbbox,textvariable=self.status,bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9,'bold'),anchor='w')
-        self.settings_db_status.grid(row=3,column=0,columnspan=3,sticky='w',pady=(4,0))
-        tk.Label(dbbox,text='SQLite local/arquivo de rede funciona nesta versão. Conectores PostgreSQL/MySQL podem ser adicionados depois.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9),wraplength=980,justify='left').grid(row=2,column=0,columnspan=3,sticky='w',pady=8)
+        self.settings_db_status.grid(row=3,column=0,columnspan=3,sticky='w',padx=4,pady=(4,0))
+        sub_lbl(dbbox, 'SQLite local/arquivo de rede funciona nesta versão. Conectores PostgreSQL/MySQL podem ser adicionados depois.', wraplength=980, justify='left').grid(row=2, column=0, columnspan=3, sticky='w', padx=4, pady=(10, 4))
         dbbox.columnconfigure(0,weight=1)
 
         _, audit=panel(pad_db, 'Auditoria do banco')
-        tk.Label(audit,text='Veja as últimas operações, diferencie INSERT/UPDATE/DELETE e confira o antes/depois das edições.',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(anchor='w')
-        ttk.Button(audit,text='Visualizar banco / auditoria',command=self.audit_database_dialog).pack(anchor='w',pady=(8,0))
+        sub_lbl(audit, 'Veja as últimas operações, diferencie INSERT/UPDATE/DELETE e confira o antes/depois das edições.').pack(anchor='w', pady=(0, 10))
+        pri_btn(audit, 'Visualizar banco / auditoria', self.audit_database_dialog, width=215, height=36).pack(anchor='w')
 
         _, docs=panel(pad_db, 'Documentos')
-        tk.Label(docs,text=f'Arquivos originais ficam em: {DOCS_DIR}',bg=self.colors['panel'],fg=self.colors['muted'],font=('Segoe UI',9)).pack(anchor='w')
+        sub_lbl(docs, f'Arquivos originais ficam em: {DOCS_DIR}').pack(anchor='w')
         
         # Init
         self.refresh_settings_widgets = pad_geral # Fallback for compatibility if needed
         on_tab_click('geral')
 
     def settings_conversion_dialog(self):
-        d=Modal(self,'Unidades configuráveis por insumo','820x600')
+        d=Modal(self,'Unidades configuráveis por insumo','860x600')
         material=tk.StringVar();unit=tk.StringVar();base=tk.StringVar(value='ml');factor=tk.StringVar()
-        form=ttk.Frame(d,padding=12);form.pack(fill='x')
-        ttk.Label(form,text='Insumo *').grid(row=0,column=0,sticky='w');cb=ttk.Combobox(form,textvariable=material,width=38,state='readonly');cb.grid(row=1,column=0,padx=5)
-        ttk.Label(form,text='Unidade configurável *').grid(row=0,column=1,sticky='w');ttk.Entry(form,textvariable=unit,width=20).grid(row=1,column=1,padx=5)
-        ttk.Label(form,text='Quantidade equivalente *').grid(row=0,column=2,sticky='w');ttk.Entry(form,textvariable=factor,width=18).grid(row=1,column=2,padx=5)
-        ttk.Label(form,text='Unidade interna referenciada *').grid(row=0,column=3,sticky='w');ttk.Combobox(form,textvariable=base,values=('mg','ml','un'),state='readonly',width=18).grid(row=1,column=3,padx=5)
+        bg_col = d.cget('bg')
+        fg_col = self.colors.get('text', '#18223A')
+        form=tk.Frame(d,bg=bg_col,padx=16,pady=12);form.pack(fill='x')
+        tk.Label(form,text='Insumo *',bg=bg_col,fg=fg_col,font=('Segoe UI',9,'bold')).grid(row=0,column=0,sticky='w',padx=5,pady=(0,4))
+        mat_opts=[f'{r["id"]} — {r["name"]}' for r in list_names('materials')]
+        cb=RoundedDropdown(form,material,mat_opts,width=260,height=32,align='left')
+        cb.grid(row=1,column=0,padx=5)
+        tk.Label(form,text='Unidade configurável *',bg=bg_col,fg=fg_col,font=('Segoe UI',9,'bold')).grid(row=0,column=1,sticky='w',padx=5,pady=(0,4))
+        w_unit,_=rounded_entry(form,unit,width=16)
+        w_unit.grid(row=1,column=1,padx=5)
+        tk.Label(form,text='Quantidade equivalente *',bg=bg_col,fg=fg_col,font=('Segoe UI',9,'bold')).grid(row=0,column=2,sticky='w',padx=5,pady=(0,4))
+        w_fac=numeric_entry(form,factor,width=14)
+        w_fac.grid(row=1,column=2,padx=5)
+        tk.Label(form,text='Unidade interna *',bg=bg_col,fg=fg_col,font=('Segoe UI',9,'bold')).grid(row=0,column=3,sticky='w',padx=5,pady=(0,4))
+        RoundedDropdown(form,base,('mg','ml','un'),width=110,height=32,align='left').grid(row=1,column=3,padx=5)
         tree=ttk.Treeview(d,columns=('item','unit','factor','base'),show='headings')
         for k,t,w in [('item','Insumo',220),('unit','Unidade',140),('factor','Quantidade equivalente',170),('base','Unidade interna',150)]:tree.heading(k,text=t);tree.column(k,width=w)
-        tree.pack(fill='both',expand=True,padx=12,pady=12)
-        def load():cb['values']=[f'{r["id"]} — {r["name"]}' for r in list_names('materials')]
+        tree.pack(fill='both',expand=True,padx=16,pady=12)
+        def load():
+            cb._opts=[f'{r["id"]} — {r["name"]}' for r in list_names('materials')]
+            cb.after_idle(cb._redraw)
         def refresh():
             for x in tree.get_children():tree.delete(x)
             with db() as c:
@@ -5401,17 +5782,20 @@ class App(tk.Tk):
                 mid=int(material.get().split(' — ')[0]);n=unit.get().strip();b=base.get();f=to_float(factor.get(),'Quantidade equivalente')
                 if not n:raise ValueError('O nome da unidade configurável é obrigatório.')
                 if f<=0:raise ValueError('A Quantidade equivalente deve ser maior que zero.')
-                with db() as c:c.execute('INSERT INTO custom_units(material_id,name,base_unit,factor_to_base) VALUES(?,?,?,?)',(mid,n,b,f))
+                with db() as c:
+                    c.execute('INSERT INTO custom_units(material_id,name,base_unit,factor_to_base) VALUES(?,?,?,?)',(mid,n,b,f))
+                    c.commit()
                 unit.set('');factor.set('');refresh()
             except Exception as e:safe_error(d,'Não foi possível salvar a conversão',e)
-        ttk.Button(form,text='Adicionar',command=add).grid(row=1,column=4,padx=6)
+        RoundedActionButton(form,'Adicionar',add,width=110,height=34,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=bg_col).grid(row=1,column=4,padx=6)
         load();refresh()
-        actions=ttk.Frame(d,padding=10);actions.pack(fill='x')
-        ttk.Button(actions,text='Cancelar',command=d.destroy).pack(side='right')
-        ttk.Button(actions,text='Salvar',command=lambda:(self.notify('Unidades configuráveis salvas.'),d.destroy())).pack(side='right',padx=6)
+        actions=tk.Frame(d,bg=bg_col,padx=16,pady=10);actions.pack(fill='x')
+        RoundedActionButton(actions,'Cancelar',d.destroy,width=110,height=36,fill='#6B7280',hover='#4B5563',fg='#FFFFFF',bg=bg_col).pack(side='right')
+        RoundedActionButton(actions,'Salvar',lambda:(self.notify('Unidades configuráveis salvas.'),d.destroy()),width=110,height=36,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=bg_col).pack(side='right',padx=8)
 
     def audit_database_dialog(self):
         d=Modal(self,'Auditoria do banco de dados','1040x620')
+        bg_col = d.cget('bg')
         ttk.Label(d,text='Últimas operações registradas pelo SQLite. Clique duas vezes em uma linha para ver antes/depois.',padding=12).pack(anchor='w')
         tree=ttk.Treeview(d,columns=('date','action','table','id','reason'),show='headings')
         for k,t,w in [('date','Data/hora',150),('action','Ação',90),('table','Tabela',150),('id','ID',70),('reason','Motivo da edição',430)]:
@@ -5444,9 +5828,9 @@ class App(tk.Tk):
             txt.pack(fill='both',expand=True,padx=16,pady=8)
             txt.insert('1.0', 'ANTES\n'+(r['before_json'] or '—')+'\n\nDEPOIS\n'+(r['after_json'] or '—'))
             txt.configure(state='disabled')
-            ttk.Button(detail,text='Fechar',command=detail.destroy).pack(pady=(0,12))
+            RoundedActionButton(detail,'Fechar',detail.destroy,width=110,height=36,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=detail.cget('bg')).pack(pady=(0,12))
         tree.bind('<Double-1>',details)
-        ttk.Button(d,text='Fechar',command=d.destroy).pack(pady=(0,12))
+        RoundedActionButton(d,'Fechar',d.destroy,width=110,height=36,fill='#F28C28',hover='#BA5200',fg='#FFFFFF',bg=bg_col).pack(pady=(0,12))
 
     def choose_db_file(self):
         path=filedialog.asksaveasfilename(parent=self,defaultextension='.db',filetypes=[('SQLite','*.db'),('Todos os arquivos','*.*')],initialfile=Path(DB_PATH).name)
@@ -5520,6 +5904,7 @@ class App(tk.Tk):
                 if v<0:raise ValueError(f'O percentual de {n} não pode ser negativo.')
             with db() as c:
                 for n,v in vals.items():c.execute('UPDATE cost_settings SET percentage=? WHERE name=?',(v,n))
+                c.commit()
             snapshot_costs();self.refresh_all();self.notify('Custos operacionais salvos.')
         except Exception as e:safe_error(self,'Não foi possível salvar os custos operacionais',e)
 
@@ -5537,12 +5922,20 @@ class App(tk.Tk):
                             factor_new=row['factor_to_base']*old_factor/new_factor
                             c.execute('UPDATE custom_units SET base_unit=?,factor_to_base=? WHERE id=?',(new_unit,factor_new,row['id']))
                     c.execute('UPDATE system_settings SET value=? WHERE key=?',(new_unit,key))
+                c.commit()
             snapshot_costs();self.notify('Unidades internas salvas e conversões ajustadas.')
         except Exception as e:safe_error(self,'Não foi possível salvar as unidades internas',e)
 
     def apply_theme_from_settings(self):
         v=self.settings_vars['theme'].get()
         set_setting('theme', {'Claro':'light','Escuro':'dark','Sistema':'system'}.get(v,'light'));self._apply_theme()
+        for pg, builder in (('Geral', self.general), ('Configurações', self.settings_page)):
+            if pg in getattr(self, '_pages', {}):
+                f = self._pages[pg]
+                f.configure(bg=self.colors['bg'])
+                for w in f.winfo_children(): w.destroy()
+                builder(f)
+        self.refresh_general()
 
     def _bind_combobox_full_click(self):
         def open_combo(event):
@@ -5561,13 +5954,14 @@ class App(tk.Tk):
         # para quem preferir, mas a instalação entregue abre no Nexo Dark.
         theme=get_setting('theme','light')
         dark=theme=='dark'
+        self._dark=dark
         if dark:
-            bg='#081226'; fg='#F4F7FF'; panel='#111F3B'; muted='#93A4C6'; line='#24385E'; field='#0E1B35'
+            bg='#081226'; fg='#F4F7FF'; panel='#111F3B'; panel_alt='#142544'; muted='#93A4C6'; line='#24385E'; field='#0E1B35'
             accent_soft='#5A3518'; cream='#FFF7EA'
         else:
-            bg='#F4F7FC'; fg='#18223A'; panel='#FFFFFF'; muted='#687796'; line='#DDE5F2'; field='#FFFFFF'
+            bg='#F4F7FC'; fg='#18223A'; panel='#FFFFFF'; panel_alt='#F8FAFD'; muted='#687796'; line='#DDE5F2'; field='#FFFFFF'
             accent_soft='#FFF0D8'; cream='#FFF7EA'
-        self.colors.update(bg=bg,text=fg,panel=panel,muted=muted,line=line,field=field,accent_soft=accent_soft,cream=cream)
+        self.colors.update(bg=bg,text=fg,panel=panel,panel_alt=panel_alt,muted=muted,line=line,field=field,accent_soft=accent_soft,cream=cream)
         self.configure(bg=bg)
         self.style.configure('TFrame',background=bg)
         self.style.configure('TLabel',background=bg,foreground=fg)

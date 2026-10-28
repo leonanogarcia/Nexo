@@ -4,7 +4,7 @@
 - **Geometria:** O painel esquerdo possui 150px de área dedicada. O "trilho" colorido (fundo ativo) tem 68px de largura.
 - **Comportamento Hover/Active:**
   - Quando ativo, o botão se transforma numa pílula (radius 20px) com altura de 60px.
-  - A cor de fundo muda dinamicamente: Modo Claro (marrom escuro `#693A16`), Modo Escuro (laranja claro `#F6A45A`).
+  - A cor de fundo muda dinamicamente: Modo Claro (marrom escuro `#693A16`), Modo Escuro (azul-marinho escuro `#111C30`, igual ao trilho do modo claro).
 - **Renderização Vectorial (`SidebarIcon`):**
   - Os ícones NÃO são imagens (.png). São desenhados matematicamente no `tk.Canvas` para evitar serrilhados.
   - O ícone "Configurações" (Engrenagem) é renderizado como um polígono perfeito de 16 pontas usando trigonometria (radianos e cossenos) e contorno `width=2.9`.
