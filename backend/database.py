@@ -34,6 +34,7 @@ def init_db():
           purchase_value REAL NOT NULL DEFAULT 0,
           brand TEXT,
           category TEXT NOT NULL DEFAULT 'Comestível',
+          barcode TEXT,
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT
         );
@@ -145,6 +146,7 @@ def init_db():
                 c.execute(f'ALTER TABLE {table} ADD COLUMN {col} {definition}')
 
         add_col('materials', 'code', 'TEXT')
+        add_col('materials', 'barcode', 'TEXT')
         add_col('materials', 'updated_at', 'TEXT')
         add_col('products', 'active', 'INTEGER NOT NULL DEFAULT 1')
         add_col('materials', 'active', 'INTEGER NOT NULL DEFAULT 1')

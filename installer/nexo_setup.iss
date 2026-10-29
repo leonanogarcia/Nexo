@@ -20,7 +20,7 @@ SetupIconFile=..\nexo_icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequired=admin
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

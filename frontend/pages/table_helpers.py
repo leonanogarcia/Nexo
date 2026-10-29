@@ -303,8 +303,6 @@ class TableHelpersMixin:
     def _make_row_icon(self, kind):
         try:
             from PIL import Image, ImageTk
-            import pathlib
-            UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
             if kind == 'edit':
                 im = Image.open(UI_ASSETS / 'action_edit_reference_exact.png').convert('RGBA')
             elif kind == 'delete':
@@ -376,8 +374,6 @@ class TableHelpersMixin:
         
         try:
             from PIL import Image, ImageDraw, ImageTk
-            import pathlib
-            UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
             im_e = Image.open(UI_ASSETS / 'action_edit_reference_exact.png').convert('RGBA').resize((16, 16), Image.Resampling.LANCZOS)
             im_d = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA').resize((16, 16), Image.Resampling.LANCZOS)
             

@@ -449,8 +449,6 @@ class RoundedActionButton(tk.Frame):
                     line([cx+3*scale, c_y+4*scale, cx-5*scale, c_y+4*scale])
                     line([cx-2*scale, c_y+1*scale, cx-5*scale, c_y+4*scale, cx-2*scale, c_y+7*scale])
                 elif icon=='delete':
-                    import pathlib
-                    UI_ASSETS = pathlib.Path(__file__).parent / 'ui_assets'
                     try:
                         icon_img = Image.open(UI_ASSETS / 'action_delete_reference_exact.png').convert('RGBA')
                         # Resize to fit nicely (about 14x16 at 1x)

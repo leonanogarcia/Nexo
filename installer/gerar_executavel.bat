@@ -1,30 +1,19 @@
 @echo off
-title Nexo - Gerar Executavel Windows (.exe)
+title Nexo - Gerar Instalador Windows (Setup)
 cd /d "%~dp0\.."
 
 echo ========================================================
-echo   Nexo - Empacotando Executavel Windows (PyInstaller)
+echo   Nexo - Gerando Instalador Oficial para Windows
 echo ========================================================
 echo.
 
-python -m pip install --upgrade pyinstaller pillow
-
-python -m PyInstaller --noconfirm --onedir --windowed ^
-    --name "Nexo" ^
-    --icon "nexo_icon.ico" ^
-    --add-data "ui_assets;ui_assets" ^
-    --add-data "nexo_icon.ico;." ^
-    --add-data "nexo_icon.png;." ^
-    --add-data "nexo_logo.png;." ^
-    main.py
+python installer\build_setup.py
 
 echo.
 if %errorlevel% equ 0 (
-    echo [SUCESSO] Executavel gerado em: dist\Nexo\Nexo.exe
-    echo O banco de dados da versao instalada sera salvo automaticamente em %%LOCALAPPDATA%%\Nexo
+    echo [SUCESSO] Instalador disponivel na pasta: instaladores\
 ) else (
-    echo [ERRO] Falha ao gerar o executavel.
+    echo [ERRO] Falha ao gerar o instalador.
 )
 echo.
 pause
-
