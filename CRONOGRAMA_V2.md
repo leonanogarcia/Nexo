@@ -10,7 +10,7 @@
 | :---: | :--- | :---: | :--- |
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | 🚀 **EM LAPIDAÇÃO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela e conversões culinárias |
-| **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ⏳ **A SEGUIR** | Precificação de venda, markup, margem de lucro, composição de receitas + embalagens |
+| **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | 🟡 **EM ANDAMENTO** | Precificação de venda, markup, margem de lucro, composição de receitas + embalagens |
 | **Etapa 3** | **Aba Configurações** | ⏳ Pendente | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |

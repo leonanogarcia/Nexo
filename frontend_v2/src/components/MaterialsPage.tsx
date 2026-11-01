@@ -746,19 +746,15 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     {COLUMNS.filter((c) => c.hideable).map((col) => {
                       const isVis = !hiddenCols.includes(col.key);
                       return (
-                        <button
+                        <div
                           key={col.key}
-                          type="button"
                           onClick={() => toggleColumnVisibility(col.key)}
-                          className="w-full px-3.5 py-1.5 flex items-center gap-2.5 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer"
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
                         >
-                          <span
-                            className={`text-base leading-none ${
-                              isVis ? 'text-[#F28C28]' : 'text-[#C0C9D8]'
-                            }`}
-                          >
-                            {isVis ? '☑' : '☐'}
-                          </span>
+                          <NexoCheckbox
+                            checked={isVis}
+                            onChange={() => toggleColumnVisibility(col.key)}
+                          />
                           <span
                             className={`text-[12.5px] ${
                               isVis
@@ -768,7 +764,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                           >
                             {col.label}
                           </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1789,7 +1785,13 @@ const HistoryModalComponent: React.FC<{
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 flex items-center justify-end">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <RoundedActionButton
+            label="Fechar"
+            onClick={onClose}
+            variant="ghost"
+            height={36}
+          />
           <RoundedActionButton
             icon={
               <svg

@@ -8,6 +8,7 @@ import {
 } from '../types';
 import {
   CapsuleInput,
+  CapsuleQuantityUnit,
   ChevronDownIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -30,14 +31,22 @@ interface RecipesPageProps {
   dark: boolean;
 }
 
-const REC_COLUMNS: { key: string; label: string; width: number; minWidth: number; align?: 'left' | 'center' | 'right' }[] = [
-  { key: 'code', label: 'Código', width: 95, minWidth: 80, align: 'center' },
-  { key: 'name', label: 'Nome da Receita', width: 340, minWidth: 220, align: 'left' },
-  { key: 'yield', label: 'Rendimento', width: 130, minWidth: 100, align: 'center' },
-  { key: 'total_cost', label: 'Custo Total', width: 130, minWidth: 100, align: 'right' },
-  { key: 'portion_cost', label: 'Custo / Porção', width: 130, minWidth: 100, align: 'right' },
-  { key: 'date', label: 'Data', width: 110, minWidth: 90, align: 'center' },
-  { key: 'status', label: 'Status', width: 100, minWidth: 80, align: 'center' },
+interface RecColumnSpec {
+  key: string;
+  label: string;
+  width: number;
+  align: 'left' | 'center';
+  hideable: boolean;
+}
+
+const REC_COLUMNS: RecColumnSpec[] = [
+  { key: 'code', label: 'Código', width: 95, align: 'center', hideable: true },
+  { key: 'name', label: 'Nome da Receita', width: 280, align: 'left', hideable: false },
+  { key: 'yield', label: 'Rendimento', width: 130, align: 'center', hideable: true },
+  { key: 'total_cost', label: 'Custo Total', width: 140, align: 'center', hideable: true },
+  { key: 'portion_cost', label: 'Custo / Porção', width: 140, align: 'center', hideable: true },
+  { key: 'date', label: 'Data', width: 110, align: 'center', hideable: true },
+  { key: 'status', label: 'Status', width: 90, align: 'center', hideable: true },
 ];
 
 export const RecipesPage: React.FC<RecipesPageProps> = ({
@@ -50,33 +59,18 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Ativos' | 'Inativos' | 'Todos'>('Ativos');
+  const [orderBy, setOrderBy] = useState<string>('name');
+  const [orderDir, setOrderDir] = useState<'ASC' | 'DESC'>('ASC');
+  const [hiddenCols, setHiddenCols] = useState<string[]>(initialHiddenCols || ['code']);
 
-  // Multi-selection & row active focus
+  // Selection & Multiselection
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
 
-  // Expandable ingredient rows in table
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-
-  // Column width & visibility persistence
-  const [hiddenCols, setHiddenCols] = useState<string[]>(initialHiddenCols || ['code']);
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const map: Record<string, number> = {};
-    REC_COLUMNS.forEach((c) => {
-      map[c.key] = c.width;
-    });
-    return map;
-  });
-
-  // Sorting
-  const [sortKey, setSortKey] = useState<string>('name');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-  // Column visibility menu
+  // Popups (Column Visibility Gear & Row 3-dots Menu)
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
 
-  // Floating 3-Dots Row Menu
   const [rowMenu, setRowMenu] = useState<{
     item: RecipeItem;
     x: number;
@@ -84,7 +78,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
   } | null>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
 
-  // Modals state
+  // Modals
   const [formModal, setFormModal] = useState<{
     open: boolean;
     editItem: RecipeItem | null;
@@ -103,7 +97,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
     ids: number[];
   } | null>(null);
 
-  // Close popups on click outside
+  // Close floating menus on outside click
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) {
@@ -166,80 +160,77 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
 
   // Sorting Handler
   const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    if (orderBy === key) {
+      setOrderDir((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
     } else {
-      setSortKey(key);
-      setSortDir('asc');
+      setOrderBy(key);
+      setOrderDir('ASC');
     }
   };
 
   const sortedItems = useMemo(() => {
     const arr = [...items];
     arr.sort((a, b) => {
-      let va: any = '';
-      let vb: any = '';
-      if (sortKey === 'name') {
-        va = a.name.toLowerCase();
-        vb = b.name.toLowerCase();
-      } else if (sortKey === 'code') {
-        va = a.code;
-        vb = b.code;
-      } else if (sortKey === 'yield') {
-        va = a.yield_qty;
-        vb = b.yield_qty;
-      } else if (sortKey === 'total_cost') {
-        va = a.total_cost;
-        vb = b.total_cost;
-      } else if (sortKey === 'portion_cost') {
-        va = a.portion_cost;
-        vb = b.portion_cost;
-      } else if (sortKey === 'date') {
-        va = a.created_at;
-        vb = b.created_at;
-      } else if (sortKey === 'status') {
-        va = a.active ? 1 : 0;
-        vb = b.active ? 1 : 0;
+      let cmp = 0;
+      switch (orderBy) {
+        case 'code':
+          cmp = (a.code || '').localeCompare(b.code || '');
+          break;
+        case 'name':
+          cmp = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+          break;
+        case 'yield':
+          cmp = (a.yield_qty || 0) - (b.yield_qty || 0);
+          break;
+        case 'total_cost':
+          cmp = (a.total_cost || 0) - (b.total_cost || 0);
+          break;
+        case 'portion_cost':
+          cmp = (a.portion_cost || 0) - (b.portion_cost || 0);
+          break;
+        case 'date':
+          cmp = (a.created_at || '').localeCompare(b.created_at || '');
+          break;
+        case 'status':
+          cmp = (a.active ? 1 : 0) - (b.active ? 1 : 0);
+          break;
       }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+      return orderDir === 'ASC' ? cmp : -cmp;
     });
     return arr;
-  }, [items, sortKey, sortDir]);
+  }, [items, orderBy, orderDir]);
 
   // Selection Logic
-  const allIds = useMemo(() => sortedItems.map((i) => i.id), [sortedItems]);
-  const isAllChecked = allIds.length > 0 && allIds.every((id) => checkedIds.has(id));
-  const isPartiallyChecked = allIds.some((id) => checkedIds.has(id)) && !isAllChecked;
+  const isAllChecked = sortedItems.length > 0 && checkedIds.size === sortedItems.length;
 
-  const toggleSelectAll = () => {
+  const toggleAllCheckboxes = () => {
     if (isAllChecked) {
       setCheckedIds(new Set());
+      setSelectedId(null);
     } else {
-      setCheckedIds(new Set(allIds));
+      const all = new Set(sortedItems.map((i) => i.id));
+      setCheckedIds(all);
+      if (sortedItems.length === 1) setSelectedId(sortedItems[0].id);
     }
   };
 
   const toggleRowCheckbox = (id: number) => {
-    const next = new Set(checkedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setCheckedIds(next);
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (next.size === 1) {
+        setSelectedId(Array.from(next)[0]);
+      } else if (next.size === 0) {
+        setSelectedId(null);
+      }
+      return next;
+    });
   };
 
   const selectSingleRow = (id: number) => {
     setSelectedId(id);
     setCheckedIds(new Set([id]));
-  };
-
-  const toggleExpandRow = (id: number) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   // Duplicate recipe action
@@ -367,33 +358,6 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
     setHistoryModal({ open: true, recipe: target });
   };
 
-  // Resizing logic
-  const resizingRef = useRef<{ colKey: string; startX: number; startW: number } | null>(null);
-  const handleResizeStart = (e: React.MouseEvent, colKey: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingRef.current = {
-      colKey,
-      startX: e.clientX,
-      startW: colWidths[colKey] || 100,
-    };
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const { colKey, startX, startW } = resizingRef.current;
-      const colDef = REC_COLUMNS.find((c) => c.key === colKey);
-      const minW = colDef ? colDef.minWidth : 60;
-      const newW = Math.max(minW, startW + (ev.clientX - startX));
-      setColWidths((prev) => ({ ...prev, [colKey]: newW }));
-    };
-    const onMouseUp = () => {
-      resizingRef.current = null;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
-
   const isBulkMode = checkedIds.size >= 2;
 
   return (
@@ -442,321 +406,271 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
           )}
         </div>
 
-        {/* Right Search & Filter Controls */}
+        {/* Right VIP Search & Filter Controls (Exact 32px height alignment) */}
         <div className="flex items-center gap-3.5">
           <RoundedDropdown
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as any)}
             options={['Ativos', 'Inativos', 'Todos']}
-            width={105}
+            width={115}
+            height={32}
+            align="center"
           />
-
-          {/* Search Capsule Input */}
-          <div className="relative">
-            <RoundedEntry
-              placeholder="Buscar receita ou ingrediente..."
-              value={search}
-              onChange={setSearch}
-              width={260}
-              height={32}
-              spellCheck={false}
-              className="pl-8 pr-7"
-            />
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8C9BB5] dark:text-[#64748B] text-xs pointer-events-none">
-              🔍
-            </span>
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8C9BB5] hover:text-[#18223A] dark:hover:text-[#F4F7FF] text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Column Visibility Gear Popup */}
-          <div className="relative" ref={colMenuRef}>
-            <button
-              type="button"
-              onClick={() => setColMenuOpen(!colMenuOpen)}
-              title="Colunas visíveis"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#687796] dark:text-[#93A4C6] hover:bg-[#F4F7FC] dark:hover:bg-[#1C2F52] cursor-pointer transition-colors"
-            >
-              <GearPolygonIcon size={16} />
-            </button>
-
-            {colMenuOpen && (
-              <div className="absolute right-0 top-10 w-48 rounded-[16px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-xl p-3 z-30 select-none">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-[#8C9BB5] mb-2 px-1">
-                  Colunas visíveis
-                </span>
-                <div className="space-y-1.5">
-                  {REC_COLUMNS.map((col) => {
-                    const isVisible = !hiddenCols.includes(col.key);
-                    return (
-                      <label
-                        key={col.key}
-                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-[#F4F7FC] dark:hover:bg-[#162747] cursor-pointer text-[13px] text-[#18223A] dark:text-[#F4F7FF]"
-                      >
-                        <NexoCheckbox
-                          checked={isVisible}
-                          onChange={() => toggleColumnVisibility(col.key)}
-                        />
-                        <span>{col.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <RoundedEntry
+            value={search}
+            onChange={setSearch}
+            placeholder="Pesquisar"
+            width={280}
+            height={32}
+          />
         </div>
       </div>
 
-      {/* 2. Tabela Principal de Receitas Base */}
-      <div className="flex-1 min-h-0 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-3 flex flex-col shadow-sm transition-colors overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col overflow-x-auto overflow-y-hidden">
-          {/* Header Row */}
-          <div className="flex items-center h-[38px] rounded-full bg-[#EBF1F9] dark:bg-[#192A4A] text-[#18223A] dark:text-[#F4F7FF] text-[12px] font-bold shrink-0 select-none mb-1">
-            {/* Expand all / collapse indicator */}
-            <div className="w-[36px] flex items-center justify-center shrink-0">
-              <span className="text-[10px] text-[#8C9BB5]">Ficha</span>
-            </div>
-
-            {/* Checkbox All */}
-            <div className="w-[42px] flex items-center justify-center shrink-0">
-              <NexoCheckbox
-                checked={isAllChecked}
-                indeterminate={isPartiallyChecked}
-                onChange={toggleSelectAll}
-              />
-            </div>
-
-            {visibleColumns.map((col) => {
-              const w = colWidths[col.key] || col.width;
-              const isSorted = sortKey === col.key;
-              return (
-                <div
-                  key={col.key}
-                  style={{ width: `${w}px` }}
-                  className="relative flex items-center px-3 h-full shrink-0 group cursor-pointer"
-                  onClick={() => handleSort(col.key)}
-                >
-                  <span
-                    className={`truncate ${
-                      col.align === 'center'
-                        ? 'mx-auto text-center'
-                        : col.align === 'right'
-                        ? 'ml-auto text-right'
-                        : 'text-left'
-                    }`}
-                  >
-                    {col.label}
-                  </span>
-                  {isSorted && (
-                    <span className="ml-1 text-[10px] text-[#F28C28]">
-                      {sortDir === 'asc' ? '▲' : '▼'}
-                    </span>
-                  )}
-                  {/* Draggable Resizer */}
-                  <div
-                    onMouseDown={(e) => handleResizeStart(e, col.key)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-4 cursor-col-resize opacity-0 group-hover:opacity-100 flex items-center justify-center"
-                  >
-                    <span className="w-[1.5px] h-3 bg-[#8C9BB5]" />
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Actions Header */}
-            <div className="w-[105px] ml-auto flex items-center justify-end pr-4 shrink-0 text-[#8C9BB5] text-[11px] uppercase tracking-wider font-semibold">
-              Ações
-            </div>
-          </div>
-
-          {/* Table Body / Rows */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-1 pr-1">
-            {loading ? (
-              <div className="h-48 flex items-center justify-center text-[#687796] text-[13px]">
-                Carregando receitas...
+      {/* 2. Table Panel (RoundedPanel radius=22px) */}
+      <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-3 flex flex-col min-h-0 shadow-sm relative transition-colors">
+        <div className="flex-1 w-full overflow-auto flex flex-col relative">
+          <div className="min-w-full inline-block align-middle flex-1 flex flex-col">
+            {/* Capsule Table Header (height=36px, rounded-full) */}
+            <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0">
+              {/* Left Master Checkbox (60px) */}
+              <div className="w-[60px] h-full flex items-center justify-center shrink-0 border-r border-[#E5ECF5] dark:border-[#24385E] sticky left-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full z-30">
+                <NexoCheckbox
+                  checked={isAllChecked}
+                  onChange={toggleAllCheckboxes}
+                  title="Selecionar todos"
+                />
               </div>
-            ) : sortedItems.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-center">
+
+              {/* Dynamic Visible Columns */}
+              <div className="flex items-center flex-1 h-full">
+                {visibleColumns.map((col) => {
+                  const isSorted = orderBy === col.key;
+                  const arrow = isSorted ? (orderDir === 'ASC' ? ' ↑' : ' ↓') : '';
+                  return (
+                    <button
+                      key={col.key}
+                      type="button"
+                      onClick={() => handleSort(col.key)}
+                      style={{
+                        minWidth: `${col.width}px`,
+                        flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                      }}
+                      className={`h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
+                        col.align === 'left' ? 'justify-start text-left' : 'justify-center text-center'
+                      }`}
+                    >
+                      <span className="truncate">
+                        {col.align === 'left' ? `${col.label}${arrow}` : `${arrow}${col.label}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Right Fixed Actions Header (90px: edit 30 + delete 30 + gear 30) */}
+              <div
+                ref={colMenuRef}
+                className="w-[90px] h-full flex items-center justify-end pr-2 shrink-0 sticky right-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-r-full border-l border-[#E5ECF5] dark:border-[#24385E] z-30 relative"
+              >
+                <button
+                  type="button"
+                  onClick={() => setColMenuOpen((o) => !o)}
+                  title="Exibir / ocultar colunas"
+                  className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-[#60769D] dark:text-[#AFC0E2] hover:text-[#F28C28] dark:hover:text-[#F28C28] transition-colors cursor-pointer"
+                >
+                  <GearPolygonIcon
+                    size={16}
+                    strokeColor="currentColor"
+                    centerFill={dark ? '#142544' : '#EEF4FB'}
+                  />
+                </button>
+
+                {/* Floating Column Visibility Menu */}
+                {colMenuOpen && (
+                  <div className="absolute right-0 top-[40px] w-[200px] rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-2.5 z-50 select-none">
+                    <div className="px-3.5 pb-1.5 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
+                      Exibir Colunas
+                    </div>
+                    {REC_COLUMNS.filter((c) => c.hideable).map((col) => {
+                      const isVis = !hiddenCols.includes(col.key);
+                      return (
+                        <div
+                          key={col.key}
+                          onClick={() => toggleColumnVisibility(col.key)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
+                        >
+                          <NexoCheckbox
+                            checked={isVis}
+                            onChange={() => toggleColumnVisibility(col.key)}
+                          />
+                          <span
+                            className={`text-[12.5px] ${
+                              isVis
+                                ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
+                                : 'text-[#687796] dark:text-[#93A4C6]'
+                            }`}
+                          >
+                            {col.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Table Body or Empty State */}
+            {sortedItems.length === 0 && !loading ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-12 select-none">
                 <img
                   src="/ui_assets/empty_state_reference_exact.png"
-                  alt=""
-                  className="w-28 h-28 object-contain mb-2 opacity-85"
+                  alt="Sem registros"
+                  className="max-h-[160px] object-contain mb-3 pointer-events-none"
                 />
-                <span className="text-[14.5px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                  Nenhuma receita encontrada
-                </span>
-                <span className="text-[12.5px] text-[#687796] dark:text-[#93A4C6] mt-0.5 max-w-sm">
-                  {search
-                    ? 'Tente ajustar os termos da sua busca.'
-                    : 'Clique em "+ Nova Receita" acima para montar a sua primeira ficha técnica.'}
-                </span>
+                <p className="text-[15px] font-bold text-[#687796] dark:text-[#93A4C6] mb-1">
+                  Ainda não há receitas cadastradas.
+                </p>
+                <p className="text-[12.5px] text-[#8C9BB5] dark:text-[#687796]">
+                  Clique em + Nova Receita para adicionar a primeira ficha técnica.
+                </p>
               </div>
             ) : (
-              sortedItems.map((item) => {
-                const isChecked = checkedIds.has(item.id);
-                const isSelected = selectedId === item.id;
-                const isExpanded = expandedIds.has(item.id);
+              <div className="divide-y divide-[#F0F4FA] dark:divide-[#17294A]">
+                {sortedItems.map((item) => {
+                  const isChecked = checkedIds.has(item.id);
+                  const isSelected = selectedId === item.id || isChecked;
+                  const rowBg = isSelected
+                    ? 'bg-[#FFF0D8] dark:bg-[#5A3518]'
+                    : 'bg-white dark:bg-[#0E1B35] hover:bg-[#F8FAFD] dark:hover:bg-[#132342]';
+                  const stickyBg = isSelected
+                    ? 'bg-[#FFF0D8] dark:bg-[#5A3518]'
+                    : 'bg-white dark:bg-[#0E1B35] group-hover:bg-[#F8FAFD] dark:group-hover:bg-[#132342]';
 
-                const rowBg = isSelected
-                  ? 'bg-[#FFE6D0] dark:bg-[#3D2514]'
-                  : isChecked
-                  ? 'bg-[#F4F7FC] dark:bg-[#162747]'
-                  : 'hover:bg-[#F9FBFC] dark:hover:bg-[#162747]/60';
-
-                return (
-                  <div key={item.id} className="flex flex-col rounded-[16px] overflow-hidden">
-                    {/* Main Row */}
+                  return (
                     <div
-                      onClick={() => setSelectedId(item.id)}
+                      key={item.id}
+                      onClick={() => selectSingleRow(item.id)}
                       onDoubleClick={() => openEditRecipe(item)}
-                      className={`flex items-center h-[42px] px-0 rounded-[16px] text-[13px] text-[#18223A] dark:text-[#F4F7FF] transition-colors cursor-pointer select-none ${rowBg}`}
+                      className={`h-[38px] flex items-center transition-colors group cursor-pointer ${rowBg} ${
+                        !item.active
+                          ? 'text-[#9AA9BF] dark:text-[#60769D]'
+                          : 'text-[#18223A] dark:text-[#F4F7FF]'
+                      }`}
                     >
-                      {/* Chevron Expand Button */}
-                      <div className="w-[36px] flex items-center justify-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleExpandRow(item.id);
-                          }}
-                          title={isExpanded ? 'Ocultar ingredientes' : 'Ver ingredientes'}
-                          className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 text-[#687796] dark:text-[#93A4C6]"
-                        >
-                          {isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-                        </button>
-                      </div>
-
-                      {/* Checkbox */}
-                      <div className="w-[42px] flex items-center justify-center shrink-0">
+                      {/* Left Checkbox Cell (60px) */}
+                      <div
+                        className={`w-[60px] h-full flex items-center justify-center shrink-0 sticky left-0 z-10 transition-colors ${stickyBg}`}
+                      >
                         <NexoCheckbox
                           checked={isChecked}
                           onChange={() => toggleRowCheckbox(item.id)}
                         />
                       </div>
 
-                      {/* Visible Columns */}
-                      {visibleColumns.map((col) => {
-                        const w = colWidths[col.key] || col.width;
-                        let content: React.ReactNode = '-';
+                      {/* Data Cells */}
+                      <div className="flex items-center flex-1 h-full">
+                        {visibleColumns.map((col) => {
+                          let cellContent: React.ReactNode = '';
+                          switch (col.key) {
+                            case 'code':
+                              cellContent = (
+                                <span className="font-mono text-[12px] font-semibold">
+                                  {item.code}
+                                </span>
+                              );
+                              break;
+                            case 'name':
+                              cellContent = <span className="font-medium">{item.name}</span>;
+                              break;
+                            case 'yield':
+                              cellContent = `${item.yield_qty} ${item.yield_unit}`;
+                              break;
+                            case 'total_cost':
+                              cellContent = <span className="font-medium">{item.total_cost_fmt}</span>;
+                              break;
+                            case 'portion_cost':
+                              cellContent = <span className="font-medium">{item.portion_cost_fmt}</span>;
+                              break;
+                            case 'date':
+                              cellContent = item.created_at ? item.created_at.slice(0, 10) : '';
+                              break;
+                            case 'status':
+                              cellContent = (
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold ${
+                                    item.active
+                                      ? 'bg-[#EAFaf1] text-[#1E833F] dark:bg-[#12372E] dark:text-[#61E3B9]'
+                                      : 'bg-[#F1F5F9] text-[#687796] dark:bg-[#172746] dark:text-[#93A4C6]'
+                                  }`}
+                                >
+                                  {item.active ? 'Ativo' : 'Inativo'}
+                                </span>
+                              );
+                              break;
+                          }
 
-                        if (col.key === 'code') {
-                          content = (
-                            <span className="font-mono text-[11px] font-bold text-[#687796] dark:text-[#93A4C6]">
-                              {item.code}
-                            </span>
+                          return (
+                            <div
+                              key={col.key}
+                              style={{
+                                minWidth: `${col.width}px`,
+                                flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                              }}
+                              className={`px-3 text-[13px] truncate ${
+                                col.align === 'left' ? 'text-left' : 'text-center'
+                              }`}
+                            >
+                              {cellContent}
+                            </div>
                           );
-                        } else if (col.key === 'name') {
-                          content = (
-                            <span className="font-semibold text-[#18223A] dark:text-[#F4F7FF] truncate">
-                              {item.name}
-                            </span>
-                          );
-                        } else if (col.key === 'yield') {
-                          content = (
-                            <span className="text-[#18223A] dark:text-[#F4F7FF]">
-                              <strong>{item.yield_qty_fmt}</strong> {item.yield_unit}
-                            </span>
-                          );
-                        } else if (col.key === 'total_cost') {
-                          content = (
-                            <span className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                              {item.total_cost_fmt}
-                            </span>
-                          );
-                        } else if (col.key === 'portion_cost') {
-                          content = (
-                            <span className="font-semibold text-[#1E833F] dark:text-[#61E3B9]">
-                              {item.portion_cost_fmt}
-                            </span>
-                          );
-                        } else if (col.key === 'date') {
-                          content = (
-                            <span className="text-[12px] text-[#687796] dark:text-[#93A4C6]">
-                              {item.created_at}
-                            </span>
-                          );
-                        } else if (col.key === 'status') {
-                          content = item.active ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAFaf1] dark:bg-[#12372E] text-[#1E833F] dark:text-[#61E3B9]">
-                              Ativo
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8]">
-                              Inativo
-                            </span>
-                          );
-                        }
+                        })}
+                      </div>
 
-                        return (
-                          <div
-                            key={col.key}
-                            style={{ width: `${w}px` }}
-                            className={`px-3 truncate shrink-0 ${
-                              col.align === 'center'
-                                ? 'text-center'
-                                : col.align === 'right'
-                                ? 'text-right'
-                                : 'text-left'
-                            }`}
-                          >
-                            {content}
-                          </div>
-                        );
-                      })}
-
-                      {/* Row Actions */}
-                      <div className="w-[105px] ml-auto flex items-center justify-end pr-3 gap-1.5 shrink-0">
+                      {/* Right Sticky Action Overlay (90px: Edit 30px, Delete 30px, Options 30px) */}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`w-[90px] h-full flex items-center justify-around shrink-0 sticky right-0 z-10 transition-colors ${stickyBg}`}
+                      >
                         {/* Edit Button */}
                         <button
                           type="button"
                           disabled={!item.active}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             selectSingleRow(item.id);
                             openEditRecipe(item);
                           }}
                           title={item.active ? 'Editar' : 'Editar (Desativado)'}
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-default"
                         >
                           <img
                             src="/ui_assets/action_edit_reference_exact.png"
                             alt="Editar"
-                            className="w-3.5 h-3.5 object-contain"
+                            className="w-4 h-4 object-contain"
                           />
                         </button>
 
                         {/* Delete Button */}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             selectSingleRow(item.id);
                             triggerDeleteCheck([item.id]);
                           }}
                           title="Excluir"
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
                         >
                           <img
                             src="/ui_assets/action_delete_reference_exact.png"
                             alt="Excluir"
-                            className="w-3.5 h-3.5 object-contain"
+                            className="w-4 h-4 object-contain"
                           />
                         </button>
 
-                        {/* 3-Dots Menu Button */}
+                        {/* 3-dots Options Button */}
                         <button
                           type="button"
                           onClick={(e) => {
-                            e.stopPropagation();
                             selectSingleRow(item.id);
                             const rect = e.currentTarget.getBoundingClientRect();
                             setRowMenu({
@@ -766,7 +680,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                             });
                           }}
                           title="Mais opções"
-                          className="w-7 h-7 rounded-full flex flex-col items-center justify-center gap-[2.5px] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                          className="w-[28px] h-[28px] rounded-full flex flex-col items-center justify-center gap-[2.5px] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
                         >
                           <span className="w-[3px] h-[3px] rounded-full bg-[#333333] dark:bg-[#F4F7FF]" />
                           <span className="w-[3px] h-[3px] rounded-full bg-[#333333] dark:bg-[#F4F7FF]" />
@@ -774,62 +688,14 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                         </button>
                       </div>
                     </div>
-
-                    {/* Sub-panel of Ingredients (Expanded) */}
-                    {isExpanded && (
-                      <div className="mx-3 my-1.5 p-3.5 rounded-[14px] bg-[#F8FAFC] dark:bg-[#0E1A30] border border-[#E2EAF5] dark:border-[#1E3156] flex flex-col">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11.5px] font-bold uppercase tracking-wider text-[#687796] dark:text-[#93A4C6]">
-                            Composição da Receita ({item.items_count} ingredientes)
-                          </span>
-                          <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
-                            Rendimento: <strong>{item.yield_qty_fmt} {item.yield_unit}</strong> • Custo: <strong>{item.total_cost_fmt}</strong>
-                          </span>
-                        </div>
-
-                        {item.items.length === 0 ? (
-                          <span className="text-[12px] text-[#8C9BB5] italic">
-                            Nenhum ingrediente adicionado a esta receita ainda.
-                          </span>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                            {item.items.map((ing, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center justify-between p-2 rounded-[10px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] text-[12.5px]"
-                              >
-                                <div className="flex items-center gap-2 truncate">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#F28C28]" />
-                                  <span className="font-semibold text-[#18223A] dark:text-[#F4F7FF] truncate">
-                                    {ing.material_name}
-                                  </span>
-                                  {ing.material_brand && (
-                                    <span className="text-[11px] text-[#687796] dark:text-[#93A4C6]">
-                                      ({ing.material_brand})
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0 ml-2">
-                                  <span className="text-[#475569] dark:text-[#AFC0E2] font-medium">
-                                    {ing.qty_fmt} {ing.unit}
-                                  </span>
-                                  <span className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                                    {ing.cost_fmt}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
       </div>
+
 
       {/* Floating 3-Dots Row Menu */}
       {rowMenu && (
@@ -1033,6 +899,23 @@ interface FormIngredientRow {
   available_units: string[];
 }
 
+function getCompatibleUnits(purchaseUnit: string, customUnits: string[] = []): string[] {
+  const p = (purchaseUnit || '').trim().toLowerCase();
+  let baseFamily: string[] = [];
+  if (['g', 'kg', 'mg', 't'].includes(p)) {
+    // Para culinária, prioriza gramas (g), depois kg e mg
+    baseFamily = ['g', 'kg', 'mg'];
+  } else if (['ml', 'l', 'kl'].includes(p)) {
+    // Para culinária, prioriza ml, depois L
+    baseFamily = ['ml', 'L'];
+  } else if (p === 'un') {
+    baseFamily = ['un'];
+  } else {
+    baseFamily = [purchaseUnit || 'un'];
+  }
+  return Array.from(new Set([...baseFamily, ...customUnits]));
+}
+
 const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   editItem,
   units,
@@ -1059,8 +942,9 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       try {
         const res = await fetch('/api/materials/options');
         if (res.ok) {
-          const data: MaterialOption[] = await res.json();
-          setMaterials(data);
+          const data = await res.json();
+          const list: MaterialOption[] = data.items || [];
+          setMaterials(list);
         }
       } catch (e) {
         console.error(e);
@@ -1071,28 +955,59 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   // Pre-load ingredients if editing
   useEffect(() => {
     if (editItem && editItem.items) {
-      const rows: FormIngredientRow[] = editItem.items.map((it) => ({
-        material_id: it.material_id,
-        material_name: it.material_name,
-        material_brand: it.material_brand,
-        qty: String(it.qty),
-        unit: it.unit,
-        cost_fmt: it.cost_fmt,
-        available_units: [it.unit, it.material_unit],
-      }));
-      setIngredients(rows);
+      (async () => {
+        const rows: FormIngredientRow[] = [];
+        for (const it of editItem.items) {
+          let customNames: string[] = [];
+          try {
+            const cRes = await fetch(`/api/materials/${it.material_id}/conversions`);
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              const cList: ConversionItem[] = cData.items || [];
+              customNames = cList.map((c) => c.name);
+            }
+          } catch (e) {
+            // fallback
+          }
+          const availUnits = getCompatibleUnits(it.material_unit, [it.unit, ...customNames]);
+          rows.push({
+            material_id: it.material_id,
+            material_name: it.material_name,
+            material_brand: it.material_brand || '',
+            qty: String(it.qty),
+            unit: it.unit,
+            cost_fmt: it.cost_fmt,
+            available_units: availUnits,
+          });
+        }
+        setIngredients(rows);
+      })();
     }
   }, [editItem]);
 
   // Recalculate live preview
   const recalculatePreview = useCallback(async (rows: FormIngredientRow[], yQty: string, yUnit: string) => {
+    const validRows = rows.filter(
+      (r) => r.material_id > 0 && parseFloat(r.qty.replace(',', '.')) > 0 && r.unit
+    );
+    if (validRows.length === 0) {
+      setTotalCostFmt('R$ 0,00');
+      setPortionCostFmt('R$ 0,00');
+      setIngredients((prev) =>
+        prev.map((r) => ({
+          ...r,
+          cost_fmt: r.material_id > 0 && parseFloat(r.qty.replace(',', '.')) > 0 ? r.cost_fmt : '-',
+        }))
+      );
+      return;
+    }
     try {
       const payload = {
         yield_qty: yQty || '1',
         yield_unit: yUnit || 'un',
-        items: rows.map((r) => ({
+        items: validRows.map((r) => ({
           material_id: r.material_id,
-          qty: r.qty || '0',
+          qty: parseFloat(r.qty.replace(',', '.')) || 0,
           unit: r.unit || 'g',
         })),
       };
@@ -1105,11 +1020,16 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
         const data = await res.json();
         setTotalCostFmt(data.total_cost_fmt);
         setPortionCostFmt(data.portion_cost_fmt);
-        // Update individual ingredient formatted costs
+        const costMap: Record<number, string> = {};
+        if (data.items) {
+          data.items.forEach((it: any) => {
+            costMap[it.material_id] = it.cost_fmt;
+          });
+        }
         setIngredients((prev) =>
-          prev.map((r, idx) => ({
+          prev.map((r) => ({
             ...r,
-            cost_fmt: data.items[idx] ? data.items[idx].cost_fmt : 'R$ 0,00',
+            cost_fmt: costMap[r.material_id] || (r.material_id > 0 && parseFloat(r.qty.replace(',', '.')) > 0 ? r.cost_fmt : '-'),
           }))
         );
       }
@@ -1118,25 +1038,22 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     }
   }, []);
 
-  // Add new ingredient row
+  // Add new ingredient row (always clean, pristine empty line)
   const addIngredientRow = () => {
     if (materials.length === 0) {
-      onNotify('Nenhum insumo disponível para adicionar.', 'warning');
+      onNotify('Nenhum insumo cadastrado para adicionar à receita.', 'warning');
       return;
     }
-    const firstMat = materials[0];
     const newRow: FormIngredientRow = {
-      material_id: firstMat.id,
-      material_name: firstMat.name,
+      material_id: 0,
+      material_name: '',
       material_brand: '',
-      qty: '100',
-      unit: firstMat.purchase_unit || 'g',
-      cost_fmt: 'R$ 0,00',
-      available_units: [firstMat.purchase_unit || 'g'],
+      qty: '',
+      unit: '',
+      cost_fmt: '-',
+      available_units: [],
     };
-    const nextRows = [...ingredients, newRow];
-    setIngredients(nextRows);
-    recalculatePreview(nextRows, yieldQty, yieldUnit);
+    setIngredients((prev) => [...prev, newRow]);
   };
 
   const removeIngredientRow = (idx: number) => {
@@ -1147,23 +1064,33 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
 
   const updateIngredientRow = async (idx: number, patch: Partial<FormIngredientRow>) => {
     const nextRows = [...ingredients];
-    const updated = { ...nextRows[idx], ...patch };
+    const current = nextRows[idx];
+    const updated = { ...current, ...patch };
 
-    // If material changed, fetch its conversions to populate available units
-    if (patch.material_id && patch.material_id !== nextRows[idx].material_id) {
+    // If material changed (or was selected for the first time)
+    if (patch.material_id && patch.material_id !== current.material_id) {
       const mat = materials.find((m) => m.id === patch.material_id);
       if (mat) {
         updated.material_name = mat.name;
-        updated.unit = mat.purchase_unit;
+        let customNames: string[] = [];
         try {
           const cRes = await fetch(`/api/materials/${mat.id}/conversions`);
           if (cRes.ok) {
-            const cList: ConversionItem[] = await cRes.json();
-            const cUnits = cList.map((c) => c.name);
-            updated.available_units = Array.from(new Set([mat.purchase_unit, ...cUnits]));
+            const cData = await cRes.json();
+            const cList: ConversionItem[] = cData.items || [];
+            customNames = cList.map((c) => c.name);
           }
         } catch (e) {
-          updated.available_units = [mat.purchase_unit];
+          // fallback
+        }
+        const availUnits = getCompatibleUnits(mat.purchase_unit, customNames);
+        updated.available_units = availUnits;
+        if (!updated.unit || !availUnits.includes(updated.unit)) {
+          updated.unit = availUnits.includes('g')
+            ? 'g'
+            : availUnits.includes('ml')
+            ? 'ml'
+            : availUnits[0] || 'un';
         }
       }
     }
@@ -1184,8 +1111,18 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     const yu = yieldUnit.trim();
     if (!yu) return setError('A unidade de rendimento é obrigatória.');
 
-    if (ingredients.length === 0) {
-      return setError('Adicione ao menos um ingrediente à receita.');
+    const validItems = ingredients.filter((it) => it.material_id > 0);
+    if (validItems.length === 0) {
+      return setError('Adicione e selecione ao menos um ingrediente à receita.');
+    }
+    for (const it of validItems) {
+      const q = parseFloat(it.qty.replace(',', '.'));
+      if (isNaN(q) || q <= 0) {
+        return setError(`Informe uma quantidade válida para "${it.material_name || 'o ingrediente'}".`);
+      }
+      if (!it.unit) {
+        return setError(`Selecione a unidade para "${it.material_name || 'o ingrediente'}".`);
+      }
     }
 
     const payload = {
@@ -1193,7 +1130,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       yield_qty: yq,
       yield_unit: yu,
       notes: notes.trim(),
-      items: ingredients.map((it) => ({
+      items: validItems.map((it) => ({
         material_id: it.material_id,
         qty: parseFloat(it.qty.replace(',', '.')) || 0,
         unit: it.unit,
@@ -1219,11 +1156,11 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     }
   };
 
-  return (
+    return (
     <div className="fixed inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-50">
-      <div className="w-[740px] max-h-[90vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156]">
+      <div className="w-[740px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
+        {/* Modal Header */}
+        <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156] bg-white dark:bg-[#0F1B35] shrink-0">
           <div className="flex items-center gap-2.5">
             <h2 className="text-[17px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
               {editItem ? 'Editar Receita' : 'Nova Receita'}
@@ -1237,163 +1174,189 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {/* Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3.5 min-h-0">
           {error && (
-            <div className="p-3 rounded-[12px] bg-[#FFF5F5] dark:bg-[#3B1822] border border-[#FEB2B2] dark:border-[#6E2533] text-[12.5px] text-[#DC2626] dark:text-[#F87171]">
+            <div className="px-3.5 py-2.5 rounded-xl bg-[#FFF5F5] dark:bg-[#3B1822] border border-[#FEB2B2] dark:border-[#742A2A] text-[#C53030] dark:text-[#FF8A9B] text-[12px] font-medium">
               {error}
             </div>
           )}
 
-          {/* Section 1: Dados Gerais da Receita */}
-          <div className="p-4 rounded-[16px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] space-y-3">
-            <span className="block text-[11.5px] font-bold uppercase tracking-wider text-[#F28C28]">
-              1. Identificação & Rendimento
-            </span>
-
-            <div>
-              <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
-                Nome da Receita *
-              </label>
-              <CapsuleInput
-                value={name}
-                onChange={setName}
-                placeholder="Ex: Massa de Bolo de Cenoura, Recheio de Ninho..."
-              />
-            </div>
-
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-6">
-                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
-                  Rendimento Total *
+          {/* Card 1: Identificação & Rendimento */}
+          <div className="p-4 rounded-[18px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-sm space-y-3">
+            <div className="grid grid-cols-12 gap-2.5">
+              <div className="col-span-8">
+                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                  Nome da Receita *
                 </label>
                 <CapsuleInput
-                  value={yieldQty}
-                  onChange={(v) => {
+                  value={name}
+                  onChange={setName}
+                  autoCapitalizeFirst
+                  placeholder="Ex: Massa de Bolo de Cenoura, Recheio de Ninho..."
+                />
+              </div>
+
+              <div className="col-span-4">
+                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                  Rendimento da Receita *
+                </label>
+                <CapsuleQuantityUnit
+                  qtyValue={yieldQty}
+                  onQtyChange={(v) => {
                     setYieldQty(v);
                     recalculatePreview(ingredients, v, yieldUnit);
                   }}
-                  placeholder="Ex: 1200 ou 20"
-                />
-              </div>
-              <div className="col-span-6">
-                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
-                  Unidade do Rendimento *
-                </label>
-                <CapsuleInput
-                  value={yieldUnit}
-                  onChange={(v) => {
-                    setYieldUnit(v);
-                    recalculatePreview(ingredients, yieldQty, v);
+                  unitValue={yieldUnit}
+                  onUnitChange={(u) => {
+                    setYieldUnit(u);
+                    recalculatePreview(ingredients, yieldQty, u);
                   }}
-                  placeholder="Ex: g, porções, fatias, unidades"
+                  unitOptions={['un', 'porções', 'fatias', 'g', 'kg', 'ml', 'L', 'potes', 'caixas']}
+                  qtyPlaceholder="Ex: 12"
+                  width="100%"
+                  height={32}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
+              <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
                 Observações / Modo de Preparo (Opcional)
               </label>
-              <textarea
-                rows={2}
+              <CapsuleInput
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Dicas de ponto, forno, tempo de descanso..."
-                className="w-full rounded-[14px] bg-[#F9FBFC] dark:bg-[#0E1B35] border border-[#DDE5F2] dark:border-[#24385E] p-2.5 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] focus:outline-none focus:border-[#F28C28]"
+                onChange={setNotes}
+                autoCapitalizeFirst
+                placeholder="Ex: Tempo de forno, temperatura, cuidados de conservação..."
               />
             </div>
           </div>
 
-          {/* Section 2: Composição de Ingredientes */}
-          <div className="p-4 rounded-[16px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11.5px] font-bold uppercase tracking-wider text-[#F28C28]">
-                2. Ingredientes da Ficha Técnica
-              </span>
-              <button
-                type="button"
+          {/* Card 2: Ingredientes da Ficha Técnica */}
+          <div className="p-4 rounded-[18px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Ingredientes da Ficha Técnica
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F0F4FA] dark:bg-[#1A2C4E] text-[#60769D] dark:text-[#AFC0E2]">
+                  {ingredients.length} {ingredients.length === 1 ? 'item' : 'itens'}
+                </span>
+              </div>
+
+              <RoundedActionButton
+                label="Adicionar Ingrediente"
                 onClick={addIngredientRow}
-                className="h-[30px] px-3 rounded-full bg-[#FFF0D8] dark:bg-[#3D2514] hover:bg-[#F28C28] text-[#F28C28] hover:text-white dark:text-[#F28C28] dark:hover:text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <span>+ Adicionar Ingrediente</span>
-              </button>
+                variant="primary"
+                icon={<PlusIcon size={14} strokeWidth={2.4} />}
+                height={32}
+              />
             </div>
 
             {ingredients.length === 0 ? (
-              <div className="py-6 text-center text-[#8C9BB5] text-[12.5px]">
-                Nenhum ingrediente adicionado. Clique acima para começar a compor a receita.
+              <div className="py-8 flex flex-col items-center justify-center text-center select-none">
+                <img
+                  src="/ui_assets/empty_state_reference_exact.png"
+                  alt="Nenhum ingrediente"
+                  className="max-h-[80px] object-contain mb-2 pointer-events-none opacity-80"
+                />
+                <p className="text-[13px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-0.5">
+                  Nenhum ingrediente adicionado à receita.
+                </p>
+                <p className="text-[12px] text-[#8C9BB5] dark:text-[#64748B]">
+                  Clique em "+ Adicionar Ingrediente" acima para compor a ficha técnica.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {ingredients.map((ing, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2.5 rounded-[14px] bg-[#F9FBFC] dark:bg-[#0E1A30] border border-[#E2EAF5] dark:border-[#24385E] flex items-center gap-2.5 text-[13px]"
-                  >
-                    {/* Material Selector */}
-                    <div className="flex-1 min-w-0">
-                      <select
-                        value={ing.material_id}
-                        onChange={(e) => updateIngredientRow(idx, { material_id: Number(e.target.value) })}
-                        className="w-full h-[36px] rounded-full bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] px-3 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] focus:outline-none focus:border-[#F28C28]"
-                      >
-                        {materials.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {/* Header cápsula da tabela de ingredientes */}
+                <div className="h-[30px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] px-3 flex items-center text-[11.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] select-none">
+                  <span className="flex-1 pl-1">Insumo</span>
+                  <span className="w-[160px] text-center">Quantidade | Unidade</span>
+                  <span className="w-[95px] text-center">Custo Proporcional</span>
+                  <span className="w-[36px] text-center">Ação</span>
+                </div>
 
-                    {/* Qty Input */}
-                    <div className="w-[95px] shrink-0">
-                      <CapsuleInput
-                        value={ing.qty}
-                        onChange={(v) => updateIngredientRow(idx, { qty: v })}
-                        placeholder="Qtd"
-                      />
-                    </div>
+                {/* Rows de ingredientes */}
+                {ingredients.map((ing, idx) => {
+                  const selectedMat = materials.find((m) => m.id === ing.material_id);
+                  const selectedMatLabel = selectedMat ? selectedMat.label : '';
 
-                    {/* Unit Selector */}
-                    <div className="w-[105px] shrink-0">
-                      <CapsuleInput
-                        value={ing.unit}
-                        onChange={(v) => updateIngredientRow(idx, { unit: v })}
-                        placeholder="Unidade"
-                      />
-                    </div>
-
-                    {/* Calculated Cost */}
-                    <div className="w-[95px] text-right font-bold text-[#18223A] dark:text-[#F4F7FF] shrink-0 text-[13px]">
-                      {ing.cost_fmt}
-                    </div>
-
-                    {/* Remove Trash Button */}
-                    <button
-                      type="button"
-                      onClick={() => removeIngredientRow(idx)}
-                      title="Remover ingrediente"
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-[#DC2626] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] cursor-pointer shrink-0"
+                  return (
+                    <div
+                      key={idx}
+                      className="p-2 rounded-[14px] bg-[#F9FBFC] dark:bg-[#0E1A30] border border-[#E2EAF5] dark:border-[#1E3156] flex items-center gap-2"
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      {/* Insumo Dropdown com busca / autocomplete do Nexo */}
+                      <div className="flex-1 min-w-0">
+                        <RoundedDropdown
+                          value={selectedMatLabel}
+                          onChange={(newLabel) => {
+                            const found = materials.find((m) => m.label === newLabel);
+                            if (found) {
+                              updateIngredientRow(idx, { material_id: found.id });
+                            }
+                          }}
+                          options={materials.map((m) => m.label)}
+                          width="100%"
+                          height={34}
+                          align="left"
+                          placeholder="Selecione o insumo..."
+                        />
+                      </div>
+
+                      {/* Quantidade e Unidade unificadas em cápsula Nexo */}
+                      <div className="w-[160px] shrink-0 flex items-center justify-center">
+                        <CapsuleQuantityUnit
+                          qtyValue={ing.qty}
+                          onQtyChange={(v) => updateIngredientRow(idx, { qty: v })}
+                          unitValue={ing.unit}
+                          onUnitChange={(newUnit) => updateIngredientRow(idx, { unit: newUnit })}
+                          unitOptions={
+                            ing.available_units.length > 0
+                              ? ing.available_units
+                              : [ing.unit || 'g', 'g', 'kg', 'ml', 'L', 'un']
+                          }
+                          qtyPlaceholder="Ex: 200"
+                          width={160}
+                          height={34}
+                        />
+                      </div>
+
+                      {/* Custo Calculado */}
+                      <div className="w-[95px] h-[34px] rounded-full bg-white dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] flex items-center justify-center font-bold text-[13px] text-[#18223A] dark:text-[#F4F7FF] shrink-0 shadow-sm">
+                        {ing.cost_fmt}
+                      </div>
+
+                      {/* Remover Linha com TrashIcon do Nexo */}
+                      <div className="w-[36px] flex items-center justify-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => removeIngredientRow(idx)}
+                          title="Remover ingrediente"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] transition-colors cursor-pointer"
+                        >
+                          <TrashIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Section 3: Summary KPI Card (Live preview) */}
-          <div className="p-4 rounded-[16px] bg-[#FFF8EE] dark:bg-[#20170F] border border-[#F28C28]/40 flex items-center justify-around text-center">
+          {/* Card 3: Summary KPI Banner (Live preview em tempo real) */}
+          <div className="p-3.5 rounded-[18px] bg-[#FFF8EE] dark:bg-[#1B1914] border border-[#F28C28]/35 flex items-center justify-around text-center shadow-sm">
             <div>
-              <span className="block text-[11px] uppercase tracking-wider font-semibold text-[#8C9BB5]">
+              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
                 Custo dos Ingredientes
               </span>
               <span className="text-[17px] font-bold text-[#F28C28]">
@@ -1402,8 +1365,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
             </div>
             <div className="w-[1px] h-8 bg-[#F28C28]/25" />
             <div>
-              <span className="block text-[11px] uppercase tracking-wider font-semibold text-[#8C9BB5]">
-                Rendimento
+              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                Rendimento da Receita
               </span>
               <span className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                 {yieldQty || '0'} {yieldUnit}
@@ -1411,35 +1374,31 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
             </div>
             <div className="w-[1px] h-8 bg-[#F28C28]/25" />
             <div>
-              <span className="block text-[11px] uppercase tracking-wider font-semibold text-[#8C9BB5]">
+              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
                 Custo por Porção / Unidade
               </span>
-              <span className="text-[17px] font-bold text-[#1E833F] dark:text-[#61E3B9]">
+              <span className="text-[17px] font-bold text-[#16A34A] dark:text-[#4ADE80]">
                 {portionCostFmt}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-[#E2EAF5] dark:border-[#1E3156] flex items-center justify-between">
-          <span className="text-[11.5px] italic text-[#687796] dark:text-[#93A4C6]">
-            * campos obrigatórios
-          </span>
-          <div className="flex items-center gap-2">
-            <RoundedActionButton
-              label="Salvar Receita"
-              onClick={handleSave}
-              variant="primary"
-              height={36}
-            />
-            <RoundedActionButton
-              label="Cancelar"
-              onClick={onClose}
-              variant="secondary"
-              height={36}
-            />
-          </div>
+        {/* Modal Actions Footer */}
+        <div className="px-6 py-3 border-t border-[#E2EAF5] dark:border-[#1E3156] flex items-center justify-between bg-white dark:bg-[#0F1B35] shrink-0">
+          <RoundedActionButton
+            label="Cancelar"
+            onClick={onClose}
+            variant="ghost"
+            height={36}
+          />
+          <RoundedActionButton
+            label={editItem ? 'Salvar Alterações' : 'Salvar Receita'}
+            onClick={handleSave}
+            variant="primary"
+            height={36}
+            width={160}
+          />
         </div>
       </div>
     </div>

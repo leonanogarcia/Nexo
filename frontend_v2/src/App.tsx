@@ -7,6 +7,7 @@ import {
 } from './components/DesignSystem';
 import { MaterialsPage } from './components/MaterialsPage';
 import { RecipesPage } from './components/RecipesPage';
+import { ProductsPage } from './components/ProductsPage';
 import { NavKey, SystemStatus } from './types';
 
 interface PageHeaderMeta {
@@ -53,7 +54,7 @@ const PAGE_HEADERS: Record<NavKey, PageHeaderMeta> = {
 };
 
 export const App: React.FC = () => {
-  const [activePage, setActivePage] = useState<NavKey>('Cadastro');
+  const [activePage, setActivePage] = useState<NavKey>('Geral');
   const [status, setStatus] = useState<SystemStatus>({
     connected: true,
     db_name: 'nexo.db',
@@ -62,7 +63,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.3.0',
+    version: 'v1.4.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -196,7 +197,16 @@ export const App: React.FC = () => {
             />
           )}
 
-          {loaded && activePage !== 'Cadastro' && activePage !== 'Receitas' && (
+          {loaded && activePage === 'Produtos' && (
+            <ProductsPage
+              units={status.units}
+              initialHiddenCols={(status as any).prod_hidden_cols || ['code']}
+              onNotify={notify}
+              dark={dark}
+            />
+          )}
+
+          {loaded && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && (
             <div className="flex-1 rounded-[22px] bg-white dark:bg-[#111F3B] p-8 flex flex-col items-center justify-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-full bg-[#FFF0D8] dark:bg-[#5A3518] text-[#F28C28] flex items-center justify-center text-2xl font-bold mb-4">
                 ✨
@@ -222,7 +232,7 @@ export const App: React.FC = () => {
           <span>
             Banco de dados: {status.connected ? 'Conectado ✓' : 'Desconectado ✕'} · {status.db_name}
           </span>
-          <span>Nexo · Gestão de Custos e Precificação · v1.3.0 (Etapa 2.1: Receitas)</span>
+          <span>Nexo · Gestão de Custos e Precificação · v1.4.0 (Etapa 2.2: Produtos)</span>
         </footer>
       </main>
     </div>

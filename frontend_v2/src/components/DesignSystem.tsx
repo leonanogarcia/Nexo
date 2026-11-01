@@ -45,7 +45,7 @@ export const NexoCheckbox: React.FC<{
 };
 
 /**
- * Engrenagem matemática de 16 pontas com centro vazado (Regra doc 06 e 07)
+ * Engrenagem matemática de 6 dentes com centro vazado
  */
 export const GearPolygonIcon: React.FC<{
   className?: string;
@@ -56,12 +56,21 @@ export const GearPolygonIcon: React.FC<{
   const cx = 21;
   const cy = 21;
   const pts: string[] = [];
-  for (let i = 0; i < 16; i++) {
-    const ang = ((i * 22.5 - 90) * Math.PI) / 180;
-    const radius = i % 2 === 0 ? 14 : 10.5;
-    const x = cx + radius * Math.cos(ang);
-    const y = cy + radius * Math.sin(ang);
-    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+  // 6 dentes mecânicos equilibrados (removidos 2 dentes do modelo de 8)
+  for (let t = 0; t < 6; t++) {
+    const baseAng = t * 60 - 90;
+    const anglesAndRadii: [number, number][] = [
+      [-16, 10.5],
+      [-9, 15.0],
+      [9, 15.0],
+      [16, 10.5],
+    ];
+    for (const [dAng, r] of anglesAndRadii) {
+      const rad = ((baseAng + dAng) * Math.PI) / 180;
+      const x = cx + r * Math.cos(rad);
+      const y = cy + r * Math.sin(rad);
+      pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+    }
   }
   return (
     <svg width={size} height={size} viewBox="0 0 42 42" className={className}>
@@ -69,10 +78,10 @@ export const GearPolygonIcon: React.FC<{
         points={pts.join(' ')}
         fill={strokeColor}
         stroke={strokeColor}
-        strokeWidth="2.4"
+        strokeWidth="1.8"
         strokeLinejoin="round"
       />
-      <circle cx={cx} cy={cy} r="5.5" fill={centerFill} stroke={strokeColor} strokeWidth="2.2" />
+      <circle cx={cx} cy={cy} r="5.5" fill={centerFill} stroke={strokeColor} strokeWidth="1.8" />
     </svg>
   );
 };
@@ -620,6 +629,125 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
       lang="pt-BR"
       className={`h-[32px] w-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-3.5 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none focus:border-[#F28C28] dark:focus:border-[#F28C28] transition-colors ${className}`}
     />
+  );
+};
+
+// ---------- CapsuleQuantityUnit (Fused [ Quantidade | Unidade ▼ ]) ----------
+
+export interface CapsuleQuantityUnitProps {
+  qtyValue: string;
+  onQtyChange: (val: string) => void;
+  unitValue: string;
+  onUnitChange: (val: string) => void;
+  unitOptions: string[];
+  width?: number | string;
+  height?: number;
+  qtyPlaceholder?: string;
+  disabled?: boolean;
+}
+
+export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
+  qtyValue,
+  onQtyChange,
+  unitValue,
+  onUnitChange,
+  unitOptions,
+  width = 180,
+  height = 34,
+  qtyPlaceholder = 'Qtd',
+  disabled = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener('mousedown', handleOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        width: typeof width === 'number' ? `${width}px` : width,
+        height: `${height}px`,
+      }}
+      className={`relative inline-flex items-center rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] transition-colors ${
+        disabled
+          ? 'opacity-60 cursor-not-allowed'
+          : 'focus-within:border-[#F28C28] dark:focus-within:border-[#F28C28]'
+      }`}
+    >
+      {/* Numeric Input */}
+      <input
+        type="text"
+        disabled={disabled}
+        value={qtyValue}
+        onChange={(e) => onQtyChange(e.target.value.replace(/[^0-9.,]/g, ''))}
+        placeholder={qtyPlaceholder}
+        className="flex-1 min-w-0 h-full bg-transparent px-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none text-center font-medium"
+      />
+
+      {/* Gray Divider Line */}
+      <div className="w-[1px] h-[18px] bg-[#B0C0D6] dark:bg-[#2A3F66] shrink-0" />
+
+      {/* Unit Selector Trigger */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className="h-full px-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer select-none shrink-0"
+      >
+        <span>{unitValue || 'Unidade'}</span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 12 12"
+          fill="none"
+          className={`text-[#687796] transition-transform duration-150 ${
+            open ? 'rotate-180' : ''
+          }`}
+        >
+          <path
+            d="M2 4L6 8L10 4"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {/* Floating Unit Dropdown */}
+      {open && (
+        <div className="absolute right-0 top-[40px] min-w-[95px] max-h-[190px] overflow-y-auto rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-1 z-50">
+          {unitOptions.map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => {
+                onUnitChange(u);
+                setOpen(false);
+              }}
+              className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${
+                u === unitValue
+                  ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
+                  : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
+              }`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
