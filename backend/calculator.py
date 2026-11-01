@@ -49,7 +49,7 @@ def item_cost(item_type, ref_id, qty, unit, stack=None):
 
 def operational_cost(direct_cost):
     settings = get_cost_settings()
-    total_pct = settings.get('Gás', 0) + settings.get('Energia', 0) + settings.get('Água', 0)
+    total_pct = sum(float(v) for v in settings.values())
     return direct_cost * total_pct / 100.0
 
 

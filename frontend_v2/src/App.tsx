@@ -8,6 +8,7 @@ import {
 import { MaterialsPage } from './components/MaterialsPage';
 import { RecipesPage } from './components/RecipesPage';
 import { ProductsPage } from './components/ProductsPage';
+import { SettingsPage } from './components/SettingsPage';
 import { NavKey, SystemStatus } from './types';
 
 interface PageHeaderMeta {
@@ -206,7 +207,18 @@ export const App: React.FC = () => {
             />
           )}
 
-          {loaded && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && (
+          {loaded && activePage === 'Configurações' && (
+            <SettingsPage
+              onNotify={notify}
+              dark={dark}
+              onThemeToggle={(isDark) => {
+                setDark(isDark);
+                document.documentElement.classList.toggle('dark', isDark);
+              }}
+            />
+          )}
+
+          {loaded && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && activePage !== 'Configurações' && (
             <div className="flex-1 rounded-[22px] bg-white dark:bg-[#111F3B] p-8 flex flex-col items-center justify-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-full bg-[#FFF0D8] dark:bg-[#5A3518] text-[#F28C28] flex items-center justify-center text-2xl font-bold mb-4">
                 ✨

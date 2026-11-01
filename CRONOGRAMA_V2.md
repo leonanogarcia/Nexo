@@ -11,7 +11,7 @@
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
 | **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
-| **Etapa 3** | **Aba Configurações** | 🟡 **A SEGUIR** | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
+| **Etapa 3** | **Aba Configurações** | 🚀 **EM ANDAMENTO** | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
@@ -65,7 +65,7 @@
 
 ---
 
-### 🟡 Etapa 3: Aba Configurações — A SEGUIR
+### 🚀 Etapa 3: Aba Configurações — EM ANDAMENTO
 * [ ] **Aparência & Tema:**
   * Seletor oficial de tema: **Modo Claro**, **Modo Escuro** e **Automático (Sistema)**.
   * Persistência imediata no SQLite (`settings.theme`) e aplicação global no HTML (`dark` class).

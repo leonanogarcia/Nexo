@@ -924,8 +924,20 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     products: Array<{ id: number; code: string; name: string; unit: string; label: string }>;
   }>({ materials: [], recipes: [], products: [] });
 
-  // Rows
-  const [items, setItems] = useState<FormCompositionRow[]>([]);
+  // Rows (inicializacao imediata a partir dos dados que a tabela ja possui)
+  const [items, setItems] = useState<FormCompositionRow[]>(() => {
+    if (editItem && editItem.items && editItem.items.length > 0) {
+      return editItem.items.map((it) => ({
+        item_type: it.item_type as any,
+        ref_id: it.ref_id,
+        qty: String(it.qty),
+        unit: it.unit,
+        cost_fmt: it.cost_fmt,
+        available_units: [it.unit, 'g', 'kg', 'ml', 'L', 'un'],
+      }));
+    }
+    return [];
+  });
   const [directCostFmt, setDirectCostFmt] = useState(editItem ? editItem.direct_cost_fmt : 'R$ 0,00');
   const [operationalCostFmt, setOperationalCostFmt] = useState('R$ 0,00');
   const [productionCostFmt, setProductionCostFmt] = useState(editItem ? editItem.production_cost_fmt : 'R$ 0,00');

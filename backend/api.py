@@ -185,6 +185,136 @@ def get_system_status():
     }
 
 
+# ---------- Settings Models & Endpoints (Etapa 3) ----------
+
+class CompanyPayload(BaseModel):
+    name: str
+    logo: Optional[str] = ""
+
+class OperationalCostItemPayload(BaseModel):
+    id: Optional[int] = None
+    name: str
+    percentage: Any
+
+class OperationalCostsPayload(BaseModel):
+    costs: List[OperationalCostItemPayload]
+
+
+@app.get("/api/settings")
+def get_all_settings():
+    init_db()
+    db_file = paths.get_db_path()
+    theme = get_setting("theme", "light")
+    company_name = get_setting("company_name", "Nexo")
+    company_logo = get_setting("company_logo", "")
+    
+    with db() as c:
+        cost_rows = c.execute("SELECT id, name, percentage FROM cost_settings ORDER BY id ASC").fetchall()
+        cost_list = [{"id": r["id"], "name": r["name"], "percentage": float(r["percentage"] or 0.0)} for r in cost_rows]
+    
+    total_pct = sum(r["percentage"] for r in cost_list)
+
+    # DB Size
+    size_bytes = 0
+    size_fmt = "0 KB"
+    try:
+        if db_file.exists():
+            size_bytes = db_file.stat().st_size
+            if size_bytes < 1024 * 1024:
+                size_fmt = f"{size_bytes / 1024:.1f} KB"
+            else:
+                size_fmt = f"{size_bytes / (1024 * 1024):.2f} MB"
+    except Exception:
+        pass
+
+    return {
+        "theme": theme,
+        "company_name": company_name,
+        "company_logo": company_logo,
+        "cost_settings": cost_list,
+        "total_operational_percentage": round(total_pct, 1),
+        "units": {
+            "mass": ["mg", "g", "kg", "t"],
+            "volume": ["ml", "L", "kL"],
+            "count": ["un"],
+        },
+        "database": {
+            "name": db_file.name,
+            "path": str(db_file),
+            "size_bytes": size_bytes,
+            "size_fmt": size_fmt,
+            "connected": True,
+        },
+    }
+
+
+@app.post("/api/settings/company")
+def update_company_settings(payload: CompanyPayload):
+    c_name = payload.name.strip()
+    if not c_name:
+        raise HTTPException(status_code=400, detail="O nome da empresa não pode ficar em branco.")
+    set_setting("company_name", c_name)
+    if payload.logo is not None:
+        set_setting("company_logo", payload.logo)
+    return {"ok": True, "company_name": c_name, "company_logo": payload.logo}
+
+
+@app.post("/api/settings/operational-costs")
+def update_operational_costs(payload: OperationalCostsPayload):
+    with db() as c:
+        for it in payload.costs:
+            try:
+                p_val = float(str(it.percentage).replace(",", "."))
+            except Exception:
+                p_val = 0.0
+            if it.id:
+                c.execute("UPDATE cost_settings SET percentage=? WHERE id=?", (p_val, it.id))
+            else:
+                c.execute("UPDATE cost_settings SET percentage=? WHERE name=?", (p_val, it.name))
+        c.commit()
+    try:
+        snapshot_costs()
+    except Exception:
+        pass
+    return {"ok": True, "message": "Custos operacionais atualizados com sucesso."}
+
+
+@app.post("/api/settings/database/backup")
+def create_database_backup():
+    db_file = paths.get_db_path()
+    if not db_file.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de banco de dados não encontrado.")
+    
+    backup_dir = db_file.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    from datetime import datetime
+    import shutil
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = backup_dir / f"nexo_backup_{timestamp}.db"
+    
+    shutil.copy2(db_file, backup_file)
+    
+    size_bytes = backup_file.stat().st_size
+    size_fmt = f"{size_bytes / 1024:.1f} KB" if size_bytes < 1024*1024 else f"{size_bytes / (1024*1024):.2f} MB"
+    
+    return {
+        "ok": True,
+        "backup_name": backup_file.name,
+        "backup_path": str(backup_file),
+        "size_fmt": size_fmt,
+        "created_at": datetime.now().strftime("%d/%m/%Y às %H:%M:%S"),
+        "message": f"Backup criado com sucesso: {backup_file.name}",
+    }
+
+
+@app.post("/api/settings/database/vacuum")
+def vacuum_database():
+    with db() as c:
+        c.execute("VACUUM")
+    return {"ok": True, "message": "Banco de dados otimizado e compactado com sucesso."}
+
+
 @app.post("/api/settings/{key}")
 def update_setting(key: str, payload: SettingPayload):
     val = payload.value
