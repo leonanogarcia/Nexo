@@ -41,7 +41,7 @@ from . import (
     to_float,
 )
 
-app = FastAPI(title="Nexo API", version="1.4.0")
+app = FastAPI(title="Nexo API", version="1.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -181,7 +181,7 @@ def get_system_status():
         "mat_hidden_cols": mat_hidden_cols,
         "rec_hidden_cols": rec_hidden_cols,
         "prod_hidden_cols": prod_hidden_cols,
-        "version": "v1.4.0",
+        "version": "v1.5.0",
     }
 
 
@@ -190,6 +190,12 @@ def get_system_status():
 class CompanyPayload(BaseModel):
     name: str
     logo: Optional[str] = ""
+    brand_theme_enabled: Optional[bool] = False
+    brand_color: Optional[str] = "#F28C28"
+    apply_brand_to_sidebar: Optional[bool] = True
+    apply_brand_to_buttons: Optional[bool] = True
+    show_company_name: Optional[bool] = True
+    logo_shape: Optional[str] = "round" 
 
 class OperationalCostItemPayload(BaseModel):
     id: Optional[int] = None
@@ -207,6 +213,12 @@ def get_all_settings():
     theme = get_setting("theme", "light")
     company_name = get_setting("company_name", "Nexo")
     company_logo = get_setting("company_logo", "")
+    brand_theme_enabled = get_setting("brand_theme_enabled", "0") in ("1", "true", "True")
+    brand_color = get_setting("brand_color", "#F28C28")
+    apply_brand_to_sidebar = get_setting("apply_brand_to_sidebar", "1") in ("1", "true", "True")
+    apply_brand_to_buttons = get_setting("apply_brand_to_buttons", "1") in ("1", "true", "True")
+    show_company_name = get_setting("show_company_name", "1") in ("1", "true", "True")
+    logo_shape = get_setting("logo_shape", "round")
     
     with db() as c:
         cost_rows = c.execute("SELECT id, name, percentage FROM cost_settings ORDER BY id ASC").fetchall()
@@ -231,6 +243,12 @@ def get_all_settings():
         "theme": theme,
         "company_name": company_name,
         "company_logo": company_logo,
+        "brand_theme_enabled": brand_theme_enabled,
+        "brand_color": brand_color,
+        "apply_brand_to_sidebar": apply_brand_to_sidebar,
+        "apply_brand_to_buttons": apply_brand_to_buttons,
+        "show_company_name": show_company_name,
+        "logo_shape": logo_shape,
         "cost_settings": cost_list,
         "total_operational_percentage": round(total_pct, 1),
         "units": {
@@ -256,7 +274,49 @@ def update_company_settings(payload: CompanyPayload):
     set_setting("company_name", c_name)
     if payload.logo is not None:
         set_setting("company_logo", payload.logo)
-    return {"ok": True, "company_name": c_name, "company_logo": payload.logo}
+    set_setting("brand_theme_enabled", "1" if payload.brand_theme_enabled else "0")
+    if payload.brand_color:
+        set_setting("brand_color", payload.brand_color)
+    set_setting("apply_brand_to_sidebar", "1" if payload.apply_brand_to_sidebar else "0")
+    set_setting("apply_brand_to_buttons", "1" if payload.apply_brand_to_buttons else "0")
+    set_setting("show_company_name", "1" if payload.show_company_name is not False else "0")
+    if payload.logo_shape:
+        set_setting("logo_shape", payload.logo_shape)
+    return {
+        "ok": True,
+        "company_name": c_name,
+        "company_logo": payload.logo,
+        "brand_theme_enabled": bool(payload.brand_theme_enabled),
+        "brand_color": payload.brand_color or "#F28C28",
+        "apply_brand_to_sidebar": bool(payload.apply_brand_to_sidebar),
+        "apply_brand_to_buttons": bool(payload.apply_brand_to_buttons),
+        "show_company_name": payload.show_company_name is not False,
+        "logo_shape": payload.logo_shape or "round",
+    }
+
+
+@app.post("/api/settings/company/reset")
+def reset_company_settings():
+    set_setting("company_name", "Nexo")
+    set_setting("company_logo", "")
+    set_setting("brand_theme_enabled", "0")
+    set_setting("brand_color", "#F28C28")
+    set_setting("apply_brand_to_sidebar", "1")
+    set_setting("apply_brand_to_buttons", "1")
+    set_setting("show_company_name", "1")
+    set_setting("logo_shape", "round")
+    return {
+        "ok": True,
+        "company_name": "Nexo",
+        "company_logo": "",
+        "brand_theme_enabled": False,
+        "brand_color": "#F28C28",
+        "apply_brand_to_sidebar": True,
+        "apply_brand_to_buttons": True,
+        "show_company_name": True,
+        "logo_shape": "round",
+        "message": "Padrão oficial Nexo restaurado com sucesso.",
+    }
 
 
 @app.post("/api/settings/operational-costs")

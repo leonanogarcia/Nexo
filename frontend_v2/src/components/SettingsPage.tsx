@@ -1,3 +1,53 @@
+
+function extractProminentColor(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve('#F28C28');
+        canvas.width = 48;
+        canvas.height = 48;
+        ctx.drawImage(img, 0, 0, 48, 48);
+        const data = ctx.getImageData(0, 0, 48, 48).data;
+        let bestR = 242, bestG = 140, bestB = 40;
+        let maxSaturation = -1;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          if (a < 128) continue;
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const lum = (max + min) / 2;
+          if (lum < 30 || lum > 230) continue;
+          const delta = max - min;
+          if (delta < 25) continue;
+
+          const sat = delta / (max || 1);
+          if (sat > maxSaturation) {
+            maxSaturation = sat;
+            bestR = r;
+            bestG = g;
+            bestB = b;
+          }
+        }
+        const hex = '#' + [bestR, bestG, bestB].map((x) => x.toString(16).padStart(2, '0')).join('');
+        resolve(hex);
+      } catch {
+        resolve('#F28C28');
+      }
+    };
+    img.onerror = () => resolve('#F28C28');
+    img.src = dataUrl;
+  });
+}
+
 import React, { useState, useEffect } from 'react';
 import {
   RoundedActionButton,
@@ -5,11 +55,13 @@ import {
   RoundedDropdown,
   NexoCheckbox,
 } from './DesignSystem';
+import { CompanyBrandSettings } from '../types';
 
 export interface SettingsPageProps {
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
   dark: boolean;
   onThemeToggle: (isDark: boolean) => void;
+  onBrandUpdate?: (brand: CompanyBrandSettings) => void;
 }
 
 type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco';
@@ -132,16 +184,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onNotify,
   dark,
   onThemeToggle,
+  onBrandUpdate,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsCategoryKey>('geral');
   const [loading, setLoading] = useState(true);
 
-  // --- Categoria 1: Geral ---
+  // --- Categoria 1: Geral & Identidade da Marca ---
   const [companyName, setCompanyName] = useState('Nexo');
   const [companyLogo, setCompanyLogo] = useState('');
+  const [brandThemeEnabled, setBrandThemeEnabled] = useState(false);
+  const [brandColor, setBrandColor] = useState('#F28C28');
+  const [detectedColor, setDetectedColor] = useState('#F28C28');
+  const [applyBrandToSidebar, setApplyBrandToSidebar] = useState(true);
+  const [applyBrandToButtons, setApplyBrandToButtons] = useState(true);
+  const [showCompanyName, setShowCompanyName] = useState(true);
+  const [logoShape, setLogoShape] = useState<'round' | 'rect'>('round');
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(dark ? 'dark' : 'light');
   const [language, setLanguage] = useState('Português (Brasil)');
   const [savingCompany, setSavingCompany] = useState(false);
+  const [resettingBrand, setResettingBrand] = useState(false);
 
   // --- Categoria 2: IA ---
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -182,6 +243,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
       setCompanyName(data.company_name || 'Nexo');
       setCompanyLogo(data.company_logo || '');
+      setBrandThemeEnabled(!!data.brand_theme_enabled);
+      if (data.brand_color) {
+        setBrandColor(data.brand_color);
+        setDetectedColor(data.brand_color);
+      }
+      setApplyBrandToSidebar(data.apply_brand_to_sidebar !== false);
+      setApplyBrandToButtons(data.apply_brand_to_buttons !== false);
+      setShowCompanyName(data.show_company_name !== false);
+      setLogoShape(data.logo_shape === 'rect' ? 'rect' : 'round');
       setThemeMode(data.theme === 'dark' ? 'dark' : 'light');
 
       // Custos operacionais
@@ -245,9 +315,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setCompanyLogo(reader.result);
+        const dataUrl = reader.result;
+        setCompanyLogo(dataUrl);
+        // Extrai cor proeminente da logo
+        const color = await extractProminentColor(dataUrl);
+        setDetectedColor(color);
+        if (!brandThemeEnabled || brandColor === '#F28C28') {
+          setBrandColor(color);
+        }
+        onNotify('Logo carregada e paleta de cores analisada com sucesso!', 'success');
       }
     };
     reader.readAsDataURL(file);
@@ -260,17 +338,76 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     }
     setSavingCompany(true);
     try {
+      const payload: CompanyBrandSettings = {
+        company_name: companyName.trim(),
+        company_logo: companyLogo,
+        brand_theme_enabled: brandThemeEnabled,
+        brand_color: brandColor,
+        apply_brand_to_sidebar: applyBrandToSidebar,
+        apply_brand_to_buttons: applyBrandToButtons,
+        show_company_name: showCompanyName,
+        logo_shape: logoShape,
+      };
+
       const res = await fetch('/api/settings/company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: companyName.trim(), logo: companyLogo }),
+        body: JSON.stringify({
+          name: payload.company_name,
+          logo: payload.company_logo,
+          brand_theme_enabled: payload.brand_theme_enabled,
+          brand_color: payload.brand_color,
+          apply_brand_to_sidebar: payload.apply_brand_to_sidebar,
+          apply_brand_to_buttons: payload.apply_brand_to_buttons,
+          show_company_name: payload.show_company_name,
+          logo_shape: payload.logo_shape,
+        }),
       });
       if (!res.ok) throw new Error('Falha ao salvar dados da empresa.');
-      onNotify('Identidade da empresa salva com sucesso!', 'success');
+      
+      onBrandUpdate?.(payload);
+      onNotify('Identidade visual da empresa salva com sucesso!', 'success');
     } catch (e: any) {
       onNotify(e.message || 'Erro ao salvar identidade da empresa.', 'error');
     } finally {
       setSavingCompany(false);
+    }
+  };
+
+  const handleResetCompanyBrand = async () => {
+    setResettingBrand(true);
+    try {
+      const res = await fetch('/api/settings/company/reset', { method: 'POST' });
+      if (!res.ok) throw new Error('Falha ao restaurar padrão do Nexo.');
+      const data = await res.json();
+
+      setCompanyName('Nexo');
+      setCompanyLogo('');
+      setBrandThemeEnabled(false);
+      setBrandColor('#F28C28');
+      setDetectedColor('#F28C28');
+      setApplyBrandToSidebar(true);
+      setApplyBrandToButtons(true);
+      setShowCompanyName(true);
+      setLogoShape('round');
+
+      const defaultBrand: CompanyBrandSettings = {
+        company_name: 'Nexo',
+        company_logo: '',
+        brand_theme_enabled: false,
+        brand_color: '#F28C28',
+        apply_brand_to_sidebar: true,
+        apply_brand_to_buttons: true,
+        show_company_name: true,
+        logo_shape: 'round',
+      };
+      onBrandUpdate?.(defaultBrand);
+
+      onNotify(data.message || 'Padrão oficial Nexo restaurado com sucesso!', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao restaurar padrão Nexo.', 'error');
+    } finally {
+      setResettingBrand(false);
     }
   };
 
@@ -479,41 +616,74 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           {/* ========================================================= */}
           {activeTab === 'geral' && (
             <>
-              {/* Painel: Empresa */}
+              {/* Painel: Empresa e Identidade da Marca */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
-                <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <BuildingCompanyIcon className="w-4 h-4 text-[#60769D] dark:text-[#AFC0E2]" />
-                  <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                    Empresa
-                  </h3>
+                <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <BuildingCompanyIcon className="w-4 h-4 text-[#60769D] dark:text-[#AFC0E2]" />
+                    <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Empresa & Identidade Visual
+                    </h3>
+                  </div>
+                  {/* Status Indicator */}
+                  {brandThemeEnabled ? (
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#EBF7EE] text-[#16A34A] dark:bg-[#143320] dark:text-[#4ADE80]">
+                      Personalização Ativa
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#EFF4FB] text-[#60769D] dark:bg-[#1C2C4E] dark:text-[#93A4C6]">
+                      Modo Padrão Nexo
+                    </span>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-12 gap-3 items-end">
-                  <div className="col-span-5">
-                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
-                      Nome da empresa
+                {/* Linha 1: Dados Básicos (Nome e Logo com controles de exibição) */}
+                <div className="grid grid-cols-12 gap-4 items-start">
+                  {/* Campo Nome */}
+                  <div className="col-span-6 space-y-2">
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] pl-1">
+                      Nome da empresa / restaurante
                     </label>
                     <CapsuleInput
                       value={companyName}
                       onChange={setCompanyName}
                       placeholder="Ex: Minha Confeitaria"
                     />
+                    <label className="flex items-center gap-2 pl-1 cursor-pointer select-none">
+                      <NexoCheckbox
+                        checked={showCompanyName}
+                        onChange={() => setShowCompanyName(!showCompanyName)}
+                      />
+                      <span className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                        Exibir nome no topo da barra lateral (desmarque se sua logo já tem o nome)
+                      </span>
+                    </label>
                   </div>
 
-                  <div className="col-span-4">
-                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
-                      Logo
+                  {/* Campo Logo e Formato */}
+                  <div className="col-span-6 space-y-2">
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] pl-1">
+                      Logotipo oficial
                     </label>
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-[10px] bg-[#F4F7FC] dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 bg-[#F4F7FC] dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1 ${
+                        logoShape === 'round' ? 'rounded-full' : 'rounded-[14px]'
+                      }`}>
                         {companyLogo ? (
-                          <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
+                          <img
+                            src={companyLogo}
+                            alt="Logo"
+                            className={`w-full h-full object-contain ${
+                              logoShape === 'round' ? 'rounded-full' : 'rounded-[10px]'
+                            }`}
+                          />
                         ) : (
-                          <span className="text-[10px] text-[#8C9BB5]">Sem logo</span>
+                          <span className="text-[10px] text-[#8C9BB5] text-center px-0.5 font-medium">Sem logo</span>
                         )}
                       </div>
-                      <label className="inline-flex items-center justify-center px-3 h-[34px] rounded-full text-[12px] font-semibold bg-[#EEF4FB] dark:bg-[#1C2C4E] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#E2EAF5] dark:hover:bg-[#253963] cursor-pointer transition-colors">
-                        <span>Selecionar</span>
+
+                      <label className="inline-flex items-center justify-center px-3.5 h-[36px] rounded-full text-[12px] font-semibold bg-[#EEF4FB] dark:bg-[#1C2C4E] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#E2EAF5] dark:hover:bg-[#253963] cursor-pointer transition-colors shadow-sm">
+                        <span>Selecionar logo</span>
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp"
@@ -521,30 +691,158 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           className="hidden"
                         />
                       </label>
+
                       {companyLogo && (
                         <button
                           type="button"
                           onClick={() => setCompanyLogo('')}
-                          className="text-[11.5px] text-[#DC2626] dark:text-[#F87171] hover:underline"
+                          className="text-[12px] font-medium text-[#DC2626] dark:text-[#F87171] hover:underline cursor-pointer"
                         >
                           Remover
                         </button>
                       )}
                     </div>
-                  </div>
 
-                  <div className="col-span-3 flex justify-end">
-                    <RoundedActionButton
-                      label={savingCompany ? 'Salvando...' : 'Salvar identidade'}
-                      onClick={handleSaveCompany}
-                      variant="primary"
-                      height={34}
-                    />
+                    {/* Seletor de Formato da Logo: Redonda vs Livre/Retangular */}
+                    <div className="flex items-center gap-2 pl-1 pt-0.5">
+                      <span className="text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
+                        Formato:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setLogoShape('round')}
+                        className={`h-[28px] px-3 rounded-full text-[11.5px] font-bold border transition-all cursor-pointer ${
+                          logoShape === 'round'
+                            ? 'bg-[#FFF8EE] dark:bg-[#1C2C4E] border-[#F28C28] text-[#F28C28]'
+                            : 'bg-white dark:bg-[#111F3B] border-[#DDE5F2] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6]'
+                        }`}
+                      >
+                        ⭕ Redonda / Circular
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLogoShape('rect')}
+                        className={`h-[28px] px-3 rounded-full text-[11.5px] font-bold border transition-all cursor-pointer ${
+                          logoShape === 'rect'
+                            ? 'bg-[#FFF8EE] dark:bg-[#1C2C4E] border-[#F28C28] text-[#F28C28]'
+                            : 'bg-white dark:bg-[#111F3B] border-[#DDE5F2] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6]'
+                        }`}
+                      >
+                        ⬜ Livre / Retangular
+                      </button>
+                    </div>
                   </div>
                 </div>
 
+                {/* Linha 2: Configurações de Personalização Dinâmica */}
+                <div className="p-4 rounded-[18px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357] space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                        Cores da Marca no Sistema
+                      </h4>
+                      <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                        Adequa automaticamente o Nexo à paleta visual da sua empresa
+                      </p>
+                    </div>
+
+                    {/* Master Switch */}
+                    <div className="flex items-center gap-2">
+                      <NexoCheckbox
+                        checked={brandThemeEnabled}
+                        onChange={() => setBrandThemeEnabled(!brandThemeEnabled)}
+                        title="Ativar ou desativar personalização com cores da marca"
+                      />
+                      <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                        Ativar identidade da marca
+                      </span>
+                    </div>
+                  </div>
+
+                  {brandThemeEnabled && (
+                    <div className="pt-3 border-t border-[#E2EAF5] dark:border-[#203357] space-y-3">
+                      {/* Seletor de Cor da Marca */}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-[12px] font-medium text-[#60769D] dark:text-[#93A4C6]">
+                          Cor principal da marca:
+                        </span>
+                        
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] px-2.5 py-1 rounded-full shadow-sm">
+                          <input
+                            type="color"
+                            value={brandColor}
+                            onChange={(e) => setBrandColor(e.target.value)}
+                            className="w-5 h-5 rounded-full border-0 cursor-pointer p-0 bg-transparent"
+                            title="Escolher cor personalizada"
+                          />
+                          <span className="text-[12px] font-mono font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                            {brandColor.toUpperCase()}
+                          </span>
+                        </div>
+
+                        {detectedColor && (
+                          <button
+                            type="button"
+                            onClick={() => setBrandColor(detectedColor)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#EEF4FB] dark:hover:bg-[#1C2C4E] transition-colors cursor-pointer"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                              style={{ backgroundColor: detectedColor }}
+                            />
+                            <span>Usar cor detectada da logo ({detectedColor.toUpperCase()})</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Checkboxes de Controle Granular */}
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <NexoCheckbox
+                            checked={applyBrandToSidebar}
+                            onChange={() => setApplyBrandToSidebar(!applyBrandToSidebar)}
+                          />
+                          <span className="text-[12px] text-[#18223A] dark:text-[#F4F7FF]">
+                            Aplicar cores na <b>Barra Lateral (Sidebar)</b>
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <NexoCheckbox
+                            checked={applyBrandToButtons}
+                            onChange={() => setApplyBrandToButtons(!applyBrandToButtons)}
+                          />
+                          <span className="text-[12px] text-[#18223A] dark:text-[#F4F7FF]">
+                            Aplicar cores nos <b>Botões e Destaques</b>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Linha de Ações: Restaurar Padrão Nexo + Salvar */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResetCompanyBrand}
+                    disabled={resettingBrand}
+                    className="inline-flex items-center gap-1.5 px-3.5 h-[36px] rounded-full text-[12px] font-bold text-[#687796] dark:text-[#93A4C6] bg-[#F4F7FC] dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] hover:text-[#BA5200] hover:border-[#F28C28] dark:hover:text-[#F28C28] transition-colors cursor-pointer"
+                    title="Desativa qualquer personalização e restaura o Laranja e Logo clássicos do Nexo"
+                  >
+                    <span>↺ Restaurar Padrão Nexo</span>
+                  </button>
+
+                  <RoundedActionButton
+                    label={savingCompany ? 'Salvando...' : 'Salvar identidade'}
+                    onClick={handleSaveCompany}
+                    variant="primary"
+                    height={36}
+                  />
+                </div>
+
                 <p className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
-                  Formatos aceitos: PNG, JPG/JPEG, GIF, BMP, WebP. Mínimo recomendado: 500 px no menor lado.
+                  Formatos aceitos para a logo: PNG, JPG/JPEG, WebP. O ícone e nome do Nexo no Windows permanecem inalterados.
                 </p>
               </div>
 

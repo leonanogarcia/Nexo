@@ -1,3 +1,17 @@
+
+function adjustHexBrightness(hex: string, percent: number): string {
+  try {
+    const cleanHex = hex.replace('#', '');
+    const num = parseInt(cleanHex, 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + Math.round(255 * (percent / 100))));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + Math.round(255 * (percent / 100))));
+    const b = Math.min(255, Math.max(0, (num & 0x0000ff) + Math.round(255 * (percent / 100))));
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  } catch {
+    return hex;
+  }
+}
+
 import React, { useEffect, useState } from 'react';
 import {
   AnimatedSuccessModal,
@@ -64,11 +78,21 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.4.0',
+    version: 'v1.5.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [brandSettings, setBrandSettings] = useState<CompanyBrandSettings>({
+    company_name: 'Nexo',
+    company_logo: '',
+    brand_theme_enabled: false,
+    brand_color: '#F28C28',
+    apply_brand_to_sidebar: true,
+    apply_brand_to_buttons: true,
+    show_company_name: true,
+    logo_shape: 'round',
+  });
 
   useEffect(() => {
     (async () => {
@@ -81,6 +105,22 @@ export const App: React.FC = () => {
           setDark(isDark);
           document.documentElement.classList.toggle('dark', isDark);
         }
+
+        // Carrega configurações de branding
+        const setRes = await fetch('/api/settings');
+        if (setRes.ok) {
+          const sData = await setRes.json();
+          setBrandSettings({
+            company_name: sData.company_name || 'Nexo',
+            company_logo: sData.company_logo || '',
+            brand_theme_enabled: !!sData.brand_theme_enabled,
+            brand_color: sData.brand_color || '#F28C28',
+            apply_brand_to_sidebar: sData.apply_brand_to_sidebar !== false,
+            apply_brand_to_buttons: sData.apply_brand_to_buttons !== false,
+            show_company_name: sData.show_company_name !== false,
+            logo_shape: sData.logo_shape === 'rect' ? 'rect' : 'round',
+          });
+        }
       } catch (e) {
         console.error('Falha ao carregar status inicial:', e);
       } finally {
@@ -88,6 +128,23 @@ export const App: React.FC = () => {
       }
     })();
   }, []);
+
+  // Sincroniza CSS Variables de Brand
+  useEffect(() => {
+    const root = document.documentElement;
+    if (brandSettings.brand_theme_enabled && brandSettings.apply_brand_to_buttons && brandSettings.brand_color) {
+      const color = brandSettings.brand_color;
+      const hover = adjustHexBrightness(color, -15);
+      const border = adjustHexBrightness(color, -10);
+      root.style.setProperty('--nexo-brand-primary', color);
+      root.style.setProperty('--nexo-brand-hover', hover);
+      root.style.setProperty('--nexo-brand-border', border);
+    } else {
+      root.style.removeProperty('--nexo-brand-primary');
+      root.style.removeProperty('--nexo-brand-hover');
+      root.style.removeProperty('--nexo-brand-border');
+    }
+  }, [brandSettings]);
 
   const toggleTheme = async () => {
     const nextDark = !dark;
@@ -141,7 +198,7 @@ export const App: React.FC = () => {
   return (
     <div className="w-screen h-screen flex bg-[#F4F7FC] dark:bg-[#081226] text-[#18223A] dark:text-[#F4F7FF] transition-colors duration-200 overflow-hidden">
       {/* Left Floating Capsule Sidebar (150px dedicated width) */}
-      <ReferenceSidebar active={activePage} onSelect={setActivePage} dark={dark} />
+      <ReferenceSidebar active={activePage} onSelect={setActivePage} dark={dark} brandSettings={brandSettings} />
 
       {/* Main Content Area */}
       <main className="flex-1 h-full flex flex-col min-w-0 pr-6">
@@ -215,6 +272,9 @@ export const App: React.FC = () => {
                 setDark(isDark);
                 document.documentElement.classList.toggle('dark', isDark);
               }}
+              onBrandUpdate={(newBrand) => {
+                setBrandSettings(newBrand);
+              }}
             />
           )}
 
@@ -244,7 +304,7 @@ export const App: React.FC = () => {
           <span>
             Banco de dados: {status.connected ? 'Conectado ✓' : 'Desconectado ✕'} · {status.db_name}
           </span>
-          <span>Nexo · Gestão de Custos e Precificação · v1.4.0 (Etapa 2.2: Produtos)</span>
+          <span>Nexo · Gestão de Custos e Precificação · v1.5.0 (Etapa 3: Configurações & Identidade)</span>
         </footer>
       </main>
     </div>

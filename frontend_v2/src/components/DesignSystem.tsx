@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { NavKey } from '../types';
+import { NavKey, CompanyBrandSettings } from '../types';
 
 // ---------- Vector Icons ----------
 
@@ -277,14 +277,14 @@ export const RoundedActionButton: React.FC<RoundedActionButtonProps> = ({
     }
   > = {
     primary: {
-      baseFill: '#F28C28',
-      hoverFill: '#BA5200',
+      baseFill: 'var(--nexo-brand-primary, #F28C28)',
+      hoverFill: 'var(--nexo-brand-hover, #BA5200)',
       text: '#FFFFFF',
-      border: '#DE7819',
-      darkBaseFill: '#F28C28',
-      darkHoverFill: '#BA5200',
+      border: 'var(--nexo-brand-border, #DE7819)',
+      darkBaseFill: 'var(--nexo-brand-primary, #F28C28)',
+      darkHoverFill: 'var(--nexo-brand-hover, #BA5200)',
       darkText: '#FFFFFF',
-      darkBorder: '#F6A24B',
+      darkBorder: 'var(--nexo-brand-border, #F6A24B)',
     },
     soft: {
       baseFill: '#EFF4FB',
@@ -757,6 +757,7 @@ interface ReferenceSidebarProps {
   active: NavKey;
   onSelect: (key: NavKey) => void;
   dark: boolean;
+  brandSettings?: CompanyBrandSettings;
 }
 
 const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
@@ -771,18 +772,49 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
   active,
   onSelect,
   dark,
+  brandSettings,
 }) => {
   const [hovered, setHovered] = useState<NavKey | null>(null);
 
   return (
     <aside className="w-[150px] h-full shrink-0 flex flex-col items-center relative select-none">
-      {/* Top Nexo Logo (x=10, y=26, w=135, h=105) */}
-      <div className="mt-[22px] w-[135px] h-[105px] flex items-center justify-center">
-        <img
-          src={dark ? '/ui_assets/nexo_logo_dark_clean.png' : '/ui_assets/nexo_logo_light_clean.png'}
-          alt="Nexo"
-          className="max-w-[130px] max-h-[100px] object-contain pointer-events-none transition-opacity duration-150"
-        />
+      {/* Top Brand / Nexo Logo */}
+      <div className="mt-[16px] w-[140px] flex flex-col items-center justify-center px-1 shrink-0 min-h-[96px]">
+        {brandSettings?.company_logo ? (
+          <div className="flex flex-col items-center justify-center max-w-[136px] group">
+            {/* Nome da Empresa no Topo (apenas se show_company_name estiver ativo) */}
+            {brandSettings.show_company_name !== false &&
+              brandSettings.company_name &&
+              brandSettings.company_name !== 'Nexo' && (
+                <span className="text-[12px] font-extrabold text-center truncate max-w-[132px] px-1 text-[#18223A] dark:text-[#F4F7FF] tracking-tight mb-2 leading-tight">
+                  {brandSettings.company_name}
+                </span>
+              )}
+
+            {/* Imagem da Logo: livre e fluida, sem caixa branca forçada */}
+            <div
+              className={`relative flex items-center justify-center transition-transform duration-150 group-hover:scale-[1.02] ${
+                brandSettings.logo_shape === 'rect'
+                  ? 'max-w-[128px] max-h-[96px]'
+                  : 'w-[94px] h-[94px] rounded-full overflow-hidden shadow-sm'
+              }`}
+            >
+              <img
+                src={brandSettings.company_logo}
+                alt={brandSettings.company_name || 'Empresa'}
+                className={`w-full h-full object-contain ${
+                  brandSettings.logo_shape === 'rect' ? 'rounded-lg' : 'rounded-full'
+                }`}
+              />
+            </div>
+          </div>
+        ) : (
+          <img
+            src={dark ? '/ui_assets/nexo_logo_dark_clean.png' : '/ui_assets/nexo_logo_light_clean.png'}
+            alt="Nexo"
+            className="max-w-[130px] max-h-[100px] object-contain pointer-events-none transition-opacity duration-150"
+          />
+        )}
       </div>
 
       {/* Vertical Capsule Rail (width=68px, height=500px, centered vertically in remaining space) */}
@@ -791,8 +823,12 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
           style={{
             width: '68px',
             height: '500px',
-            backgroundColor: dark ? '#F28C28' : '#111C30',
-            borderColor: dark ? '#F6A24B' : '#A9BFE0',
+            backgroundColor: (brandSettings?.brand_theme_enabled && brandSettings?.apply_brand_to_sidebar && brandSettings?.brand_color)
+              ? brandSettings.brand_color
+              : (dark ? '#F28C28' : '#111C30'),
+            borderColor: (brandSettings?.brand_theme_enabled && brandSettings?.apply_brand_to_sidebar && brandSettings?.brand_color)
+              ? (dark ? '#F6A24B' : '#A9BFE0')
+              : (dark ? '#F6A24B' : '#A9BFE0'),
             boxShadow: dark
               ? '0 8px 20px rgba(0, 0, 0, 0.45)'
               : '0 8px 18px rgba(17, 28, 48, 0.16)',

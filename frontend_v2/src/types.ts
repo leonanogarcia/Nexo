@@ -114,3 +114,14 @@ export interface RecipeHistoryRow {
   cost_fmt: string;
   is_today: boolean;
 }
+
+export interface CompanyBrandSettings {
+  company_name: string;
+  company_logo: string;
+  brand_theme_enabled: boolean;
+  brand_color: string;
+  apply_brand_to_sidebar: boolean;
+  apply_brand_to_buttons: boolean;
+  show_company_name?: boolean;
+  logo_shape?: 'round' | 'rect';
+}

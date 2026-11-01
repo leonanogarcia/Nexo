@@ -11,7 +11,7 @@
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
 | **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
-| **Etapa 3** | **Aba Configurações** | 🚀 **EM ANDAMENTO** | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
+| **Etapa 3** | **Aba Configurações** | ✅ **CONCLUÍDO** | Menu lateral fiel (220px), Modo Claro/Escuro/Sistema, Identidade da Empresa, Logo fluida com seletor (Redonda/Livre), Ocultação de nome redundante, Branding Dinâmico, Custos Operacionais, Régua de unidades e Backup/Vacuum SQLite |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
@@ -65,19 +65,28 @@
 
 ---
 
-### 🚀 Etapa 3: Aba Configurações — EM ANDAMENTO
-* [ ] **Aparência & Tema:**
-  * Seletor oficial de tema: **Modo Claro**, **Modo Escuro** e **Automático (Sistema)**.
-  * Persistência imediata no SQLite (`settings.theme`) e aplicação global no HTML (`dark` class).
-* [ ] **Identificação da Empresa:**
-  * Nome fantasia da empresa e upload de logotipo.
-* [ ] **Custos Operacionais Globais:**
-  * Configuração de taxas percentuais: **Gás**, **Energia Elétrica** e **Água** (utilizados pelo `calculator.py` para calcular custos indiretos em receitas e produtos).
-* [ ] **Unidades de Medida Globais:**
-  * Visualização das unidades de massa (`mg`, `g`, `kg`, `t`), volume (`ml`, `L`, `kL`) e contagem (`un`).
-* [ ] **Banco de Dados & Manutenção:**
-  * Exibição do caminho do banco ativo (`%LOCALAPPDATA%\Nexo\nexo.db` ou caminho local).
-  * Botão de backup rápido do banco de dados.
+### ✅ Etapa 3: Aba Configurações & Identidade da Marca — CONCLUÍDA
+* [x] **Arquitetura 1:1 Fiel com Menu Lateral Interno (220px):**
+  * 5 categorias dedicadas com navegação rápida: Geral, Inteligência Artificial, Métricas de Custo, Unidades de Medida e Banco de Dados & BI.
+  * Ícones monocromáticos elegantes do Design System: Engrenagem, Microchip IA vetorial de alta nitidez, Gráfico de Custos, Régua de Medição e Cilindro de Banco.
+* [x] **Aparência & Tema:**
+  * Seletor de tema: **Modo Claro**, **Modo Escuro** e **Automático (Sistema)**.
+  * Persistência imediata no SQLite (`settings.theme`) e sincronização global reativa.
+* [x] **Identificação da Empresa & Branding Dinâmico:**
+  * Nome da empresa e upload de logotipo com leitura em Canvas e extração automática da cor dominante da marca.
+  * Logo flutuante sem caixa branca forçada, com suporte a canal alfa / PNG transparente.
+  * Seletor manual de formato de exibição da logo: **Redonda / Circular** (`rounded-full`) vs **Livre / Retangular** (sem distorção via `object-contain`).
+  * Opção de ocultar o nome da empresa na barra lateral para evitar redundância quando a logo já contiver o nome.
+  * Controles independentes de personalização: aplicar paleta da marca no Sidebar e/ou nos Botões e Destaques.
+  * Botão mestre de segurança **"↺ Restaurar Padrão Nexo"** com reset instantâneo de fábrica.
+* [x] **Custos Operacionais Globais:**
+  * Configuração de taxas percentuais: **Gás**, **Energia Elétrica** e **Água** com totalizador dinâmico e integração ao `calculator.py`.
+* [x] **Unidades de Medida Globais:**
+  * Visualização e configuração das unidades de massa (`mg`, `g`, `kg`, `t`), volume (`ml`, `L`, `kL`) e contagem (`un`).
+* [x] **Banco de Dados & Manutenção:**
+  * Status e tamanho do banco de dados SQLite ativo.
+  * Retenção de histórico de auditoria configurável em meses.
+  * Ações instantâneas de **Backup de Segurança** (salvo com carimbo de data/hora em `backups/`) e **Otimização / Compactação (`VACUUM`)**.
 
 ---
 
