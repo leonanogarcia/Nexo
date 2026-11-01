@@ -509,12 +509,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                   Carregando produtos...
                 </div>
               ) : sortedItems.length === 0 ? (
-                <div className="py-16 flex flex-col items-center justify-center text-center select-none">
-                  <p className="text-[14px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-1">
-                    Nenhum produto cadastrado.
+                <div className="flex-1 flex flex-col items-center justify-center py-12 select-none">
+                  <img
+                    src="/ui_assets/empty_state_reference_exact.png"
+                    alt="Sem registros"
+                    className="max-h-[160px] object-contain mb-3 pointer-events-none"
+                  />
+                  <p className="text-[15px] font-bold text-[#687796] dark:text-[#93A4C6] mb-1">
+                    Ainda não há produtos cadastrados.
                   </p>
-                  <p className="text-[12.5px] text-[#8C9BB5] dark:text-[#64748B]">
-                    Clique em "+ Novo Produto" acima para cadastrar seu primeiro produto.
+                  <p className="text-[12.5px] text-[#8C9BB5] dark:text-[#687796]">
+                    Clique em + Novo Produto para cadastrar seu primeiro produto.
                   </p>
                 </div>
               ) : (
@@ -1265,6 +1270,11 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
             {items.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center text-center select-none">
+                <img
+                  src="/ui_assets/empty_state_reference_exact.png"
+                  alt="Nenhum componente"
+                  className="max-h-[80px] object-contain mb-2 pointer-events-none opacity-80"
+                />
                 <p className="text-[13px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-0.5">
                   Nenhum componente adicionado à composição.
                 </p>

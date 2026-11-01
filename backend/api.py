@@ -1419,11 +1419,11 @@ def get_product_detail(product_id: int):
             ref_id = it["ref_id"]
             ref_name = "Item"
             if itype == "MATERIAL":
-                ref_name = mat_cache.get(ref_id, {}).get("name", f"Insumo #{ref_id}")
+                ref_name = mat_cache[ref_id]["name"] if ref_id in mat_cache else f"Insumo #{ref_id}"
             elif itype == "RECIPE_BASE":
-                ref_name = rec_cache.get(ref_id, {}).get("name", f"Receita #{ref_id}")
+                ref_name = rec_cache[ref_id]["name"] if ref_id in rec_cache else f"Receita #{ref_id}"
             elif itype == "PRODUCT":
-                ref_name = prod_cache.get(ref_id, {}).get("name", f"Produto #{ref_id}")
+                ref_name = prod_cache[ref_id]["name"] if ref_id in prod_cache else f"Produto #{ref_id}"
 
             try:
                 c_cost = item_cost(itype, ref_id, it["qty_per_unit"], it["unit"])
