@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 title Nexo - Subir para o GitHub
 cd /d "%~dp0"
 set "PATH=C:\Users\Leonan\AppData\Local\Programs\Git\cmd;C:\Users\Leonan\AppData\Local\Programs\Git\mingw64\bin;%PATH%"
@@ -7,10 +7,10 @@ echo ========================================================
 echo   Nexo - Enviando atualizacoes para o GitHub
 echo ========================================================
 echo.
-echo Executando: git push origin main
+echo Executando: git push origin v2.0
 echo.
 
-git push origin main
+git push origin v2.0
 
 echo.
 if %errorlevel% equ 0 (
@@ -20,3 +20,4 @@ if %errorlevel% equ 0 (
 )
 echo.
 pause
+
