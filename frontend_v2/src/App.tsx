@@ -25,7 +25,7 @@ const PAGE_HEADERS: Record<NavKey, PageHeaderMeta> = {
     cardTitle: 'Início — Painel de Gestão e BI',
     cardDescription:
       'Esta aba será desenvolvida na Etapa 4, reunindo os KPIs estratégicos do seu negócio, faturamento, custos médios e gráficos de rosca interativos.',
-    buttonLabel: 'Ir para Receitas (Fase atual)',
+    buttonLabel: 'Ir para Produtos',
   },
   Cadastro: {
     title: 'Cadastro',
@@ -41,15 +41,15 @@ const PAGE_HEADERS: Record<NavKey, PageHeaderMeta> = {
     cardTitle: 'Produtos — Próxima fase da Etapa 2',
     cardDescription:
       'Esta aba é a Parte 2 da Etapa 2. Ela trará a precificação de venda, composição com embalagens e cálculo de margem de lucro, e será construída logo após lapidarmos e aprovarmos a Aba de Receitas Base.',
-    buttonLabel: 'Ir para Receitas (Fase atual)',
+    buttonLabel: 'Ir para Produtos',
   },
   Configurações: {
     title: 'Configurações',
     subtitle: 'Preferências, dados e parâmetros do Nexo',
-    cardTitle: 'Configurações — Preferências e Sistema',
+    cardTitle: 'Configurações — Próxima Fase (Etapa 3)',
     cardDescription:
       'Esta aba será desenvolvida na Etapa 3 (seleção de tema Claro/Escuro definitivo, dados da empresa, taxas de gás/luz/água e backup).',
-    buttonLabel: 'Ir para Receitas (Fase atual)',
+    buttonLabel: 'Ir para Produtos',
   },
 };
 

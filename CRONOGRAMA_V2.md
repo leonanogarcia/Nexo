@@ -9,9 +9,9 @@
 | Etapa | Módulo | Status | Descrição |
 | :---: | :--- | :---: | :--- |
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
-| **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | 🚀 **EM LAPIDAÇÃO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela e conversões culinárias |
-| **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | 🟡 **EM ANDAMENTO** | Precificação de venda, markup, margem de lucro, composição de receitas + embalagens |
-| **Etapa 3** | **Aba Configurações** | ⏳ Pendente | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
+| **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
+| **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
+| **Etapa 3** | **Aba Configurações** | 🟡 **A SEGUIR** | Modo Escuro/Claro definitivo, Dados da Empresa/Logo, Custos Operacionais (Gás, Energia, Água), Unidades e Banco SQLite |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
@@ -30,7 +30,7 @@
 
 ---
 
-### 🚀 Etapa 2.1: Aba Receitas Base (Fichas Técnicas) — EM LAPIDAÇÃO
+### ✅ Etapa 2.1: Aba Receitas Base (Fichas Técnicas) — CONCLUÍDA
 * [x] **Backend Completo:**
   * Endpoints REST para CRUD de receitas base, cálculo instantâneo de custo (`preview-cost`), duplicação atômica e histórico.
 * [x] **Interface e Tabela Nexo:**
@@ -41,22 +41,31 @@
   * Botão e modal dedicado de Conversões de Medidas integrado na toolbar de Receitas.
 * [x] **Modal de Ficha Técnica:**
   * Adição/remoção dinâmica de insumos, seleção de unidades e cards de resumo (Custo Total, Rendimento, Custo / Porção) atualizados em tempo real.
+  * Cápsula oficial unificada `CapsuleQuantityUnit` fundindo `[ Quantidade | Unidade ⌵ ]` com divisória fina vertical.
+  * Modal refinado e compacto (740px de largura) com rendimento reduzido no topo.
 * [x] **Histórico de Custos da Receita:**
-  * Modal de evolução do custo com exportação em CSV (`Baixar Histórico`).
-* [ ] **Testes de Usabilidade e Refinos Visuais:**
-  * Alinhamento fino com o usuário sobre comportamento, campos adicionais e validações.
+  * Modal de evolução do custo com exportação em CSV (`Baixar Histórico`) e botão `[ Fechar ]` padronizado.
+* [x] **Engrenagem Matemática Oficial de 6 Dentes:**
+  * Substituição do ícone estrela pelo ícone geométrico de 6 dentes vazado oficial.
 
 ---
 
-### ⏳ Etapa 2.2: Aba Produtos (Precificação e Venda) — A SEGUIR
-* [ ] **Composição de Produtos:**
-  * Composição mista (Insumos diretos + Receitas Base + Embalagens).
-* [ ] **Motor de Precificação:**
-  * Regras de markup multiplicador, margem de lucro, taxas de cartão e preço de venda sugerido.
+### ✅ Etapa 2.2: Aba Produtos (Precificação e Venda) — CONCLUÍDA
+* [x] **Backend REST de Produtos:**
+  * Endpoints para listagem (`/api/products`), criação/edição com composição mista (`MATERIAL`, `RECIPE_BASE`, `PRODUCT`).
+  * Cálculo em tempo real de custo direto, custo operacional e preço de venda com margem % e lucro R$.
+  * Exclusão inteligente com verificação de vínculo a outros combos/produtos e inativação segura.
+  * Histórico de custos e endpoint de duplicação.
+* [x] **Interface e Tabela Nexo:**
+  * Tabela oficial com cabeçalho de 36px, divisórias verticais finas e colunas com larguras seguras (`Peso / Rend.`, `Custo Produção`, `Preço Venda`, `Lucro (R$)`, `Margem %`).
+  * Seleção integrada: clicar na linha marca o checkbox automaticamente (`selectSingleRow`).
+  * Duplo clique na linha para abrir o modal de edição imediatamente.
+  * Menu flutuante de 3 pontinhos alinhado perfeitamente logo abaixo do botão, com ícones e dimensões oficiais do Nexo.
+  * Persistência de preferências de colunas visíveis via `/api/settings/prod_hidden_cols`.
 
 ---
 
-### ⏳ Etapa 3: Aba Configurações
+### 🟡 Etapa 3: Aba Configurações — A SEGUIR
 * [ ] **Aparência & Tema:**
   * Seletor oficial de tema: **Modo Claro**, **Modo Escuro** e **Automático (Sistema)**.
   * Persistência imediata no SQLite (`settings.theme`) e aplicação global no HTML (`dark` class).
