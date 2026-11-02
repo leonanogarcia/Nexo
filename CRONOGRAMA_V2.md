@@ -11,7 +11,7 @@
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
 | **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
-| **Etapa 3** | **Aba Configurações** | ✅ **CONCLUÍDO** | Menu lateral fiel (220px), Modo Claro/Escuro/Sistema, Identidade da Empresa, Logo fluida com seletor (Redonda/Livre), Ocultação de nome redundante, Branding Dinâmico, Custos Operacionais, Régua de unidades e Backup/Vacuum SQLite |
+| **Etapa 3** | **Aba Configurações** | 🚀 **EM ANDAMENTO** | Menu lateral fiel (220px), Identidade da Empresa, Logo fluida (Redonda/Livre), Branding Dinâmico, Custos Operacionais, Unidades e Banco SQLite (Fase de Lapidação) |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
@@ -65,7 +65,7 @@
 
 ---
 
-### ✅ Etapa 3: Aba Configurações & Identidade da Marca — CONCLUÍDA
+### 🚀 Etapa 3: Aba Configurações & Identidade da Marca — EM ANDAMENTO
 * [x] **Arquitetura 1:1 Fiel com Menu Lateral Interno (220px):**
   * 5 categorias dedicadas com navegação rápida: Geral, Inteligência Artificial, Métricas de Custo, Unidades de Medida e Banco de Dados & BI.
   * Ícones monocromáticos elegantes do Design System: Engrenagem, Microchip IA vetorial de alta nitidez, Gráfico de Custos, Régua de Medição e Cilindro de Banco.
