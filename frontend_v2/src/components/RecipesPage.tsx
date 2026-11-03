@@ -21,6 +21,9 @@ import {
   RoundedEntry,
   RulerConversionIcon,
   TrashIcon,
+  FlameIcon,
+  ZapEnergyIcon,
+  DropletWaterIcon,
 } from './DesignSystem';
 import { ConversionsModal } from './ConversionsModal';
 
@@ -926,6 +929,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   const [name, setName] = useState(editItem ? editItem.name : '');
   const [yieldQty, setYieldQty] = useState(editItem ? String(editItem.yield_qty) : '1');
   const [yieldUnit, setYieldUnit] = useState(editItem ? editItem.yield_unit : 'un');
+  const [cookingAppliance, setCookingAppliance] = useState<string>(editItem ? ((editItem as any).cooking_appliance || 'none') : 'none');
+  const [cookingTime, setCookingTime] = useState<string>(editItem ? String((editItem as any).cooking_time_minutes || '0') : '0');
   const [notes, setNotes] = useState(editItem ? editItem.notes : '');
 
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
@@ -933,6 +938,9 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Live preview totals
+  const [materialsCostFmt, setMaterialsCostFmt] = useState('R$ 0,00');
+  const [operationalCostFmt, setOperationalCostFmt] = useState('R$ 0,00');
+  const [operationalBreakdown, setOperationalBreakdown] = useState<any[]>([]);
   const [totalCostFmt, setTotalCostFmt] = useState(editItem ? editItem.total_cost_fmt : 'R$ 0,00');
   const [portionCostFmt, setPortionCostFmt] = useState(editItem ? editItem.portion_cost_fmt : 'R$ 0,00');
 
@@ -952,8 +960,27 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     })();
   }, []);
 
-  // Pre-load ingredients if editing
+  // Pre-load ingredients and cooking if editing
   useEffect(() => {
+    if (editItem) {
+      (async () => {
+        try {
+          const detRes = await fetch(`/api/recipes/${editItem.id}`);
+          if (detRes.ok) {
+            const data = await detRes.json();
+            if (data.cooking_appliance) setCookingAppliance(data.cooking_appliance);
+            if (data.cooking_time_minutes !== undefined) setCookingTime(String(data.cooking_time_minutes));
+            if (data.materials_cost_fmt) setMaterialsCostFmt(data.materials_cost_fmt);
+            if (data.operational_cost_fmt) setOperationalCostFmt(data.operational_cost_fmt);
+            if (data.operational_breakdown?.items) setOperationalBreakdown(data.operational_breakdown.items);
+            if (data.total_cost_fmt) setTotalCostFmt(data.total_cost_fmt);
+            if (data.portion_cost_fmt) setPortionCostFmt(data.portion_cost_fmt);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    }
     if (editItem && editItem.items) {
       (async () => {
         const rows: FormIngredientRow[] = [];
@@ -986,11 +1013,20 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   }, [editItem]);
 
   // Recalculate live preview
-  const recalculatePreview = useCallback(async (rows: FormIngredientRow[], yQty: string, yUnit: string) => {
+  const recalculatePreview = useCallback(async (
+    rows: FormIngredientRow[],
+    yQty: string,
+    yUnit: string,
+    applianceVal = cookingAppliance,
+    timeVal = cookingTime
+  ) => {
     const validRows = rows.filter(
       (r) => r.material_id > 0 && parseFloat(r.qty.replace(',', '.')) > 0 && r.unit
     );
-    if (validRows.length === 0) {
+    if (validRows.length === 0 && (applianceVal === 'none' || parseFloat(timeVal) <= 0)) {
+      setMaterialsCostFmt('R$ 0,00');
+      setOperationalCostFmt('R$ 0,00');
+      setOperationalBreakdown([]);
       setTotalCostFmt('R$ 0,00');
       setPortionCostFmt('R$ 0,00');
       setIngredients((prev) =>
@@ -1005,6 +1041,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       const payload = {
         yield_qty: yQty || '1',
         yield_unit: yUnit || 'un',
+        cooking_appliance: applianceVal,
+        cooking_time_minutes: parseFloat(String(timeVal).replace(',', '.')) || 0,
         items: validRows.map((r) => ({
           material_id: r.material_id,
           qty: parseFloat(r.qty.replace(',', '.')) || 0,
@@ -1018,6 +1056,9 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       });
       if (res.ok) {
         const data = await res.json();
+        setMaterialsCostFmt(data.materials_cost_fmt || 'R$ 0,00');
+        setOperationalCostFmt(data.operational_cost_fmt || 'R$ 0,00');
+        setOperationalBreakdown(data.operational_breakdown?.items || []);
         setTotalCostFmt(data.total_cost_fmt);
         setPortionCostFmt(data.portion_cost_fmt);
         const costMap: Record<number, string> = {};
@@ -1036,7 +1077,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [cookingAppliance, cookingTime]);
 
   // Add new ingredient row (always clean, pristine empty line)
   const addIngredientRow = () => {
@@ -1129,6 +1170,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       name: n,
       yield_qty: yq,
       yield_unit: yu,
+      cooking_appliance: cookingAppliance,
+      cooking_time_minutes: parseFloat(cookingTime.replace(',', '.')) || 0,
       notes: notes.trim(),
       items: validItems.map((it) => ({
         material_id: it.material_id,
@@ -1353,34 +1396,161 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
             )}
           </div>
 
+          {/* Card Intermediário: Preparo, Forno & Cocção da Receita */}
+          <div className="p-4 rounded-[18px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-[#FFF0E6] dark:bg-[#2D1B10] flex items-center justify-center text-[#F28C28]">
+                  <FlameIcon size={12} />
+                </div>
+                <span className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Preparo, Forno & Cocção da Receita (Gás e Eletricidade)
+                </span>
+              </div>
+              <span className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
+                Calculado com base na rotina da sua cozinha
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              {/* Equipamento */}
+              <div className="md:col-span-8">
+                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                  Equipamento Utilizado
+                </label>
+                <select
+                  value={cookingAppliance}
+                  onChange={(e) => {
+                    const newApp = e.target.value;
+                    setCookingAppliance(newApp);
+                    recalculatePreview(ingredients, yieldQty, yieldUnit, newApp, cookingTime);
+                  }}
+                  className="w-full h-[34px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 focus:outline-none focus:ring-2 focus:ring-[#F28C28] cursor-pointer"
+                >
+                  <option value="none">Sem cocção ativa (Mistura fria / Sem forno ou fogão)</option>
+                  <option value="gas_oven">Forno a Gás (Fogo médio - bolos, tortas, assados)</option>
+                  <option value="gas_stove_burner">Boca de Fogão / Panela (Chama média - brigadeiros, caldas)</option>
+                  <option value="electric_oven">Forno Elétrico Convector</option>
+                  <option value="mixer_planetary">Batedeira Planetária (Massa pesada / Claras)</option>
+                  <option value="induction_cooktop">Cooktop de Indução</option>
+                  <option value="microwave">Micro-ondas</option>
+                </select>
+              </div>
+
+              {/* Tempo em minutos */}
+              <div className="md:col-span-4">
+                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                  Tempo de Forno / Fogo (minutos)
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    disabled={cookingAppliance === 'none'}
+                    value={cookingAppliance === 'none' ? '0' : cookingTime}
+                    onChange={(e) => {
+                      const newT = e.target.value.replace(/[^0-9.,]/g, '');
+                      setCookingTime(newT);
+                      recalculatePreview(ingredients, yieldQty, yieldUnit, cookingAppliance, newT);
+                    }}
+                    placeholder="40"
+                    className="w-full h-[34px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 pr-11 focus:outline-none focus:ring-2 focus:ring-[#F28C28] disabled:opacity-50"
+                  />
+                  <span className="absolute right-3 text-[11px] font-bold text-[#8C9BB5]">min</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Informação didática da receita */}
+            {cookingAppliance !== 'none' && parseFloat(cookingTime) > 0 ? (
+              <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] flex items-center gap-2 pl-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F28C28] shrink-0" />
+                <span>
+                  O gasto de gás e energia de <strong>{cookingTime} min</strong> será incorporado a este lote da receita e distribuído no rendimento de <strong>{yieldQty || 1} {yieldUnit}</strong>.
+                </span>
+              </div>
+            ) : (
+              <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] flex items-center gap-2 pl-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#8C9BB5] shrink-0" />
+                <span>
+                  Receita sem cocção ativa. Apenas o custo dos ingredientes será contabilizado no lote.
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Card 3: Summary KPI Banner (Live preview em tempo real) */}
-          <div className="p-3.5 rounded-[18px] bg-[#FFF8EE] dark:bg-[#1B1914] border border-[#F28C28]/35 flex items-center justify-around text-center shadow-sm">
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Custo dos Ingredientes
-              </span>
-              <span className="text-[17px] font-bold text-[#F28C28]">
-                {totalCostFmt}
-              </span>
+          <div className="rounded-[18px] bg-[#FFF8EE] dark:bg-[#1B1914] border border-[#F28C28]/35 p-3.5 shadow-sm space-y-3">
+            <div className="flex items-center justify-around text-center">
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Ingredientes
+                </span>
+                <span className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  {materialsCostFmt}
+                </span>
+              </div>
+              <div className="w-[1px] h-8 bg-[#F28C28]/25" />
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Cocção (Gás/Luz)
+                </span>
+                <span className="text-[16px] font-bold text-[#F28C28]">
+                  {operationalCostFmt}
+                </span>
+              </div>
+              <div className="w-[1px] h-8 bg-[#F28C28]/25" />
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Custo Total do Lote
+                </span>
+                <span className="text-[17px] font-bold text-[#F28C28]">
+                  {totalCostFmt}
+                </span>
+              </div>
+              <div className="w-[1px] h-8 bg-[#F28C28]/25" />
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Custo por {yieldUnit}
+                </span>
+                <span className="text-[17px] font-bold text-[#16A34A] dark:text-[#4ADE80]">
+                  {portionCostFmt}
+                </span>
+              </div>
             </div>
-            <div className="w-[1px] h-8 bg-[#F28C28]/25" />
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Rendimento da Receita
-              </span>
-              <span className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                {yieldQty || '0'} {yieldUnit}
-              </span>
-            </div>
-            <div className="w-[1px] h-8 bg-[#F28C28]/25" />
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Custo por Porção / Unidade
-              </span>
-              <span className="text-[17px] font-bold text-[#16A34A] dark:text-[#4ADE80]">
-                {portionCostFmt}
-              </span>
-            </div>
+
+            {/* Badges de Cocção */}
+            {operationalBreakdown && operationalBreakdown.length > 0 && parseFloat(cookingTime) > 0 && cookingAppliance !== 'none' && (
+              <div className="pt-2 border-t border-[#F28C28]/20 flex flex-wrap items-center justify-between gap-2 text-[11.5px]">
+                <span className="font-bold text-[#18223A] dark:text-[#F4F7FF] flex items-center gap-1">
+                  <span>Detalhamento da Cocção da Receita:</span>
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {operationalBreakdown.map((item: any, idx: number) => {
+                    const n = (item.name || '').toLowerCase();
+                    const isEnergy = n.includes('energia') || n.includes('elétr') || n.includes('eletr');
+                    const isWater = n.includes('água') || n.includes('agua');
+                    const isGas = n.includes('gás') || n.includes('gas');
+                    const iconSvg = isGas ? (
+                      <FlameIcon size={12} className="text-[#F28C28]" />
+                    ) : isEnergy ? (
+                      <ZapEnergyIcon size={12} className="text-[#F28C28]" />
+                    ) : isWater ? (
+                      <DropletWaterIcon size={12} className="text-[#F28C28]" />
+                    ) : null;
+                    return (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#111F3B] border border-[#F28C28]/30 font-bold text-[#18223A] dark:text-[#F4F7FF] flex items-center gap-1.5"
+                      >
+                        {iconSvg && <span className="flex items-center shrink-0">{iconSvg}</span>}
+                        <span>{item.name}:</span>
+                        <span className="text-[#F28C28]">{item.cost_fmt}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

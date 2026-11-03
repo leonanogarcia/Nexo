@@ -11,6 +11,10 @@ import {
   RoundedDropdown,
   RoundedEntry,
   TrashIcon,
+  FlameIcon,
+  ZapEnergyIcon,
+  DropletWaterIcon,
+  PackageBoxIcon,
 } from './DesignSystem';
 
 interface ProductsPageProps {
@@ -29,6 +33,8 @@ export interface ProductItem {
   weight_unit: string;
   direct_cost: number;
   direct_cost_fmt: string;
+  operational_cost: number;
+  operational_cost_fmt: string;
   production_cost: number;
   production_cost_fmt: string;
   sale_price: number;
@@ -66,12 +72,13 @@ interface ProdColumnSpec {
 
 const PROD_COLUMNS: ProdColumnSpec[] = [
   { key: 'code', label: 'Código', width: 95, align: 'center', hideable: true },
-  { key: 'name', label: 'Nome do Produto', width: 240, align: 'left', hideable: false },
-  { key: 'weight', label: 'Peso / Rend.', width: 130, align: 'center', hideable: true },
-  { key: 'production_cost', label: 'Custo Produção', width: 140, align: 'center', hideable: true },
-  { key: 'sale_price', label: 'Preço Venda', width: 130, align: 'center', hideable: true },
-  { key: 'profit', label: 'Lucro (R$)', width: 120, align: 'center', hideable: true },
-  { key: 'margin', label: 'Margem %', width: 110, align: 'center', hideable: true },
+  { key: 'name', label: 'Nome do Produto', width: 230, align: 'left', hideable: false },
+  { key: 'weight', label: 'Peso / Rend.', width: 120, align: 'center', hideable: true },
+  { key: 'production_cost', label: 'Custo Produção', width: 135, align: 'center', hideable: true },
+  { key: 'operational_cost', label: 'Custo Operacional', width: 135, align: 'center', hideable: true },
+  { key: 'sale_price', label: 'Preço Venda', width: 125, align: 'center', hideable: true },
+  { key: 'profit', label: 'Lucro (R$)', width: 115, align: 'center', hideable: true },
+  { key: 'margin', label: 'Margem %', width: 105, align: 'center', hideable: true },
   { key: 'status', label: 'Status', width: 90, align: 'center', hideable: true },
 ];
 
@@ -194,6 +201,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       } else if (orderBy === 'production_cost') {
         va = a.production_cost;
         vb = b.production_cost;
+      } else if (orderBy === 'operational_cost') {
+        va = a.operational_cost;
+        vb = b.operational_cost;
       } else if (orderBy === 'sale_price') {
         va = a.sale_price;
         vb = b.sale_price;
@@ -588,6 +598,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                 </span>
                               );
                               break;
+                            case 'operational_cost':
+                              cellContent = (
+                                <span className="font-medium text-[#D97706] dark:text-[#FBBF24]">
+                                  {prod.operational_cost_fmt || 'R$ 0,00'}
+                                </span>
+                              );
+                              break;
                             case 'sale_price':
                               cellContent = (
                                 <span className="font-medium text-[#18223A] dark:text-[#F4F7FF]">
@@ -940,6 +957,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   });
   const [directCostFmt, setDirectCostFmt] = useState(editItem ? editItem.direct_cost_fmt : 'R$ 0,00');
   const [operationalCostFmt, setOperationalCostFmt] = useState('R$ 0,00');
+  const [operationalBreakdown, setOperationalBreakdown] = useState<any[]>([]);
   const [productionCostFmt, setProductionCostFmt] = useState(editItem ? editItem.production_cost_fmt : 'R$ 0,00');
   const [profitValFmt, setProfitValFmt] = useState(editItem ? editItem.profit_val_fmt : 'R$ 0,00');
   const [marginFmt, setMarginFmt] = useState(editItem ? editItem.profit_margin_fmt : '0.0%');
@@ -984,6 +1002,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
             }));
             setItems(rows);
             setDirectCostFmt(data.direct_cost_fmt);
+            setOperationalCostFmt(data.operational_cost_fmt || 'R$ 0,00');
+            setOperationalBreakdown(data.operational_breakdown?.items || []);
             setProductionCostFmt(data.production_cost_fmt);
             setProfitValFmt(data.profit_val_fmt);
             setMarginFmt(`${data.profit_margin_pct}%`);
@@ -996,13 +1016,17 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   }, [editItem]);
 
   // Live preview calculation
-  const recalculatePreview = useCallback(async (rows: FormCompositionRow[], priceStr: string) => {
+  const recalculatePreview = useCallback(async (
+    rows: FormCompositionRow[],
+    priceStr: string
+  ) => {
     const validRows = rows.filter(
       (r) => r.ref_id > 0 && parseFloat(r.qty.replace(',', '.')) > 0 && r.unit
     );
     if (validRows.length === 0) {
       setDirectCostFmt('R$ 0,00');
       setOperationalCostFmt('R$ 0,00');
+      setOperationalBreakdown([]);
       setProductionCostFmt('R$ 0,00');
       setProfitValFmt('R$ 0,00');
       setMarginFmt('0.0%');
@@ -1034,6 +1058,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         const data = await res.json();
         setDirectCostFmt(data.direct_cost_fmt);
         setOperationalCostFmt(data.operational_cost_fmt);
+        setOperationalBreakdown(data.operational_breakdown?.items || []);
         setProductionCostFmt(data.production_cost_fmt);
         setProfitValFmt(data.profit_val_fmt);
         setMarginFmt(data.profit_margin_fmt);
@@ -1135,6 +1160,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
       weight_qty: weightQty,
       weight_unit: weightUnit,
       sale_price: salePrice,
+      cooking_appliance: 'none',
+      cooking_time_minutes: 0,
+      batch_yield_units: 1,
       notes: notes.trim(),
       items: validRows.map((it) => ({
         item_type: it.item_type,
@@ -1408,49 +1436,112 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
             )}
           </div>
 
+          {/* Informação didática da Composição Comercial */}
+          <div className="p-3.5 rounded-[18px] bg-[#EBF3FE] dark:bg-[#132546] border border-[#CBDDF7] dark:border-[#1E3A6E]">
+            <p className="text-[12.5px] font-bold text-[#1E3A8A] dark:text-[#93C5FD]">
+              Montagem & Embalagem Comercial do Produto
+            </p>
+            <p className="text-[11.5px] text-[#475569] dark:text-[#94A3B8] mt-0.5">
+              Adicione aqui as receitas prontas (massas de bolo, brigadeiros, recheios) e as embalagens/insumos finais. Os custos de gás, forno e tempo de preparo já vêm calculados automaticamente dentro de cada receita!
+            </p>
+          </div>
+
           {/* Card 3: Painel de Precificação & Lucro em Tempo Real */}
-          <div className="p-3.5 rounded-[18px] bg-[#FFF8EE] dark:bg-[#1B1914] border border-[#F28C28]/35 flex items-center justify-around text-center shadow-sm">
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Custo de Produção
-              </span>
-              <span className="text-[17px] font-bold text-[#F28C28]">
-                {productionCostFmt}
-              </span>
+          <div className="rounded-[18px] bg-[#FFF8EE] dark:bg-[#1B1914] border border-[#F28C28]/35 p-3.5 shadow-sm space-y-3">
+            <div className="flex items-center justify-around text-center">
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Custo de Produção
+                </span>
+                <span className="text-[17px] font-bold text-[#F28C28]">
+                  {productionCostFmt}
+                </span>
+                <span className="block text-[10.5px] font-semibold text-[#8C9BB5] dark:text-[#93A4C6] mt-0.5">
+                  Direto: {directCostFmt} + Op.: {operationalCostFmt}
+                </span>
+              </div>
+
+              <div className="w-[1px] h-10 bg-[#F28C28]/25" />
+
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Preço de Venda
+                </span>
+                <span className="text-[17px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  {salePrice}
+                </span>
+                <span className="block text-[10.5px] font-semibold text-[#8C9BB5] dark:text-[#93A4C6] mt-0.5">
+                  Valor ao cliente
+                </span>
+              </div>
+
+              <div className="w-[1px] h-10 bg-[#F28C28]/25" />
+
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Lucro Líquido
+                </span>
+                <span className="text-[17px] font-bold text-[#16A34A] dark:text-[#4ADE80]">
+                  {profitValFmt}
+                </span>
+                <span className="block text-[10.5px] font-semibold text-[#16A34A]/80 dark:text-[#4ADE80]/80 mt-0.5">
+                  Por unidade
+                </span>
+              </div>
+
+              <div className="w-[1px] h-10 bg-[#F28C28]/25" />
+
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
+                  Margem / Markup
+                </span>
+                <span className="text-[15px] font-bold text-[#475569] dark:text-[#CBD5E1]">
+                  {marginFmt} • {markupVal.toFixed(1)}x
+                </span>
+                <span className="block text-[10.5px] font-semibold text-[#8C9BB5] dark:text-[#93A4C6] mt-0.5">
+                  Retorno sobre venda
+                </span>
+              </div>
             </div>
 
-            <div className="w-[1px] h-8 bg-[#F28C28]/25" />
+            {/* Decomposição Transparente dos Custos Operacionais */}
+            {operationalBreakdown && operationalBreakdown.length > 0 && (
+              <div className="pt-2.5 border-t border-[#F28C28]/20 flex flex-wrap items-center justify-between gap-2 text-[11.5px]">
+                <div className="flex items-center text-[#18223A] dark:text-[#F4F7FF] font-bold">
+                  <span>Custos Operacionais inclusos (Gás, Energia e Água):</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {operationalBreakdown.map((item: any, idx: number) => {
+                    const n = (item.name || '').toLowerCase();
+                    const isEnergy = n.includes('energia') || n.includes('elétr') || n.includes('eletr');
+                    const isWater = n.includes('água') || n.includes('agua');
+                    const isGas = n.includes('gás') || n.includes('gas');
+                    const iconSvg = isGas ? (
+                      <FlameIcon size={12} className="text-[#F28C28]" />
+                    ) : isEnergy ? (
+                      <ZapEnergyIcon size={12} className="text-[#F28C28]" />
+                    ) : isWater ? (
+                      <DropletWaterIcon size={12} className="text-[#F28C28]" />
+                    ) : null;
 
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Preço de Venda
-              </span>
-              <span className="text-[17px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                {salePrice}
-              </span>
-            </div>
-
-            <div className="w-[1px] h-8 bg-[#F28C28]/25" />
-
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Lucro Líquido
-              </span>
-              <span className="text-[17px] font-bold text-[#16A34A] dark:text-[#4ADE80]">
-                {profitValFmt}
-              </span>
-            </div>
-
-            <div className="w-[1px] h-8 bg-[#F28C28]/25" />
-
-            <div>
-              <span className="block text-[11px] uppercase tracking-wider font-bold text-[#8C9BB5] dark:text-[#93A4C6]">
-                Margem / Markup
-              </span>
-              <span className="text-[15px] font-bold text-[#475569] dark:text-[#CBD5E1]">
-                {marginFmt} • {markupVal.toFixed(1)}x
-              </span>
-            </div>
+                    return (
+                      <span
+                        key={item.id || idx}
+                        className="px-2.5 py-1 rounded-full bg-white dark:bg-[#111F3B] border border-[#F28C28]/30 font-bold text-[#18223A] dark:text-[#F4F7FF] flex items-center gap-1.5 shadow-xs"
+                      >
+                        {iconSvg && <span className="flex items-center shrink-0">{iconSvg}</span>}
+                        <span>{item.name}:</span>
+                        <span className="text-[#F28C28]">{item.cost_fmt}</span>
+                        <span className="text-[#8C9BB5] dark:text-[#93A4C6] text-[10px]">({item.rate_label})</span>
+                      </span>
+                    );
+                  })}
+                  <span className="px-2.5 py-1 rounded-full bg-[#F28C28] text-white font-extrabold text-[11px] shadow-xs">
+                    Total: {operationalCostFmt}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

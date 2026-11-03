@@ -154,17 +154,24 @@ def init_db():
         add_col('base_recipes', 'active', 'INTEGER NOT NULL DEFAULT 1')
         add_col('base_recipes', 'archived', 'BOOLEAN NOT NULL DEFAULT 0')
         add_col('base_recipes', 'code', 'TEXT')
+        add_col('base_recipes', 'cooking_appliance', "TEXT DEFAULT 'none'")
+        add_col('base_recipes', 'cooking_time_minutes', "REAL DEFAULT 0.0")
         add_col('base_recipes', 'updated_at', 'TEXT')
         add_col('products', 'code', 'TEXT')
         add_col('products', 'archived', 'BOOLEAN NOT NULL DEFAULT 0')
         add_col('products', 'weight_qty', 'REAL')
         add_col('products', 'weight_unit', 'TEXT')
         add_col('products', 'notes', 'TEXT')
+        add_col('products', 'cooking_appliance', "TEXT DEFAULT 'none'")
+        add_col('products', 'cooking_time_minutes', "REAL DEFAULT 0.0")
+        add_col('products', 'batch_yield_units', "REAL DEFAULT 1.0")
         add_col('products', 'created_at', 'TEXT')
         add_col('products', 'updated_at', 'TEXT')
         add_col('cost_settings', 'percentage', 'REAL NOT NULL DEFAULT 20')
+        add_col('cost_settings', 'cost_type', "TEXT NOT NULL DEFAULT 'PERCENT'")
+        add_col('cost_settings', 'fixed_value', 'REAL NOT NULL DEFAULT 0.0')
         for name in ('Gás', 'Energia', 'Água'):
-            c.execute('INSERT OR IGNORE INTO cost_settings(name, percentage) VALUES(?,20)', (name,))
+            c.execute("INSERT OR IGNORE INTO cost_settings(name, percentage, cost_type, fixed_value) VALUES(?,20,'PERCENT',0.0)", (name,))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('theme', 'light'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('company_name', 'Nexo'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('company_logo', ''))
@@ -172,6 +179,12 @@ def init_db():
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('volume_base_unit', 'ml'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('count_base_unit', 'un'))
         c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('history_retention_months', '36'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('kitchen_days_month', '26'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('kitchen_hours_day', '8'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('gas_supply_type', 'cylinder_13'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('gas_price', '125.00'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('electricity_bill_monthly', '350.00'))
+        c.execute('INSERT OR IGNORE INTO system_settings(key,value) VALUES(?,?)', ('water_bill_monthly', '80.00'))
         _ensure_codes(c)
         _ensure_audit_triggers(c)
 
@@ -258,6 +271,21 @@ def get_cost_settings():
     with db() as c:
         rows = c.execute('SELECT name, percentage FROM cost_settings ORDER BY id').fetchall()
     return {r['name']: float(r['percentage']) for r in rows}
+
+
+def get_cost_settings_detailed():
+    with db() as c:
+        rows = c.execute('SELECT id, name, percentage, cost_type, fixed_value FROM cost_settings ORDER BY id ASC').fetchall()
+    return [
+        {
+            'id': r['id'],
+            'name': r['name'],
+            'percentage': float(r['percentage'] or 0.0),
+            'cost_type': r['cost_type'] if r['cost_type'] in ('PERCENT', 'FIXED') else 'PERCENT',
+            'fixed_value': float(r['fixed_value'] or 0.0),
+        }
+        for r in rows
+    ]
 
 
 def record_edit(entity_type, entity_id, reason, changes):

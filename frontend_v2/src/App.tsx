@@ -23,7 +23,7 @@ import { MaterialsPage } from './components/MaterialsPage';
 import { RecipesPage } from './components/RecipesPage';
 import { ProductsPage } from './components/ProductsPage';
 import { SettingsPage } from './components/SettingsPage';
-import { NavKey, SystemStatus } from './types';
+import { NavKey, SystemStatus, CompanyBrandSettings } from './types';
 
 interface PageHeaderMeta {
   title: string;
@@ -78,7 +78,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.5.0',
+    version: 'v1.6.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -304,7 +304,7 @@ export const App: React.FC = () => {
           <span>
             Banco de dados: {status.connected ? 'Conectado ✓' : 'Desconectado ✕'} · {status.db_name}
           </span>
-          <span>Nexo · Gestão de Custos e Precificação · v1.5.0 (Etapa 3: Configurações & Identidade)</span>
+          <span>Nexo · Gestão de Custos e Precificação · v1.6.0 (Etapa 3: Configurações & Identidade)</span>
         </footer>
       </main>
     </div>

@@ -7,7 +7,7 @@ from .paths import (
 )
 from .database import (
     db, now_iso, init_db, next_code, get_setting, set_setting,
-    get_cost_settings, record_edit, list_names,
+    get_cost_settings, get_cost_settings_detailed, record_edit, list_names,
 )
 from .units import (
     UNITS_MASS, UNITS_VOLUME, UNITS_COUNT, UNITS, BASE_UNITS_DEFAULT,
@@ -17,8 +17,13 @@ from .units import (
     custom_units_for_material, conversion_to_base, convert_generic, conversion_between,
 )
 from .calculator import (
-    material_cost, recipe_cost, item_cost, operational_cost,
-    product_unit_cost, product_direct_cost, snapshot_costs,
+    material_cost, recipe_cost, recipe_direct_cost, recipe_operational_cost,
+    recipe_operational_breakdown,
+    item_cost, item_direct_cost, item_operational_cost,
+    operational_cost, operational_cost_breakdown,
+    calculate_product_operational_breakdown, get_kitchen_rates, EQUIPMENT_PRESETS,
+    product_unit_cost, product_direct_cost, product_operational_cost,
+    product_operational_breakdown, snapshot_costs,
 )
 from .document_importer import (
     save_uploaded_document, latest_document,

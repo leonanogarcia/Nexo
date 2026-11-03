@@ -3,6 +3,62 @@ import { NavKey, CompanyBrandSettings } from '../types';
 
 // ---------- Vector Icons ----------
 
+export interface NexoToggleSwitchProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  tooltip?: string;
+  className?: string;
+  disabled?: boolean;
+}
+
+export const NexoToggleSwitch: React.FC<NexoToggleSwitchProps> = ({
+  checked,
+  onChange,
+  tooltip,
+  className = '',
+  disabled = false,
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className={`relative inline-flex items-center ${className}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!disabled) onChange(!checked);
+        }}
+        style={{
+          backgroundColor: checked ? 'var(--nexo-brand-primary, #F28C28)' : undefined,
+        }}
+        className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 ease-in-out cursor-pointer focus:outline-none shrink-0 relative px-[2px] m-0 border-0 flex items-center select-none ${
+          disabled ? 'opacity-50 cursor-not-allowed' : ''
+        } ${!checked ? 'bg-[#CBD5E1] dark:bg-[#334155]' : ''}`}
+      >
+        <span
+          className={`block w-[20px] h-[20px] rounded-full transition-transform duration-200 ease-in-out shadow-sm pointer-events-none shrink-0 bg-white ${
+            checked ? 'translate-x-[20px]' : 'translate-x-0'
+          }`}
+        />
+      </button>
+
+      {/* Floating Capsule Tooltip no Hover (Padrão Oficial Nexo) */}
+      {hovered && tooltip && (
+        <div className="absolute right-0 top-[32px] h-[32px] px-4 rounded-full bg-[#101A33] dark:bg-[#2A3B5C] text-white font-bold text-[12px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in">
+          {tooltip}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const NexoCheckbox: React.FC<{
   checked: boolean;
   onChange: (e: React.MouseEvent) => void;
@@ -119,7 +175,7 @@ export const ClockIcon: React.FC<{ color?: string; size?: number }> = ({
     viewBox="0 0 24 24"
     fill="none"
     stroke={color}
-    strokeWidth="2"
+    strokeWidth="1.7"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
@@ -141,7 +197,7 @@ export const RulerConversionIcon: React.FC<{ color?: string; size?: number }> = 
     viewBox="0 0 24 24"
     fill="none"
     stroke={color}
-    strokeWidth="2"
+    strokeWidth="1.7"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
@@ -164,7 +220,7 @@ export const DuplicateIcon: React.FC<{ color?: string; size?: number; className?
     viewBox="0 0 24 24"
     fill="none"
     stroke={color}
-    strokeWidth="2"
+    strokeWidth="1.7"
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
@@ -235,6 +291,163 @@ export const ChevronDownIcon: React.FC<{ color?: string; size?: number; classNam
     className={className}
   >
     <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+export const WorkShiftClockIcon: React.FC<{ className?: string; size?: number; color?: string }> = ({
+  className = 'w-6 h-6',
+  size,
+  color = 'currentColor',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Arco do relógio com abertura para a maleta */}
+    <path d="M 16.3 7.0 A 7.5 7.5 0 1 0 10.5 16.9" />
+
+    {/* Eixo central e ponteiros em 8h (sem ponteiro de segundos) */}
+    <circle cx="9.5" cy="9.5" r="0.8" fill={color} stroke="none" />
+    {/* Minutos em 12h */}
+    <line x1="9.5" y1="9.5" x2="9.5" y2="4.5" />
+    {/* Horas em 8h */}
+    <line x1="9.5" y1="9.5" x2="6.38" y2="11.3" />
+
+    {/* Alça superior da maleta */}
+    <path d="M 14 11 V 9.2 A 0.8 0.8 0 0 1 14.8 8.4 H 17.2 A 0.8 0.8 0 0 1 18 9.2 V 11" />
+
+    {/* Corpo da maleta de trabalho */}
+    <rect x="10.5" y="11" width="11" height="9.8" rx="1.6" />
+
+    {/* Linha divisória horizontal */}
+    <line x1="10.5" y1="15.5" x2="14.5" y2="15.5" />
+    <line x1="17.5" y1="15.5" x2="21.5" y2="15.5" />
+
+    {/* Fecho central da maleta */}
+    <rect x="14.5" y="14.3" width="3" height="2.4" rx="0.6" strokeWidth="1.4" />
+  </svg>
+);
+
+export const KitchenUtilitiesCostIcon: React.FC<{ className?: string; size?: number; color?: string }> = ({
+  className = 'w-6 h-6',
+  size,
+  color = 'currentColor',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    className={className}
+    viewBox="0 0 24 24"
+    fill={color}
+  >
+    <path fillRule="evenodd" clipRule="evenodd" d="M20.26 19.03 L20.2 18.85 L20.05 18.68 L19.72 18.59 L16.8 19.05 L16.54 19.11 L16.37 19.26 L16.28 19.41 L16.26 19.67 L16.35 19.89 L16.45 20.01 L16.71 20.12 L17.06 20.08 L17.34 20.42 L17.72 20.68 L18.2 20.79 L18.52 20.77 L18.8 20.68 L19.08 20.51 L19.38 20.19 L19.6 19.69 L19.88 19.65 L20.09 19.54 L20.22 19.37 Z M3.89 15.37 L3.72 15.67 L3.72 15.93 L3.8 16.36 L4.06 17.0 L4.47 17.58 L4.94 18.01 L5.59 18.38 L6.36 18.57 L6.64 18.55 L6.84 18.44 L6.97 18.27 L7.01 18.12 L6.99 17.86 L6.88 17.67 L6.64 17.52 L6.0 17.39 L5.63 17.2 L5.24 16.85 L4.9 16.27 L4.77 15.6 L4.56 15.32 L4.25 15.24 L4.04 15.28 Z M11.96 13.11 L11.98 13.82 L11.1 14.16 L10.56 14.7 L10.32 15.37 L10.36 16.06 L10.64 16.62 L11.18 17.07 L13.33 17.78 L13.59 18.08 L13.59 18.55 L13.23 18.92 L12.37 19.05 L11.72 18.83 L11.38 18.12 L10.32 18.12 L10.32 18.4 L10.73 19.37 L11.18 19.76 L11.98 20.06 L11.98 20.79 L13.01 20.79 L13.03 20.06 L13.96 19.71 L14.5 19.13 L14.69 18.55 L14.62 17.73 L14.39 17.26 L13.85 16.81 L11.68 16.1 L11.42 15.78 L11.42 15.37 L11.89 14.94 L12.73 14.85 L13.46 15.22 L13.64 15.8 L14.71 15.8 L14.69 15.47 L14.32 14.55 L13.79 14.1 L13.05 13.84 L13.03 13.09 Z M18.86 9.82 L16.35 13.34 L18.13 13.37 L17.7 15.97 L20.18 12.4 L18.43 12.38 Z M6.32 7.69 L4.51 9.69 L2.66 12.38 L1.69 14.51 L1.5 15.97 L1.95 17.71 L3.24 19.46 L4.84 20.45 L6.73 20.79 L8.36 20.49 L9.78 19.69 L9.38 18.53 L8.13 19.37 L6.71 19.67 L5.31 19.41 L4.15 18.72 L3.18 17.56 L2.68 16.06 L2.83 14.81 L3.48 13.32 L6.47 9.17 L8.43 11.67 L9.83 14.12 L10.71 13.22 L8.19 9.41 L6.79 7.77 Z M16.63 7.88 L16.2 9.36 L17.57 8.72 L19.23 8.78 L20.39 9.41 L21.3 10.83 L21.42 11.95 L21.21 13.17 L19.32 17.0 L17.21 17.0 L15.27 13.02 L15.12 11.41 L15.42 10.35 L14.07 11.21 L14.22 13.22 L15.38 14.42 L15.68 16.08 L16.45 18.01 L19.94 18.08 L20.28 17.73 L20.56 16.55 L22.26 13.37 L22.48 12.2 L22.31 10.44 L21.64 9.15 L20.46 8.12 L18.78 7.6 Z M11.55 3.19 L11.83 4.2 L11.61 5.51 L10.86 6.46 L10.45 6.33 L10.41 5.6 L9.76 6.24 L9.27 7.28 L9.29 8.48 L9.59 9.19 L10.17 9.86 L11.61 10.55 L10.99 9.79 L11.03 8.76 L11.61 7.79 L12.65 7.04 L12.52 7.86 L12.73 8.53 L13.03 8.76 L13.33 8.72 L13.51 8.12 L14.02 9.02 L13.98 9.84 L13.48 10.5 L14.5 10.01 L15.36 9.11 L15.72 8.2 L15.7 7.11 L15.18 6.03 L14.5 5.36 L14.5 6.22 L14.04 6.59 L13.76 5.25 L13.25 4.33 L12.56 3.68 Z" />
+  </svg>
+);
+
+export const KitchenUtensilsIcon: React.FC<{ className?: string; size?: number; color?: string }> = ({
+  className = 'w-5 h-5',
+  size,
+  color = 'currentColor',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    className={className}
+    viewBox="0 0 24 24"
+    fill={color}
+  >
+    <path fillRule="evenodd" clipRule="evenodd" d="M18.74 1.7 L17.61 1.96 L16.35 2.88 L15.67 4.01 L15.35 5.88 L15.85 8.16 L17.4 11.68 L17.8 13.08 L17.72 21.3 L18.19 22.04 L19.0 22.28 L19.69 22.01 L20.11 21.36 L20.06 13.0 L20.45 11.63 L22.18 7.56 L22.47 5.53 L22.18 4.06 L21.55 2.96 L20.34 2.01 Z M18.43 20.46 L19.4 20.46 L19.45 20.52 L19.45 21.15 L19.37 21.33 L19.27 21.46 L19.08 21.57 L18.98 21.57 L18.95 21.59 L18.87 21.59 L18.69 21.54 L18.61 21.49 L18.48 21.36 L18.4 21.2 L18.37 21.09 L18.37 20.52 Z M18.43 13.68 L19.45 13.71 L19.42 19.78 L18.37 19.75 L18.37 13.73 Z M17.74 2.67 L17.85 2.67 L17.56 3.62 L17.4 4.64 L17.35 6.35 L17.51 8.11 L18.03 11.4 L16.59 8.16 L16.22 7.06 L16.06 6.17 L16.09 5.11 L16.35 4.17 L16.77 3.46 L17.24 2.98 Z M20.0 2.62 L20.69 3.06 L21.08 3.48 L21.42 4.04 L21.74 5.11 L21.76 6.19 L21.58 7.16 L21.26 8.11 L19.79 11.42 L20.32 8.14 L20.48 6.19 L20.37 4.25 L20.19 3.3 L19.95 2.64 Z M18.85 2.41 L18.98 2.41 L19.14 2.54 L19.5 3.38 L19.71 4.48 L19.79 5.43 L19.69 7.64 L18.93 12.5 L18.24 8.43 L18.03 6.32 L18.06 4.96 L18.22 3.83 L18.51 2.88 Z M13.06 1.7 L12.07 1.88 L11.09 2.43 L10.3 3.38 L9.88 4.75 L9.88 13.45 L10.09 13.68 L10.88 13.68 L11.01 13.89 L10.94 14.39 L10.54 14.68 L10.54 21.62 L10.86 22.12 L11.3 22.28 L12.78 22.25 L13.22 21.96 L13.38 21.59 L13.38 1.96 Z M11.25 15.13 L12.7 15.15 L12.7 21.51 L12.54 21.59 L11.36 21.59 L11.22 21.51 Z M11.67 13.68 L12.7 13.71 L12.7 14.39 L12.64 14.44 L11.65 14.42 L11.65 14.31 L11.7 14.1 L11.7 13.94 L11.65 13.76 Z M12.64 2.43 L12.67 13.0 L10.57 12.97 L10.59 4.64 L10.78 3.98 L11.25 3.25 L11.93 2.7 Z M4.55 1.7 L3.26 2.2 L2.39 3.14 L1.76 4.54 L1.5 6.3 L1.92 8.16 L3.37 9.84 L3.63 10.5 L3.37 21.07 L3.89 22.01 L4.73 22.28 L5.49 21.99 L5.99 21.07 L5.73 10.48 L5.97 9.87 L7.44 8.16 L7.78 7.11 L7.83 5.85 L7.44 4.09 L6.76 2.85 L5.86 2.04 Z M4.44 2.41 L5.34 2.54 L6.2 3.27 L6.81 4.38 L7.15 6.01 L6.91 7.64 L6.47 8.37 L5.49 9.35 L5.05 10.34 L5.31 20.96 L5.15 21.36 L4.71 21.59 L4.31 21.46 L4.08 21.09 L4.31 10.4 L3.92 9.42 L2.58 7.93 L2.21 6.64 L2.34 5.06 L2.84 3.75 L3.52 2.88 Z" />
+  </svg>
+);
+
+
+export const FlameIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 14,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+  </svg>
+);
+
+export const ZapEnergyIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 14,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+);
+
+export const DropletWaterIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 14,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+  </svg>
+);
+
+export const PackageBoxIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 16,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M16.5 9.4 7.55 4.24" />
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.29 7 12 12 20.71 7" />
+    <line x1="12" y1="22" x2="12" y2="12" />
   </svg>
 );
 
@@ -418,14 +631,14 @@ export const RoundedEntry: React.FC<RoundedEntryProps> = ({
           fill="none"
           className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#9AA9BF]"
         >
-          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="2" />
+          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.7" />
           <line
             x1="12.5"
             y1="12.5"
             x2="17"
             y2="17"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.7"
             strokeLinecap="round"
           />
         </svg>
@@ -530,7 +743,7 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
           <path
             d="M2 4L6 8L10 4"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.7"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -718,7 +931,7 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
           <path
             d="M2 4L6 8L10 4"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.7"
             strokeLinecap="round"
             strokeLinejoin="round"
           />

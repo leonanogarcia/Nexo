@@ -31,17 +31,30 @@ from . import (
     now_iso,
     paths,
     recipe_cost,
+    recipe_direct_cost,
+    recipe_operational_cost,
     item_cost,
+    item_direct_cost,
+    item_operational_cost,
     operational_cost,
+    operational_cost_breakdown,
+    calculate_product_operational_breakdown,
+    get_kitchen_rates,
+    EQUIPMENT_PRESETS,
+    get_cost_settings_detailed,
     product_unit_cost,
     product_direct_cost,
+    product_operational_cost,
+    recipe_operational_breakdown,
+    product_operational_breakdown,
+    convert_generic,
     record_edit,
     set_setting,
     snapshot_costs,
     to_float,
 )
 
-app = FastAPI(title="Nexo API", version="1.5.0")
+app = FastAPI(title="Nexo API", version="1.6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -97,6 +110,16 @@ class ConversionPayload(BaseModel):
     factor_to_base: Any
 
 
+class UpdateConversionPayload(BaseModel):
+    name: Optional[str] = None
+    base_unit: Optional[str] = None
+    factor_to_base: Any = None
+
+
+class BatchDeleteConversionsPayload(BaseModel):
+    ids: list[int]
+
+
 class SettingPayload(BaseModel):
     value: Any
 
@@ -111,6 +134,8 @@ class RecipePayload(BaseModel):
     name: str
     yield_qty: Any
     yield_unit: str
+    cooking_appliance: Optional[str] = "none"
+    cooking_time_minutes: Optional[Any] = 0.0
     notes: Optional[str] = ""
     items: List[RecipeItemPayload] = []
 
@@ -181,7 +206,7 @@ def get_system_status():
         "mat_hidden_cols": mat_hidden_cols,
         "rec_hidden_cols": rec_hidden_cols,
         "prod_hidden_cols": prod_hidden_cols,
-        "version": "v1.5.0",
+        "version": "v1.6.0",
     }
 
 
@@ -200,10 +225,20 @@ class CompanyPayload(BaseModel):
 class OperationalCostItemPayload(BaseModel):
     id: Optional[int] = None
     name: str
-    percentage: Any
+    percentage: Optional[Any] = 0.0
+    cost_type: Optional[str] = "PERCENT"
+    fixed_value: Optional[Any] = 0.0
 
 class OperationalCostsPayload(BaseModel):
     costs: List[OperationalCostItemPayload]
+
+class KitchenSettingsPayload(BaseModel):
+    kitchen_days_month: Optional[Any] = "26"
+    kitchen_hours_day: Optional[Any] = "8"
+    gas_supply_type: Optional[str] = "cylinder_13"
+    gas_price: Optional[Any] = "125.00"
+    electricity_bill_monthly: Optional[Any] = "350.00"
+    water_bill_monthly: Optional[Any] = "80.00" 
 
 
 @app.get("/api/settings")
@@ -220,11 +255,20 @@ def get_all_settings():
     show_company_name = get_setting("show_company_name", "1") in ("1", "true", "True")
     logo_shape = get_setting("logo_shape", "round")
     
-    with db() as c:
-        cost_rows = c.execute("SELECT id, name, percentage FROM cost_settings ORDER BY id ASC").fetchall()
-        cost_list = [{"id": r["id"], "name": r["name"], "percentage": float(r["percentage"] or 0.0)} for r in cost_rows]
-    
-    total_pct = sum(r["percentage"] for r in cost_list)
+    cost_detailed = get_cost_settings_detailed()
+    cost_list = [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "cost_type": r["cost_type"],
+            "percentage": float(r["percentage"] or 0.0),
+            "fixed_value": float(r["fixed_value"] or 0.0),
+            "rate_label": (f"R$ {float(r['fixed_value'] or 0.0):.2f}".replace(".", ",") if r["cost_type"] == "FIXED" else f"{float(r['percentage'] or 0.0):.1f}%".replace(".", ",")),
+        }
+        for r in cost_detailed
+    ]
+    total_pct = sum(r["percentage"] for r in cost_list if r["cost_type"] == "PERCENT")
+    total_fixed = sum(r["fixed_value"] for r in cost_list if r["cost_type"] == "FIXED")
 
     # DB Size
     size_bytes = 0
@@ -251,6 +295,18 @@ def get_all_settings():
         "logo_shape": logo_shape,
         "cost_settings": cost_list,
         "total_operational_percentage": round(total_pct, 1),
+        "total_operational_fixed": round(total_fixed, 2),
+        "total_operational_fixed_fmt": f"R$ {total_fixed:.2f}".replace(".", ","),
+        "kitchen": {
+            "days_month": get_setting("kitchen_days_month", "26"),
+            "hours_day": get_setting("kitchen_hours_day", "8"),
+            "gas_supply_type": get_setting("gas_supply_type", "cylinder_13"),
+            "gas_price": float(get_setting("gas_price", "125.00") or 125.0),
+            "electricity_bill_monthly": float(get_setting("electricity_bill_monthly", "350.00") or 350.0),
+            "water_bill_monthly": float(get_setting("water_bill_monthly", "80.00") or 80.0),
+            "rates": get_kitchen_rates(),
+            "presets": list(EQUIPMENT_PRESETS.values()),
+        },
         "units": {
             "mass": ["mg", "g", "kg", "t"],
             "volume": ["ml", "L", "kL"],
@@ -319,18 +375,39 @@ def reset_company_settings():
     }
 
 
+@app.post("/api/settings/kitchen-costs")
+def update_kitchen_costs(payload: KitchenSettingsPayload):
+    set_setting("kitchen_days_month", str(payload.kitchen_days_month or "26").replace(",", "."))
+    set_setting("kitchen_hours_day", str(payload.kitchen_hours_day or "8").replace(",", "."))
+    set_setting("gas_supply_type", str(payload.gas_supply_type or "cylinder_13"))
+    set_setting("gas_price", str(payload.gas_price or "125.00").replace(",", "."))
+    set_setting("electricity_bill_monthly", str(payload.electricity_bill_monthly or "350.00").replace(",", "."))
+    set_setting("water_bill_monthly", str(payload.water_bill_monthly or "80.00").replace(",", "."))
+    try:
+        snapshot_costs()
+    except Exception:
+        pass
+    return {"ok": True, "message": "Parâmetros da jornada da cozinha salvos com sucesso.", "rates": get_kitchen_rates()}
+
+
 @app.post("/api/settings/operational-costs")
 def update_operational_costs(payload: OperationalCostsPayload):
     with db() as c:
         for it in payload.costs:
             try:
-                p_val = float(str(it.percentage).replace(",", "."))
+                p_val = float(str(it.percentage or 0.0).replace(",", "."))
             except Exception:
                 p_val = 0.0
+            try:
+                f_val = float(str(it.fixed_value or 0.0).replace(",", "."))
+            except Exception:
+                f_val = 0.0
+            c_type = "FIXED" if str(it.cost_type or "").upper() == "FIXED" else "PERCENT"
+            
             if it.id:
-                c.execute("UPDATE cost_settings SET percentage=? WHERE id=?", (p_val, it.id))
+                c.execute("UPDATE cost_settings SET percentage=?, cost_type=?, fixed_value=? WHERE id=?", (p_val, c_type, f_val, it.id))
             else:
-                c.execute("UPDATE cost_settings SET percentage=? WHERE name=?", (p_val, it.name))
+                c.execute("UPDATE cost_settings SET percentage=?, cost_type=?, fixed_value=? WHERE name=?", (p_val, c_type, f_val, it.name))
         c.commit()
     try:
         snapshot_costs()
@@ -906,6 +983,90 @@ def save_material_conversion(payload: ConversionPayload):
         raise HTTPException(status_code=500, detail=f"Não foi possível salvar a conversão: {e}")
 
 
+@app.get("/api/conversions")
+def list_all_conversions(search: Optional[str] = None):
+    init_db()
+    with db() as c:
+        query = """
+            SELECT cu.id, cu.material_id, m.name as material_name, m.purchase_unit as material_unit,
+                   m.brand as material_brand, m.category as material_category, m.code as material_code,
+                   m.barcode as material_barcode,
+                   cu.name as unit_name, cu.base_unit, cu.factor_to_base
+            FROM custom_units cu
+            JOIN materials m ON m.id = cu.material_id
+            WHERE COALESCE(m.archived, 0) = 0
+        """
+        params = []
+        if search and search.strip():
+            s = f"%{search.strip().lower()}%"
+            query += " AND (LOWER(m.name) LIKE ? OR LOWER(cu.name) LIKE ?)"
+            params.extend([s, s])
+
+        query += " ORDER BY m.name COLLATE NOCASE ASC, cu.name COLLATE NOCASE ASC"
+        rows = c.execute(query, params).fetchall()
+
+        items = []
+        for r in rows:
+            factor = float(r["factor_to_base"])
+            items.append({
+                "id": r["id"],
+                "material_id": r["material_id"],
+                "material_name": r["material_name"],
+                "material_unit": r["material_unit"],
+                "material_brand": r["material_brand"] or "",
+                "material_category": r["material_category"] or "",
+                "material_code": r["material_code"] or "",
+                "material_barcode": r["material_barcode"] or "",
+                "unit_name": r["unit_name"],
+                "base_unit": r["base_unit"],
+                "factor_to_base": factor,
+                "factor_fmt": fmt_num(factor),
+                "equivalence_fmt": f"1 {r['unit_name']} = {fmt_num(factor)} {r['base_unit']}",
+            })
+        return {"items": items, "total": len(items)}
+
+
+@app.put("/api/conversions/{conversion_id}")
+def update_conversion(conversion_id: int, payload: UpdateConversionPayload):
+    with db() as c:
+        row = c.execute("SELECT * FROM custom_units WHERE id=?", (conversion_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Unidade configurável não encontrada.")
+
+        name = normalize_text(payload.name.strip()) if payload.name is not None and payload.name.strip() else row["name"]
+        base_unit = payload.base_unit.strip() if payload.base_unit is not None and payload.base_unit.strip() else row["base_unit"]
+        factor = to_float(payload.factor_to_base, "Quantidade") if payload.factor_to_base is not None else float(row["factor_to_base"])
+
+        if factor <= 0:
+            raise HTTPException(status_code=400, detail="A quantidade deve ser maior que zero.")
+
+        c.execute(
+            "UPDATE custom_units SET name=?, base_unit=?, factor_to_base=? WHERE id=?",
+            (name, base_unit, factor, conversion_id),
+        )
+        c.commit()
+    return {"ok": True, "message": "Unidade atualizada com sucesso!"}
+
+
+@app.delete("/api/conversions/{conversion_id}")
+def delete_conversion(conversion_id: int):
+    with db() as c:
+        c.execute("DELETE FROM custom_units WHERE id=?", (conversion_id,))
+        c.commit()
+    return {"ok": True, "message": "Unidade excluída com sucesso!"}
+
+
+@app.post("/api/conversions/batch-delete")
+def batch_delete_conversions(payload: BatchDeleteConversionsPayload):
+    if not payload.ids:
+        return {"ok": True, "deleted_count": 0}
+    with db() as c:
+        placeholders = ",".join("?" for _ in payload.ids)
+        c.execute(f"DELETE FROM custom_units WHERE id IN ({placeholders})", payload.ids)
+        c.commit()
+    return {"ok": True, "deleted_count": len(payload.ids)}
+
+
 # ---------- Base Recipes (Receitas Base) Endpoints ----------
 
 @app.get("/api/recipes")
@@ -974,6 +1135,9 @@ def list_recipes(search: Optional[str] = None, status: Optional[str] = None):
                 y, m, d = c_date.split("-")
                 c_date = f"{d}/{m}/{y}"
 
+            c_app = r["cooking_appliance"] if "cooking_appliance" in r.keys() and r["cooking_appliance"] else "none"
+            c_time = float(r["cooking_time_minutes"] or 0.0) if "cooking_time_minutes" in r.keys() else 0.0
+
             result.append({
                 "id": rid,
                 "code": r["code"] or "",
@@ -981,6 +1145,8 @@ def list_recipes(search: Optional[str] = None, status: Optional[str] = None):
                 "yield_qty": y_qty,
                 "yield_qty_fmt": fmt_num(y_qty) if y_qty > 0 else "",
                 "yield_unit": y_unit,
+                "cooking_appliance": c_app,
+                "cooking_time_minutes": c_time,
                 "notes": r["notes"] or "",
                 "created_at": c_date,
                 "updated_at": r["updated_at"] or "",
@@ -1053,6 +1219,12 @@ def get_recipe_detail(recipe_id: int):
                 "cost_fmt": fmt(i_cost),
             })
 
+    c_app = r["cooking_appliance"] if "cooking_appliance" in r.keys() and r["cooking_appliance"] else "none"
+    c_time = float(r["cooking_time_minutes"] or 0.0) if "cooking_time_minutes" in r.keys() else 0.0
+    mat_cost = sum(it["cost"] for it in formatted_items)
+    op_breakdown = calculate_product_operational_breakdown(mat_cost, c_app, c_time, batch_yield_units=1.0)
+    op_cost = op_breakdown["total_cost"] if op_breakdown.get("is_precise") else 0.0
+
     return {
         "id": r["id"],
         "code": r["code"] or "",
@@ -1060,8 +1232,15 @@ def get_recipe_detail(recipe_id: int):
         "yield_qty": y_qty,
         "yield_qty_fmt": fmt_num(y_qty) if y_qty > 0 else "",
         "yield_unit": r["yield_unit"] or "",
+        "cooking_appliance": c_app,
+        "cooking_time_minutes": c_time,
         "notes": r["notes"] or "",
         "active": bool(r["active"] if r["active"] is not None else 1),
+        "materials_cost": float(mat_cost),
+        "materials_cost_fmt": fmt(mat_cost),
+        "operational_cost": float(op_cost),
+        "operational_cost_fmt": fmt(op_cost),
+        "operational_breakdown": op_breakdown,
         "total_cost": float(tot_cost),
         "total_cost_fmt": fmt(tot_cost),
         "portion_cost": float(portion_cost),
@@ -1093,12 +1272,18 @@ def create_recipe(payload: RecipePayload):
             raise HTTPException(status_code=400, detail=f"Já existe uma receita com o nome '{name}'.")
 
         code = next_code("base_recipes", "RB")
+        c_app = str(payload.cooking_appliance or "none").strip()
+        try:
+            c_time = float(str(payload.cooking_time_minutes or 0.0).replace(",", "."))
+        except Exception:
+            c_time = 0.0
+
         cur = c.execute(
             """
-            INSERT INTO base_recipes(code, name, yield_qty, yield_unit, notes, created_at, updated_at, active, archived)
-            VALUES(?, ?, ?, ?, ?, ?, ?, 1, 0)
+            INSERT INTO base_recipes(code, name, yield_qty, yield_unit, notes, cooking_appliance, cooking_time_minutes, created_at, updated_at, active, archived)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
             """,
-            (code, name, yield_qty, yield_unit, notes, now_val, now_val),
+            (code, name, yield_qty, yield_unit, notes, c_app, c_time, now_val, now_val),
         )
         recipe_id = cur.lastrowid
 
@@ -1145,13 +1330,19 @@ def update_recipe(recipe_id: int, payload: RecipePayload):
         if dup:
             raise HTTPException(status_code=400, detail=f"Já existe outra receita com o nome '{name}'.")
 
+        c_app = str(payload.cooking_appliance or "none").strip()
+        try:
+            c_time = float(str(payload.cooking_time_minutes or 0.0).replace(",", "."))
+        except Exception:
+            c_time = 0.0
+
         c.execute(
             """
             UPDATE base_recipes
-            SET name=?, yield_qty=?, yield_unit=?, notes=?, updated_at=?
+            SET name=?, yield_qty=?, yield_unit=?, notes=?, cooking_appliance=?, cooking_time_minutes=?, updated_at=?
             WHERE id=?
             """,
-            (name, yield_qty, yield_unit, notes, now_val, recipe_id),
+            (name, yield_qty, yield_unit, notes, c_app, c_time, now_val, recipe_id),
         )
 
         c.execute("DELETE FROM base_recipe_items WHERE recipe_id=?", (recipe_id,))
@@ -1352,6 +1543,8 @@ def get_recipe_history(recipe_id: int):
 class RecipePreviewPayload(BaseModel):
     yield_qty: Optional[Any] = 1
     yield_unit: Optional[str] = "un"
+    cooking_appliance: Optional[str] = "none"
+    cooking_time_minutes: Optional[Any] = 0.0
     items: List[RecipeItemPayload] = []
 
 
@@ -1386,11 +1579,22 @@ def preview_recipe_cost(payload: RecipePreviewPayload):
         y_qty = to_float(payload.yield_qty, "Rendimento")
     except Exception:
         y_qty = 1.0
-    
-    portion = (total / y_qty) if y_qty > 0 else 0.0
+
+    c_app = payload.cooking_appliance or "none"
+    c_time = float(payload.cooking_time_minutes or 0.0)
+    op_breakdown = calculate_product_operational_breakdown(total, c_app, c_time, batch_yield_units=1.0)
+    op_cost = op_breakdown["total_cost"] if op_breakdown.get("is_precise") else 0.0
+    final_total = total + op_cost
+    portion = (final_total / y_qty) if y_qty > 0 else 0.0
+
     return {
-        "total_cost": float(total),
-        "total_cost_fmt": fmt(total),
+        "materials_cost": float(total),
+        "materials_cost_fmt": fmt(total),
+        "operational_cost": float(op_cost),
+        "operational_cost_fmt": fmt(op_cost),
+        "operational_breakdown": op_breakdown,
+        "total_cost": float(final_total),
+        "total_cost_fmt": fmt(final_total),
         "portion_cost": float(portion),
         "portion_cost_fmt": fmt(portion),
         "items": items_out,
@@ -1410,12 +1614,18 @@ class ProductPayload(BaseModel):
     weight_qty: Optional[Any] = "1"
     weight_unit: Optional[str] = "un"
     sale_price: Optional[Any] = "0"
+    cooking_appliance: Optional[str] = "none"
+    cooking_time_minutes: Optional[Any] = 0.0
+    batch_yield_units: Optional[Any] = 1.0
     notes: Optional[str] = ""
     items: List[ProductItemPayload] = []
 
 class ProductPreviewPayload(BaseModel):
     items: List[ProductItemPayload] = []
     sale_price: Optional[Any] = "0"
+    cooking_appliance: Optional[str] = "none"
+    cooking_time_minutes: Optional[Any] = 0.0
+    batch_yield_units: Optional[Any] = 1.0
 
 
 @app.get("/api/products/composition-options")
@@ -1516,10 +1726,11 @@ def list_products(search: Optional[str] = None, status: Optional[str] = None):
                 direct_cost = 0.0
             
             try:
-                tot_cost = product_unit_cost(pid)
+                op_cost = product_operational_cost(pid)
             except Exception:
-                tot_cost = direct_cost + operational_cost(direct_cost)
+                op_cost = 0.0
 
+            tot_cost = direct_cost + op_cost
             sp = float(p["sale_price"] or 0.0)
             profit_val = sp - tot_cost
             margin_pct = (profit_val / sp * 100.0) if sp > 0 else 0.0
@@ -1557,6 +1768,9 @@ def list_products(search: Optional[str] = None, status: Optional[str] = None):
 
             w_qty = float(p["weight_qty"] or 1.0)
             w_unit = p["weight_unit"] or "un"
+            c_app = p["cooking_appliance"] if "cooking_appliance" in p.keys() and p["cooking_appliance"] else "none"
+            c_time = float(p["cooking_time_minutes"] or 0.0) if "cooking_time_minutes" in p.keys() else 0.0
+            b_yield = float(p["batch_yield_units"] or 1.0) if "batch_yield_units" in p.keys() else 1.0
 
             result.append({
                 "id": pid,
@@ -1565,8 +1779,13 @@ def list_products(search: Optional[str] = None, status: Optional[str] = None):
                 "weight_qty": w_qty,
                 "weight_qty_fmt": fmt_num(w_qty),
                 "weight_unit": w_unit,
+                "cooking_appliance": c_app,
+                "cooking_time_minutes": c_time,
+                "batch_yield_units": b_yield,
                 "direct_cost": float(direct_cost),
                 "direct_cost_fmt": fmt(direct_cost),
+                "operational_cost": float(op_cost),
+                "operational_cost_fmt": fmt(op_cost),
                 "production_cost": float(tot_cost),
                 "production_cost_fmt": fmt(tot_cost),
                 "sale_price": sp,
@@ -1637,13 +1856,22 @@ def get_product_detail(product_id: int):
             direct_cost = 0.0
         
         try:
-            tot_cost = product_unit_cost(product_id)
+            op_cost = product_operational_cost(product_id)
         except Exception:
-            tot_cost = direct_cost + operational_cost(direct_cost)
+            op_cost = 0.0
 
+        tot_cost = direct_cost + op_cost
         sp = float(p["sale_price"] or 0.0)
         profit_val = sp - tot_cost
         margin_pct = (profit_val / sp * 100.0) if sp > 0 else 0.0
+        try:
+            op_breakdown = product_operational_breakdown(product_id)
+        except Exception:
+            op_breakdown = {
+                "items": [],
+                "total_cost": float(op_cost),
+                "total_cost_fmt": fmt(op_cost),
+            }
 
         return {
             "id": p["id"],
@@ -1651,10 +1879,16 @@ def get_product_detail(product_id: int):
             "name": p["name"],
             "weight_qty": p["weight_qty"],
             "weight_unit": p["weight_unit"],
+            "cooking_appliance": p["cooking_appliance"] if "cooking_appliance" in p.keys() and p["cooking_appliance"] else "none",
+            "cooking_time_minutes": float(p["cooking_time_minutes"] or 0.0) if "cooking_time_minutes" in p.keys() else 0.0,
+            "batch_yield_units": float(p["batch_yield_units"] or 1.0) if "batch_yield_units" in p.keys() else 1.0,
             "sale_price": sp,
             "sale_price_fmt": fmt(sp),
             "direct_cost": float(direct_cost),
             "direct_cost_fmt": fmt(direct_cost),
+            "operational_cost": float(op_cost),
+            "operational_cost_fmt": fmt(op_cost),
+            "operational_breakdown": op_breakdown,
             "production_cost": float(tot_cost),
             "production_cost_fmt": fmt(tot_cost),
             "profit_val": float(profit_val),
@@ -1693,12 +1927,22 @@ def create_product(payload: ProductPayload):
             raise HTTPException(status_code=400, detail=f"Já existe um produto com o nome '{name}'.")
 
         code = next_code("products", "PROD")
+        c_app = str(payload.cooking_appliance or "none").strip()
+        try:
+            c_time = float(str(payload.cooking_time_minutes or 0.0).replace(",", "."))
+        except Exception:
+            c_time = 0.0
+        try:
+            b_yield = max(1.0, float(str(payload.batch_yield_units or 1.0).replace(",", ".")))
+        except Exception:
+            b_yield = 1.0
+
         cur = c.execute(
             """
-            INSERT INTO products(code, name, weight_qty, weight_unit, sale_price, notes, created_at, updated_at, active, archived)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
+            INSERT INTO products(code, name, weight_qty, weight_unit, sale_price, notes, cooking_appliance, cooking_time_minutes, batch_yield_units, created_at, updated_at, active, archived)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
             """,
-            (code, name, weight_qty, weight_unit, sale_price, notes, now_val, now_val),
+            (code, name, weight_qty, weight_unit, sale_price, notes, c_app, c_time, b_yield, now_val, now_val),
         )
         pid = cur.lastrowid
 
@@ -1760,13 +2004,23 @@ def update_product(product_id: int, payload: ProductPayload):
         if exists:
             raise HTTPException(status_code=400, detail=f"Já existe outro produto com o nome '{name}'.")
 
+        c_app = str(payload.cooking_appliance or "none").strip()
+        try:
+            c_time = float(str(payload.cooking_time_minutes or 0.0).replace(",", "."))
+        except Exception:
+            c_time = 0.0
+        try:
+            b_yield = max(1.0, float(str(payload.batch_yield_units or 1.0).replace(",", ".")))
+        except Exception:
+            b_yield = 1.0
+
         c.execute(
             """
             UPDATE products
-            SET name=?, weight_qty=?, weight_unit=?, sale_price=?, notes=?, updated_at=?
+            SET name=?, weight_qty=?, weight_unit=?, sale_price=?, notes=?, cooking_appliance=?, cooking_time_minutes=?, batch_yield_units=?, updated_at=?
             WHERE id=?
             """,
-            (name, weight_qty, weight_unit, sale_price, notes, now_val, product_id),
+            (name, weight_qty, weight_unit, sale_price, notes, c_app, c_time, b_yield, now_val, product_id),
         )
 
         c.execute("DELETE FROM product_items WHERE product_id=?", (product_id,))
@@ -1939,7 +2193,12 @@ def execute_products_delete(payload: BulkDeleteCheckPayload):
 @app.post("/api/products/preview-cost")
 def preview_product_cost(payload: ProductPreviewPayload):
     direct_total = 0.0
+    op_total = 0.0
+    tot_gas = 0.0
+    tot_energy = 0.0
+    tot_water = 0.0
     items_out = []
+
     for it in payload.items:
         itype = it.item_type if it.item_type in ("MATERIAL", "RECIPE_BASE", "PRODUCT") else "MATERIAL"
         ref_id = it.ref_id
@@ -1948,14 +2207,36 @@ def preview_product_cost(payload: ProductPreviewPayload):
         except Exception:
             q = 0.0
 
-        c_val = 0.0
+        d_cost = 0.0
+        o_cost = 0.0
         if ref_id > 0 and q > 0 and it.unit:
             try:
-                c_val = item_cost(itype, ref_id, q, it.unit)
+                d_cost = item_direct_cost(itype, ref_id, q, it.unit)
+                o_cost = item_operational_cost(itype, ref_id, q, it.unit)
             except Exception:
-                c_val = 0.0
+                try:
+                    d_cost = item_cost(itype, ref_id, q, it.unit)
+                except Exception:
+                    d_cost = 0.0
+                o_cost = 0.0
 
-        direct_total += c_val
+            if itype == "RECIPE_BASE":
+                try:
+                    with db() as c:
+                        rec = c.execute("SELECT yield_qty, yield_unit FROM base_recipes WHERE id=?", (ref_id,)).fetchone()
+                    if rec and rec["yield_qty"] and rec["yield_qty"] > 0:
+                        conv_q = convert_generic(q, it.unit, rec["yield_unit"])
+                        factor = conv_q / rec["yield_qty"]
+                        rb = recipe_operational_breakdown(ref_id)
+                        tot_gas += rb["gas"] * factor
+                        tot_energy += rb["energy"] * factor
+                        tot_water += rb["water"] * factor
+                except Exception:
+                    pass
+
+        c_val = d_cost + o_cost
+        direct_total += d_cost
+        op_total += o_cost
         items_out.append({
             "item_type": itype,
             "ref_id": ref_id,
@@ -1963,10 +2244,41 @@ def preview_product_cost(payload: ProductPreviewPayload):
             "unit": it.unit,
             "cost": float(c_val),
             "cost_fmt": fmt(c_val),
+            "direct_cost": float(d_cost),
+            "operational_cost": float(o_cost),
         })
 
-    op_cost = operational_cost(direct_total)
-    tot_cost = direct_total + op_cost
+    tot_cost = direct_total + op_total
+
+    op_items = [
+        {
+            "id": 1,
+            "name": "Gás",
+            "cost": round(tot_gas, 4),
+            "cost_fmt": fmt(tot_gas),
+            "rate_label": "Herdado das receitas" if tot_gas > 0.0001 else "Sem cocção a gás",
+        },
+        {
+            "id": 2,
+            "name": "Energia",
+            "cost": round(tot_energy, 4),
+            "cost_fmt": fmt(tot_energy),
+            "rate_label": "Equipamentos / Ativação" if tot_energy > 0.0001 else "Sem cocção elétrica",
+        },
+        {
+            "id": 3,
+            "name": "Água",
+            "cost": round(tot_water, 4),
+            "cost_fmt": fmt(tot_water),
+            "rate_label": "Rateio da cozinha" if tot_water > 0.0001 else "Rateio cozinha",
+        },
+    ]
+
+    op_breakdown = {
+        "items": op_items,
+        "total_cost": round(op_total, 4),
+        "total_cost_fmt": fmt(op_total),
+    }
 
     try:
         sp = money_to_float(payload.sale_price, "Preço de Venda") if isinstance(payload.sale_price, str) else float(payload.sale_price or 0.0)
@@ -1980,8 +2292,9 @@ def preview_product_cost(payload: ProductPreviewPayload):
     return {
         "direct_cost": float(direct_total),
         "direct_cost_fmt": fmt(direct_total),
-        "operational_cost": float(op_cost),
-        "operational_cost_fmt": fmt(op_cost),
+        "operational_cost": float(op_total),
+        "operational_cost_fmt": fmt(op_total),
+        "operational_breakdown": op_breakdown,
         "production_cost": float(tot_cost),
         "production_cost_fmt": fmt(tot_cost),
         "sale_price": float(sp),
