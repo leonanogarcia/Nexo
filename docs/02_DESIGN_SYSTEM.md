@@ -31,10 +31,19 @@ When creating or refactoring ANY interface, the AI MUST use these components:
 - **Alignment:** Text alignment is configurable (`align='left'` or `align='center'`).
 - **Mechanics:** Must pop open a custom Toplevel list. Replaces all native `ttk.Combobox` elements in forms.
 
-### D. Table Headers & Columns
+### D. Table Headers & Columns (Padrão Único de Tabelas do Nexo)
 - **Custom Canvas Headers:** Tables DO NOT use native Treeview headers. They use a custom canvas drawn above the treeview with rounded top corners.
 - **Dummy Column Rule:** A `dummy` column (`stretch=True`) MUST always precede the action columns (`edit`, `delete`) in the Treeview to push actions to the far right.
 - **Action Columns Padding Rule (Obrigatório):** As action buttons (Edit, Delete, Options) are drawn via a fixed-width floating canvas on the right edge (e.g., 90px width for 3 icons), the underlying Treeview MUST define invisible ghost/dummy columns matching exactly the total width of this floating canvas. Example: If the floating overlay has 90px (3x30px icons), the treeview must explicitly define `('options', 30)` alongside `edit` and `delete`, even if empty. If this padding is omitted, the fixed canvas will swallow and hide the last visible data column of the table (like Status or Date).
+- **Padrão Único React / v2.0 (Obrigatório para TODAS as tabelas atuais e futuras):**
+  - **Cabeçalho Cápsula:** Altura fixa de `36px`, `rounded-full`, com `NexoCheckbox` master fixo à esquerda (`60px`, `sticky left-0`), setinhas de ordenação (`↑` / `↓`) nos títulos das colunas, e ícone da engrenagem (`GearPolygonIcon`) fixo à direita (`90px`, `sticky right-0`, sem o texto "Ações") abrindo o menu flutuante `"Exibir Colunas"`.
+  - **Linhas e Ações:** Altura padrão de `38px`, destaque âmbar suave quando selecionada (`bg-[#FFF0D8]` / `dark:bg-[#5A3518]`), e ícones oficiais `/ui_assets/action_edit_reference_exact.png` e `/ui_assets/action_delete_reference_exact.png` alinhados sob a engrenagem.
+  - **Redimensionamento de Colunas (Estilo Excel):** Usar `useNexoColumnWidths` e `ColumnResizeHandle` (`DesignSystem.tsx`). A divisória mantém apenas a linha fina padrão (sem alça visual extra), exibindo `cursor-col-resize` ao passar o mouse sobre a linha.
+  - **Título do Cabeçalho Nunca Trunca:** A largura mínima (`minWidth`) de cada coluna é travada dinamicamente pelo tamanho do título + seta de ordenação + padding (`whitespace-nowrap`).
+  - **Colunas Independentes & Scroll Horizontal:** Cada coluna usa largura explícita (`width` + `flexShrink: 0`) para que alterar uma coluna nunca aperte as vizinhas; ao ultrapassar a largura do painel, a barra de rolagem horizontal aparece mantendo checkbox e ações fixos nas pontas.
+  - **Duplo Clique = Auto-Ajuste:** Duplo clique na linha divisória mede o cabeçalho e todas as células visíveis e ajusta a coluna automaticamente ao maior conteúdo (sem disparar ordenação).
+  - **Tooltip Completo (`title`):** Todas as células de texto recebem o valor completo no atributo `title` para leitura ao passar o mouse caso o usuário tenha encolhido a coluna.
+  - **Persistência:** As larguras ajustadas são salvas automaticamente no `localStorage` por tabela.
 
 ### E. Empty States
 - Always use the injected PIL image (`empty_state_reference_exact.png`). Never use plain text labels for empty tables.

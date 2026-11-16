@@ -38,14 +38,12 @@ export const NexoToggleSwitch: React.FC<NexoToggleSwitchProps> = ({
         style={{
           backgroundColor: checked ? 'var(--nexo-brand-primary, #F28C28)' : undefined,
         }}
-        className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 ease-in-out cursor-pointer focus:outline-none shrink-0 relative px-[2px] m-0 border-0 flex items-center select-none ${
-          disabled ? 'opacity-50 cursor-not-allowed' : ''
-        } ${!checked ? 'bg-[#CBD5E1] dark:bg-[#334155]' : ''}`}
+        className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 ease-in-out cursor-pointer focus:outline-none shrink-0 relative px-[2px] m-0 border-0 flex items-center select-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''
+          } ${!checked ? 'bg-[#CBD5E1] dark:bg-[#334155]' : ''}`}
       >
         <span
-          className={`block w-[20px] h-[20px] rounded-full transition-transform duration-200 ease-in-out shadow-sm pointer-events-none shrink-0 bg-white ${
-            checked ? 'translate-x-[20px]' : 'translate-x-0'
-          }`}
+          className={`block w-[20px] h-[20px] rounded-full transition-transform duration-200 ease-in-out shadow-sm pointer-events-none shrink-0 bg-white ${checked ? 'translate-x-[20px]' : 'translate-x-0'
+            }`}
         />
       </button>
 
@@ -554,8 +552,8 @@ export const RoundedActionButton: React.FC<RoundedActionButtonProps> = ({
       ? st.darkHoverFill
       : st.hoverFill
     : isDark && st.darkBaseFill
-    ? st.darkBaseFill
-    : st.baseFill;
+      ? st.darkBaseFill
+      : st.baseFill;
   const fg = isDark && st.darkText ? st.darkText : st.text;
   const border = isDark && st.darkBorder ? st.darkBorder : st.border;
 
@@ -680,6 +678,7 @@ interface RoundedDropdownProps {
   height?: number;
   align?: 'left' | 'center';
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
@@ -690,6 +689,7 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
   height = 32,
   align = 'center',
   placeholder = 'Selecione...',
+  disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -717,17 +717,21 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`w-full h-full rounded-full bg-white dark:bg-[#0E1B35] hover:bg-[#F8FAFC] dark:hover:bg-[#142544] border border-[#B0C0D6] dark:border-[#24385E] px-4 flex items-center transition-colors cursor-pointer focus:outline-none focus:border-[#F28C28] ${
-          align === 'center' ? 'justify-center font-bold' : 'justify-between font-normal'
-        }`}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen((o) => !o);
+        }}
+        className={`w-full h-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-4 flex items-center transition-colors focus:outline-none focus:border-[#F28C28] ${disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:bg-[#F8FAFC] dark:hover:bg-[#142544] cursor-pointer'
+          } ${align === 'center' ? 'justify-center font-bold' : 'justify-between font-normal'
+          }`}
       >
         <span
-          className={`text-[13px] truncate ${
-            value
+          className={`text-[13px] truncate ${value
               ? 'text-[#18223A] dark:text-[#F4F7FF]'
               : 'text-[#9AA9BF] font-normal'
-          } ${align === 'center' ? 'mr-3' : 'pr-2'}`}
+            } ${align === 'center' ? 'mr-3' : 'pr-2'}`}
         >
           {value || placeholder}
         </span>
@@ -736,9 +740,8 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
           height="12"
           viewBox="0 0 12 12"
           fill="none"
-          className={`text-[#687796] shrink-0 transition-transform duration-150 ${
-            align === 'center' ? 'absolute right-3.5' : ''
-          } ${open ? 'rotate-180' : ''}`}
+          className={`text-[#687796] shrink-0 transition-transform duration-150 ${align === 'center' ? 'absolute right-3.5' : ''
+            } ${open ? 'rotate-180' : ''}`}
         >
           <path
             d="M2 4L6 8L10 4"
@@ -765,13 +768,11 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
                     onChange(opt);
                     setOpen(false);
                   }}
-                  className={`w-full h-9 px-3.5 text-[13px] flex items-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${
-                    align === 'center' ? 'justify-center' : 'justify-start text-left'
-                  } ${
-                    isSelected
+                  className={`w-full h-9 px-3.5 text-[13px] flex items-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${align === 'center' ? 'justify-center' : 'justify-start text-left'
+                    } ${isSelected
                       ? 'text-[#BA5200] dark:text-[#F28C28] font-bold'
                       : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
-                  }`}
+                    }`}
                 >
                   <span className="truncate">{opt}</span>
                 </button>
@@ -790,10 +791,11 @@ interface CapsuleInputProps {
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
-  type?: 'text' | 'numeric' | 'money' | 'date';
+  type?: 'text' | 'numeric' | 'money' | 'date' | 'password';
   autoCapitalizeFirst?: boolean;
   spellCheck?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 export function formatMoneyBR(rawDigits: string): string {
@@ -814,6 +816,7 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
   autoCapitalizeFirst = true,
   spellCheck = true,
   className = '',
+  disabled = false,
 }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value;
@@ -826,7 +829,7 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
       onChange(v);
       return;
     }
-    if (autoCapitalizeFirst && v.length > 0) {
+    if (type !== 'password' && autoCapitalizeFirst && v.length > 0) {
       v = v.replace(/[a-zA-ZÀ-ÿ]/, (m) => m.toUpperCase());
     }
     onChange(v);
@@ -834,13 +837,14 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
 
   return (
     <input
-      type={type === 'date' ? 'date' : 'text'}
+      type={type === 'date' ? 'date' : type === 'password' ? 'password' : 'text'}
       value={value}
       onChange={handleChange}
       placeholder={placeholder}
+      disabled={disabled}
       spellCheck={type === 'text' ? spellCheck : false}
       lang="pt-BR"
-      className={`h-[32px] w-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-3.5 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none focus:border-[#F28C28] dark:focus:border-[#F28C28] transition-colors ${className}`}
+      className={`h-[32px] w-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-3.5 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none focus:border-[#F28C28] dark:focus:border-[#F28C28] transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
     />
   );
 };
@@ -892,11 +896,10 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
         width: typeof width === 'number' ? `${width}px` : width,
         height: `${height}px`,
       }}
-      className={`relative inline-flex items-center rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] transition-colors ${
-        disabled
+      className={`relative inline-flex items-center rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] transition-colors ${disabled
           ? 'opacity-60 cursor-not-allowed'
           : 'focus-within:border-[#F28C28] dark:focus-within:border-[#F28C28]'
-      }`}
+        }`}
     >
       {/* Numeric Input */}
       <input
@@ -924,9 +927,8 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
           height="10"
           viewBox="0 0 12 12"
           fill="none"
-          className={`text-[#687796] transition-transform duration-150 ${
-            open ? 'rotate-180' : ''
-          }`}
+          className={`text-[#687796] transition-transform duration-150 ${open ? 'rotate-180' : ''
+            }`}
         >
           <path
             d="M2 4L6 8L10 4"
@@ -949,11 +951,10 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
                 onUnitChange(u);
                 setOpen(false);
               }}
-              className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${
-                u === unitValue
+              className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${u === unitValue
                   ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
                   : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
-              }`}
+                }`}
             >
               {u}
             </button>
@@ -1006,18 +1007,16 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
 
             {/* Imagem da Logo: livre e fluida, sem caixa branca forçada */}
             <div
-              className={`relative flex items-center justify-center transition-transform duration-150 group-hover:scale-[1.02] ${
-                brandSettings.logo_shape === 'rect'
+              className={`relative flex items-center justify-center transition-transform duration-150 group-hover:scale-[1.02] ${brandSettings.logo_shape === 'rect'
                   ? 'max-w-[128px] max-h-[96px]'
                   : 'w-[94px] h-[94px] rounded-full overflow-hidden shadow-sm'
-              }`}
+                }`}
             >
               <img
                 src={brandSettings.company_logo}
                 alt={brandSettings.company_name || 'Empresa'}
-                className={`w-full h-full object-contain ${
-                  brandSettings.logo_shape === 'rect' ? 'rounded-lg' : 'rounded-full'
-                }`}
+                className={`w-full h-full object-contain ${brandSettings.logo_shape === 'rect' ? 'rounded-lg' : 'rounded-full'
+                  }`}
               />
             </div>
           </div>
@@ -1067,10 +1066,10 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                         ? '#111C30' // Regra doc 06 e CONTEXTO_V2: azul-marinho #111C30 sobre o laranja no modo escuro
                         : '#693A16' // Marrom escuro #693A16 no modo claro
                       : isHovered
-                      ? dark
-                        ? 'rgba(17, 28, 48, 0.18)'
-                        : 'rgba(255, 255, 255, 0.08)'
-                      : 'transparent',
+                        ? dark
+                          ? 'rgba(17, 28, 48, 0.18)'
+                          : 'rgba(255, 255, 255, 0.08)'
+                        : 'transparent',
                   }}
                   className="flex items-center justify-center transition-all duration-150 cursor-pointer focus:outline-none"
                 >
@@ -1136,18 +1135,16 @@ export const AnimatedFeedbackModal: React.FC<AnimatedFeedbackModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
-        closing ? 'opacity-0' : 'opacity-100'
-      }`}
+      className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${closing ? 'opacity-0' : 'opacity-100'
+        }`}
     >
       <div
-        className={`w-[290px] p-6 rounded-[24px] bg-white/95 dark:bg-[#111F3B]/95 backdrop-blur-md border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col items-center justify-center select-none transition-all duration-300 pointer-events-auto ${
-          closing
+        className={`w-[290px] p-6 rounded-[24px] bg-white/95 dark:bg-[#111F3B]/95 backdrop-blur-md border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col items-center justify-center select-none transition-all duration-300 pointer-events-auto ${closing
             ? 'scale-95'
             : type === 'error'
-            ? 'animate-shake-error'
-            : 'animate-pop-in'
-        }`}
+              ? 'animate-shake-error'
+              : 'animate-pop-in'
+          }`}
       >
         {/* Type 1: SUCCESS (Green circle drawing + checkmark with 4.6px thickness) */}
         {type === 'success' && (
@@ -1269,3 +1266,183 @@ export const AnimatedSuccessModal: React.FC<{
   type?: FeedbackType;
   onClose: () => void;
 }> = (props) => <AnimatedFeedbackModal {...props} />;
+
+// ---------- Nexo Table Standard: Column Resize, Auto-Fit & Persistence ----------
+
+let _measureCanvas: HTMLCanvasElement | null = null;
+
+/**
+ * Mede a largura em pixels de um texto com a fonte padrão do Nexo.
+ */
+export function measureNexoTextWidth(text: string, font = '500 13px "Segoe UI", Inter, system-ui, sans-serif'): number {
+  if (typeof document === 'undefined') return text.length * 8;
+  if (!_measureCanvas) {
+    _measureCanvas = document.createElement('canvas');
+  }
+  const ctx = _measureCanvas.getContext('2d');
+  if (!ctx) return text.length * 8;
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
+
+/**
+ * Largura mínima da coluna garantindo que o título do cabeçalho + seta (↑/↓) nunca trunquem.
+ */
+export function getNexoHeaderMinWidth(label: string, extraPadding = 32): number {
+  const w = measureNexoTextWidth(`${label} ↑`, '700 12.5px "Segoe UI", Inter, system-ui, sans-serif');
+  return Math.ceil(w + extraPadding);
+}
+
+/**
+ * Calcula a largura ideal (estilo Excel) considerando cabeçalho e todas as células visíveis.
+ */
+export function getNexoAutoFitWidth(
+  label: string,
+  cellTexts: string[],
+  extraCellPadding = 0
+): number {
+  const headerMin = getNexoHeaderMinWidth(label);
+  let maxCell = 0;
+  for (const t of cellTexts) {
+    if (!t) continue;
+    const w = measureNexoTextWidth(t, '600 13px "Segoe UI", Inter, system-ui, sans-serif');
+    if (w > maxCell) maxCell = w;
+  }
+  return Math.ceil(Math.max(headerMin, maxCell + 30 + extraCellPadding));
+}
+
+export interface NexoColumnDef {
+  key: string;
+  label: string;
+  width: number;
+}
+
+/**
+ * Hook padrão de gerenciamento de larguras de colunas das tabelas do Nexo:
+ * - Respeita a largura mínima do cabeçalho (nunca trunca o título).
+ * - Permite arraste independente por coluna sem esmagar colunas vizinhas.
+ * - Permite duplo clique na divisória para auto-ajuste (estilo Excel).
+ * - Persiste as larguras no localStorage por tabela.
+ */
+export function useNexoColumnWidths(storageKey: string, columns: NexoColumnDef[]) {
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    let saved: Record<string, number> = {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) saved = JSON.parse(raw) || {};
+    } catch {
+      saved = {};
+    }
+    for (const col of columns) {
+      const minW = getNexoHeaderMinWidth(col.label);
+      const savedW = typeof saved[col.key] === 'number' && saved[col.key] > 0 ? saved[col.key] : col.width;
+      initial[col.key] = Math.max(minW, savedW);
+    }
+    return initial;
+  });
+
+  const colWidthsRef = useRef(colWidths);
+  colWidthsRef.current = colWidths;
+  const justResizedRef = useRef(false);
+
+  const persistWidths = (next: Record<string, number>) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const startResize = (key: string, label: string, defaultWidth: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startW = colWidthsRef.current[key] ?? Math.max(defaultWidth, getNexoHeaderMinWidth(label));
+    const minW = getNexoHeaderMinWidth(label);
+    let moved = false;
+
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      if (Math.abs(delta) > 2) moved = true;
+      const nextW = Math.max(minW, Math.round(startW + delta));
+      setColWidths((prev) => {
+        if (prev[key] === nextW) return prev;
+        return { ...prev, [key]: nextW };
+      });
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+      if (moved) {
+        justResizedRef.current = true;
+        setTimeout(() => {
+          justResizedRef.current = false;
+        }, 80);
+      }
+      persistWidths(colWidthsRef.current);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const autoFitColumn = (
+    key: string,
+    label: string,
+    cellTexts: string[],
+    extraCellPadding = 0,
+    e?: React.MouseEvent
+  ) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const fitW = getNexoAutoFitWidth(label, cellTexts, extraCellPadding);
+    justResizedRef.current = true;
+    setTimeout(() => {
+      justResizedRef.current = false;
+    }, 80);
+    setColWidths((prev) => {
+      const next = { ...prev, [key]: fitW };
+      persistWidths(next);
+      return next;
+    });
+  };
+
+  const shouldIgnoreSortClick = () => justResizedRef.current;
+
+  return {
+    colWidths,
+    startResize,
+    autoFitColumn,
+    shouldIgnoreSortClick,
+  };
+}
+
+/**
+ * Área sensível invisível sobre a linha divisória do cabeçalho da tabela (cursor col-resize sem poluição visual).
+ */
+export const ColumnResizeHandle: React.FC<{
+  onMouseDown: (e: React.MouseEvent) => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
+}> = ({ onMouseDown, onDoubleClick }) => (
+  <span
+    role="separator"
+    aria-orientation="vertical"
+    onClick={(e) => e.stopPropagation()}
+    onMouseDown={onMouseDown}
+    onDoubleClick={onDoubleClick}
+    title="Arraste para redimensionar · Duplo clique para auto-ajustar"
+    className="absolute right-[-4px] top-0 h-full w-[8px] cursor-col-resize z-30 select-none"
+  />
+);

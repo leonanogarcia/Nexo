@@ -3,6 +3,7 @@ import {
   CapsuleInput,
   CapsuleQuantityUnit,
   ClockIcon,
+  ColumnResizeHandle,
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
@@ -15,6 +16,7 @@ import {
   ZapEnergyIcon,
   DropletWaterIcon,
   PackageBoxIcon,
+  useNexoColumnWidths,
 } from './DesignSystem';
 
 interface ProductsPageProps {
@@ -95,6 +97,33 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [orderBy, setOrderBy] = useState<string>('name');
   const [orderDir, setOrderDir] = useState<'ASC' | 'DESC'>('ASC');
   const [hiddenCols, setHiddenCols] = useState<string[]>(initialHiddenCols || ['code']);
+  const { colWidths, startResize, autoFitColumn, shouldIgnoreSortClick } =
+    useNexoColumnWidths('nexo_col_widths_products_v1', PROD_COLUMNS);
+
+  const getProductCellText = (prod: ProductItem, key: string): string => {
+    switch (key) {
+      case 'code':
+        return prod.code || '';
+      case 'name':
+        return prod.name || '';
+      case 'weight':
+        return `${prod.weight_qty_fmt} ${prod.weight_unit}`;
+      case 'production_cost':
+        return prod.production_cost_fmt || '';
+      case 'operational_cost':
+        return prod.operational_cost_fmt || 'R$ 0,00';
+      case 'sale_price':
+        return prod.sale_price_fmt || '';
+      case 'profit':
+        return prod.profit_val_fmt || '';
+      case 'margin':
+        return prod.profit_margin_fmt || '';
+      case 'status':
+        return prod.active ? 'Ativo' : 'Inativo';
+      default:
+        return '';
+    }
+  };
 
   // Selection & Multiselection
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -176,6 +205,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
   // Sorting Handler
   const handleSort = (key: string) => {
+    if (shouldIgnoreSortClick()) return;
     if (orderBy === key) {
       setOrderDir((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
     } else {
@@ -421,7 +451,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       {/* 2. Table Panel (RoundedPanel radius=22px) */}
       <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-3 flex flex-col min-h-0 shadow-sm relative transition-colors">
         <div className="flex-1 w-full overflow-auto flex flex-col relative">
-          <div className="min-w-full inline-block align-middle flex-1 flex flex-col">
+          <div className="min-w-full w-max align-middle flex-1 flex flex-col">
             {/* Capsule Table Header (height=36px, rounded-full) */}
             <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0">
               {/* Left Master Checkbox (60px) */}
@@ -438,22 +468,35 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 {visibleColumns.map((col) => {
                   const isSorted = orderBy === col.key;
                   const arrow = isSorted ? (orderDir === 'ASC' ? ' ↑' : ' ↓') : '';
+                  const colWidth = colWidths[col.key] ?? col.width;
                   return (
                     <button
                       key={col.key}
                       type="button"
                       onClick={() => handleSort(col.key)}
                       style={{
-                        minWidth: `${col.width}px`,
-                        flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                        width: `${colWidth}px`,
+                        flexShrink: 0,
                       }}
-                      className={`h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
+                      className={`relative h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
                         col.align === 'left' ? 'justify-start text-left' : 'justify-center text-center'
                       }`}
                     >
-                      <span className="truncate">
+                      <span className="whitespace-nowrap">
                         {col.align === 'left' ? `${col.label}${arrow}` : `${arrow}${col.label}`}
                       </span>
+                      <ColumnResizeHandle
+                        onMouseDown={(e) => startResize(col.key, col.label, col.width, e)}
+                        onDoubleClick={(e) =>
+                          autoFitColumn(
+                            col.key,
+                            col.label,
+                            sortedItems.map((it) => getProductCellText(it, col.key)),
+                            col.key === 'status' || col.key === 'profit' ? 24 : 0,
+                            e
+                          )
+                        }
+                      />
                     </button>
                   );
                 })}
@@ -641,12 +684,14 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                               break;
                           }
 
+                          const fullText = getProductCellText(prod, col.key);
                           return (
                             <div
                               key={col.key}
+                              title={fullText || undefined}
                               style={{
-                                minWidth: `${col.width}px`,
-                                flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                                width: `${colWidths[col.key] ?? col.width}px`,
+                                flexShrink: 0,
                               }}
                               className={`px-3 text-[13px] truncate ${
                                 col.align === 'left' ? 'text-left' : 'text-center'

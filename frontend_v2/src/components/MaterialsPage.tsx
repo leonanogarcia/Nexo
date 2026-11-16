@@ -7,6 +7,7 @@ import {
 import {
   CapsuleInput,
   ClockIcon,
+  ColumnResizeHandle,
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
@@ -15,6 +16,7 @@ import {
   RoundedDropdown,
   RoundedEntry,
   TrashIcon,
+  useNexoColumnWidths,
 } from './DesignSystem';
 
 interface MaterialsPageProps {
@@ -61,6 +63,37 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
   const [orderBy, setOrderBy] = useState<string>('name');
   const [orderDir, setOrderDir] = useState<'ASC' | 'DESC'>('ASC');
   const [hiddenCols, setHiddenCols] = useState<string[]>(initialHiddenCols);
+  const { colWidths, startResize, autoFitColumn, shouldIgnoreSortClick } =
+    useNexoColumnWidths('nexo_col_widths_materials_v1', COLUMNS);
+
+  const getMaterialCellText = (item: MaterialItem, key: string): string => {
+    switch (key) {
+      case 'code':
+        return item.code || '';
+      case 'barcode':
+        return item.barcode || '';
+      case 'name':
+        return item.name || '';
+      case 'brand':
+        return item.brand || '';
+      case 'qty':
+        return item.qty_fmt || '';
+      case 'unit':
+        return item.unit || '';
+      case 'value':
+        return item.value_fmt || '';
+      case 'category':
+        return item.category || '';
+      case 'date':
+        return item.date || '';
+      case 'mod_date':
+        return item.mod_date || '';
+      case 'status':
+        return item.status || '';
+      default:
+        return '';
+    }
+  };
 
   // Selection & Multiselection
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -195,6 +228,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
 
   // Sorting
   const handleSort = (key: string) => {
+    if (shouldIgnoreSortClick()) return;
     if (orderBy === key) {
       setOrderDir((d) => (d === 'ASC' ? 'DESC' : 'ASC'));
     } else {
@@ -681,7 +715,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       {/* 2. Table Panel (RoundedPanel radius=22px) */}
       <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-3 flex flex-col min-h-0 shadow-sm relative transition-colors">
         <div className="flex-1 w-full overflow-auto flex flex-col relative">
-          <div className="min-w-full inline-block align-middle flex-1 flex flex-col">
+          <div className="min-w-full w-max align-middle flex-1 flex flex-col">
             {/* Capsule Table Header (height=36px, rounded-full) */}
             <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0">
               {/* Left Master Checkbox (60px) */}
@@ -698,22 +732,35 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 {visibleColumns.map((col) => {
                   const isSorted = orderBy === col.key;
                   const arrow = isSorted ? (orderDir === 'ASC' ? ' ↑' : ' ↓') : '';
+                  const colWidth = colWidths[col.key] ?? col.width;
                   return (
                     <button
                       key={col.key}
                       type="button"
                       onClick={() => handleSort(col.key)}
                       style={{
-                        minWidth: `${col.width}px`,
-                        flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                        width: `${colWidth}px`,
+                        flexShrink: 0,
                       }}
-                      className={`h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
+                      className={`relative h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
                         col.align === 'left' ? 'justify-start text-left' : 'justify-center text-center'
                       }`}
                     >
-                      <span className="truncate">
+                      <span className="whitespace-nowrap">
                         {col.align === 'left' ? `${col.label}${arrow}` : `${arrow}${col.label}`}
                       </span>
+                      <ColumnResizeHandle
+                        onMouseDown={(e) => startResize(col.key, col.label, col.width, e)}
+                        onDoubleClick={(e) =>
+                          autoFitColumn(
+                            col.key,
+                            col.label,
+                            items.map((it) => getMaterialCellText(it, col.key)),
+                            col.key === 'status' ? 24 : 0,
+                            e
+                          )
+                        }
+                      />
                     </button>
                   );
                 })}
@@ -874,12 +921,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                               break;
                           }
 
+                          const fullText = getMaterialCellText(item, col.key);
                           return (
                             <div
                               key={col.key}
+                              title={fullText || undefined}
                               style={{
-                                minWidth: `${col.width}px`,
-                                flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                                width: `${colWidths[col.key] ?? col.width}px`,
+                                flexShrink: 0,
                               }}
                               className={`px-3 text-[13px] truncate ${
                                 col.align === 'left' ? 'text-left' : 'text-center'

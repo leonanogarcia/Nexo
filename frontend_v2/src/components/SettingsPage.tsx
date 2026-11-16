@@ -52,6 +52,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   RoundedActionButton,
   CapsuleInput,
+  CapsuleQuantityUnit,
   RoundedDropdown,
   NexoCheckbox,
   NexoToggleSwitch,
@@ -59,6 +60,8 @@ import {
   PlusIcon,
   RoundedEntry,
   GearPolygonIcon,
+  ColumnResizeHandle,
+  useNexoColumnWidths,
 } from './DesignSystem';
 import { CompanyBrandSettings } from '../types';
 
@@ -69,7 +72,7 @@ export interface SettingsPageProps {
   onBrandUpdate?: (brand: CompanyBrandSettings) => void;
 }
 
-type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco';
+type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco' | 'sobre';
 
 // --- Clean Monochrome Vector Icons (Design System Nexo) ---
 
@@ -242,6 +245,47 @@ export const DatabaseBiIcon: React.FC<{ className?: string }> = ({ className = '
   </svg>
 );
 
+export const AuditReportIcon: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) => (
+  <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+    {/* Moldura da prancheta/documento (com abertura à direita para a lupa) */}
+    <path d="M44 22V13a5 5 0 0 0-5-5H13a5 5 0 0 0-5 5v38a5 5 0 0 0 5 5h26a5 5 0 0 0 5-5v-2" />
+    {/* Linha 1: check + barra */}
+    <path d="M14 19l2.2 2.2L20.5 17" />
+    <path d="M24 19h14" />
+    {/* Linha 2: check + barra curta */}
+    <path d="M14 28l2.2 2.2L20.5 26" />
+    <path d="M24 28h7.5" />
+    {/* Linha 3: X + barra curta */}
+    <path d="M14.5 35l4 4m0-4l-4 4" />
+    <path d="M24 37h7" />
+    {/* Linha 4: check + barra */}
+    <path d="M14 46l2.2 2.2L20.5 44" />
+    <path d="M24 46h13.5" />
+    {/* Lupa à direita */}
+    <circle cx="43" cy="35" r="11.5" />
+    <path d="M38 35.2l3.4 3.4 6.6-6.8" />
+    <path d="M51 43l3 3" />
+    <path d="M53.5 47.5l4 4a2.3 2.3 0 0 1-3.2 3.2l-4-4a2.3 2.3 0 0 1 3.2-3.2z" />
+  </svg>
+);
+
+export const BiIndicatorsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    {/* Moldura arredondada aberta embaixo */}
+    <path
+      d="M4.2 17.6A2.5 2.5 0 0 1 2.5 15.2v-7.7A2.5 2.5 0 0 1 5 5h14a2.5 2.5 0 0 1 2.5 2.5v7.7a2.5 2.5 0 0 1-1.7 2.4"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+    {/* 4 barras arredondadas simétricas */}
+    <rect x="5.2" y="14" width="2.2" height="6" rx="1.1" fill="currentColor" />
+    <rect x="9" y="10.5" width="2.2" height="9.5" rx="1.1" fill="currentColor" />
+    <rect x="12.8" y="12.2" width="2.2" height="7.8" rx="1.1" fill="currentColor" />
+    <rect x="16.6" y="8" width="2.2" height="12" rx="1.1" fill="currentColor" />
+  </svg>
+);
+
 export const BuildingCompanyIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
@@ -307,6 +351,14 @@ export const CalculatorIcon: React.FC<{ className?: string }> = ({ className = '
   </svg>
 );
 
+export const AboutInfoIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </svg>
+);
+
 interface SettingsTabSpec {
   key: SettingsCategoryKey;
   label: string;
@@ -319,6 +371,7 @@ const SETTINGS_TABS: SettingsTabSpec[] = [
   { key: 'metricas', label: 'Métricas de Custo', icon: <TrendingCostsIcon className="w-[19px] h-[19px] shrink-0" /> },
   { key: 'unidades', label: 'Unidades de Medida', icon: <ScalesUnitsIcon className="w-[19px] h-[19px] shrink-0" /> },
   { key: 'banco', label: 'Banco de Dados & BI', icon: <DatabaseBiIcon className="w-[19px] h-[19px] shrink-0" /> },
+  { key: 'sobre', label: 'Sobre', icon: <AboutInfoIcon className="w-[19px] h-[19px] shrink-0" /> },
 ];
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -437,7 +490,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     );
   };
 
+  const CONV_TABLE_COLUMNS = [
+    { key: 'material_name', label: 'Insumo', width: 200 },
+    { key: 'code', label: 'Código', width: 95 },
+    { key: 'brand', label: 'Marca', width: 130 },
+    { key: 'category', label: 'Categoria', width: 130 },
+    { key: 'unit', label: 'Un.', width: 85 },
+    { key: 'unit_name', label: 'Unidade Personalizada', width: 190 },
+    { key: 'equivalence', label: 'Equivalência Base', width: 210 },
+  ];
+
+  const {
+    colWidths: convColWidths,
+    startResize: startConvResize,
+    autoFitColumn: autoFitConvColumn,
+    shouldIgnoreSortClick: shouldIgnoreConvSortClick,
+  } = useNexoColumnWidths('nexo_col_widths_custom_units_v1', CONV_TABLE_COLUMNS);
+
+  const getConvCellText = (item: any, key: string): string => {
+    switch (key) {
+      case 'material_name':
+        return item.material_name || '';
+      case 'code':
+        return item.material_code || '-';
+      case 'brand':
+        return item.material_brand || '-';
+      case 'category':
+        return item.material_category || '-';
+      case 'unit':
+        return item.material_unit || item.base_unit || '';
+      case 'unit_name':
+        return item.unit_name || '';
+      case 'equivalence':
+        return `1 ${item.unit_name} = ${item.factor_fmt} ${item.base_unit}`;
+      default:
+        return '';
+    }
+  };
+
   const handleConvSort = (colKey: 'material_name' | 'unit' | 'unit_name' | 'equivalence' | 'brand' | 'category' | 'code') => {
+    if (shouldIgnoreConvSortClick()) return;
     if (convSortCol === colKey) {
       setConvSortDir((d) => (d === 'ASC' ? 'DESC' : 'ASC'));
     } else {
@@ -462,9 +554,95 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [savingRetention, setSavingRetention] = useState(false);
   const [dbPath, setDbPath] = useState('');
   const [dbSize, setDbSize] = useState('0 KB');
+  const [dbLimitKb, setDbLimitKb] = useState<number>(250 * 1024);
+  const [savingDbLimit, setSavingDbLimit] = useState(false);
+  const [customDbLimitMode, setCustomDbLimitMode] = useState(false);
+  const [customDbLimitValue, setCustomDbLimitValue] = useState('250');
+  const [customDbLimitUnit, setCustomDbLimitUnit] = useState('MB');
+  const [dbLimitError, setDbLimitError] = useState('');
+  const [pendingDbLimitConfirm, setPendingDbLimitConfirm] = useState<{
+    kb: number;
+    label: string;
+    isAboveDefault: boolean;
+  } | null>(null);
+  const [dbHealth, setDbHealth] = useState<{
+    size_bytes: number;
+    max_disk_supported_kb: number | null;
+    health_status: 'green' | 'yellow' | 'red';
+    health_label: string;
+    health_reasons: string[];
+    limit_options: { kb: number; label: string }[];
+    limit_advisory: string;
+    usage_pct: number;
+    wasted_fmt: string;
+    wasted_pct: number;
+    disk_free_fmt: string;
+    max_size_label: string;
+    can_write: boolean;
+    can_vacuum: boolean;
+  }>({
+    size_bytes: 0,
+    max_disk_supported_kb: null,
+    health_status: 'green',
+    health_label: 'Saudável',
+    health_reasons: [],
+    limit_options: [
+      { kb: 150, label: '150 KB' },
+      { kb: 200, label: '200 KB' },
+      { kb: 250, label: '250 KB' },
+      { kb: 300, label: '300 KB' },
+      { kb: 350, label: '350 KB' },
+      { kb: 400, label: '400 KB' },
+      { kb: 450, label: '450 KB' },
+      { kb: 500, label: '500 KB' },
+      { kb: 550, label: '550 KB' },
+      { kb: 250 * 1024, label: '250 MB (Padrão)' },
+    ],
+    limit_advisory: '',
+    usage_pct: 0,
+    wasted_fmt: '0 KB',
+    wasted_pct: 0,
+    disk_free_fmt: '-',
+    max_size_label: '250 MB (Padrão)',
+    can_write: true,
+    can_vacuum: true,
+  });
   const [backingUp, setBackingUp] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [lastBackup, setLastBackup] = useState<{ name: string; time: string; size: string } | null>(null);
+  const [reportScope, setReportScope] = useState('Geral (Banco Completo)');
+  const [reportFormat, setReportFormat] = useState('PDF');
+  const [exportingReport, setExportingReport] = useState(false);
+
+  // Preferências de BI & Indicadores
+  const [biPeriod, setBiPeriod] = useState('Últimos 12 meses');
+  const [biChartStyle, setBiChartStyle] = useState('Automático (Misto)');
+  const [biCostAlertPct, setBiCostAlertPct] = useState('10');
+  const [biTargetMarginPct, setBiTargetMarginPct] = useState('30');
+  const [biIncludeInactive, setBiIncludeInactive] = useState(false);
+  const [biColorPalette, setBiColorPalette] = useState('Padrão Nexo');
+  const [biCustomPrimary, setBiCustomPrimary] = useState('#F28C28');
+  const [biCustomSecondary, setBiCustomSecondary] = useState('#18223A');
+  const [savingBi, setSavingBi] = useState(false);
+
+  // --- Categoria 6: Sobre ---
+  const [aboutInfo, setAboutInfo] = useState<{
+    app_name: string;
+    version: string;
+    release_date: string;
+    edition: string;
+    os_info: string;
+    python_version: string;
+    highlights: string[];
+  }>({
+    app_name: 'Nexo',
+    version: '1.7.0',
+    release_date: '16/11/2026',
+    edition: 'Local (SQLite)',
+    os_info: 'Windows',
+    python_version: '-',
+    highlights: [],
+  });
 
   // Carregar configurações do sistema
   const fetchSettings = async () => {
@@ -533,6 +711,71 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.database) {
         setDbPath(data.database.path || 'nexo.db');
         setDbSize(data.database.size_fmt || '0 KB');
+        if (typeof data.database.max_size_kb === 'number') {
+          setDbLimitKb(data.database.max_size_kb);
+        } else if (typeof data.database.max_size_mb === 'number') {
+          setDbLimitKb(Math.round(data.database.max_size_mb * 1024));
+        }
+        setDbHealth({
+          size_bytes: Number(data.database.size_bytes || 0),
+          max_disk_supported_kb: typeof data.database.max_disk_supported_kb === 'number' ? data.database.max_disk_supported_kb : null,
+          health_status: data.database.health_status || 'green',
+          health_label: data.database.health_label || 'Saudável',
+          health_reasons: Array.isArray(data.database.health_reasons) ? data.database.health_reasons : [],
+          limit_options: Array.isArray(data.database.limit_options) && data.database.limit_options.length > 0
+            ? data.database.limit_options
+            : [{ kb: 250 * 1024, label: '250 MB (Padrão)' }],
+          limit_advisory: data.database.limit_advisory || '',
+          usage_pct: Number(data.database.usage_pct || 0),
+          wasted_fmt: data.database.wasted_fmt || '0 KB',
+          wasted_pct: Number(data.database.wasted_pct || 0),
+          disk_free_fmt: data.database.disk_free_fmt || '-',
+          max_size_label: data.database.max_size_label || '250 MB (Padrão)',
+          can_write: data.database.can_write !== false,
+          can_vacuum: data.database.can_vacuum !== false,
+        });
+      }
+
+      if (data.bi) {
+        const periodReverse: Record<string, string> = {
+          '30d': 'Últimos 30 dias',
+          '3m': 'Últimos 3 meses',
+          '6m': 'Últimos 6 meses',
+          '12m': 'Últimos 12 meses',
+          'all': 'Todo o histórico',
+        };
+        const styleReverse: Record<string, string> = {
+          'auto': 'Automático (Misto)',
+          'bar': 'Barras',
+          'line': 'Linhas (Tendência)',
+        };
+        const paletteReverse: Record<string, string> = {
+          'nexo': 'Padrão Nexo',
+          'brand': 'Cores da Minha Marca',
+          'contrast': 'Alto Contraste',
+          'corporate': 'Corporativo (Tons Frios)',
+          'custom': 'Personalizado',
+        };
+        setBiPeriod(periodReverse[data.bi.default_period] || 'Últimos 12 meses');
+        setBiChartStyle(styleReverse[data.bi.chart_style] || 'Automático (Misto)');
+        setBiCostAlertPct(String(data.bi.cost_variation_alert_pct ?? 10).replace('.', ','));
+        setBiTargetMarginPct(String(data.bi.target_margin_pct ?? 30).replace('.', ','));
+        setBiIncludeInactive(!!data.bi.include_inactive);
+        setBiColorPalette(paletteReverse[data.bi.color_palette] || 'Padrão Nexo');
+        if (data.bi.custom_primary_color) setBiCustomPrimary(data.bi.custom_primary_color);
+        if (data.bi.custom_secondary_color) setBiCustomSecondary(data.bi.custom_secondary_color);
+      }
+
+      if (data.about) {
+        setAboutInfo({
+          app_name: data.about.app_name || 'Nexo',
+          version: data.about.version || '1.7.0',
+          release_date: data.about.release_date || '16/11/2026',
+          edition: data.about.edition || 'Local (SQLite)',
+          os_info: data.about.os_info || 'Windows',
+          python_version: data.about.python_version || '-',
+          highlights: Array.isArray(data.about.highlights) ? data.about.highlights : [],
+        });
       }
 
       // Status geral / chaves adicionais
@@ -1029,13 +1272,250 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     setOptimizing(true);
     try {
       const res = await fetch('/api/settings/database/vacuum', { method: 'POST' });
-      if (!res.ok) throw new Error('Não foi possível otimizar o banco.');
-      onNotify('Banco de dados otimizado com sucesso!', 'success');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Não foi possível compactar o banco.');
+      onNotify('Banco de dados compactado e otimizado com sucesso!', 'success');
       await fetchSettings();
     } catch (e: any) {
-      onNotify(e.message || 'Erro ao otimizar banco de dados.', 'error');
+      onNotify(e.message || 'Erro ao compactar banco de dados.', 'error');
     } finally {
       setOptimizing(false);
+    }
+  };
+
+  const formatLimitKbLabel = (kb: number): string => {
+    if (kb === 250 * 1024) return '250 MB (Padrão)';
+    if (kb < 1024) return `${kb} KB`;
+    const mb = kb / 1024;
+    if (mb < 1000) return `${Number(mb.toFixed(2))} MB`.replace('.', ',');
+    const gb = mb / 1000;
+    if (gb < 1000) return `${Number(gb.toFixed(2))} GB`.replace('.', ',');
+    const tb = gb / 1000;
+    return `${Number(tb.toFixed(2))} TB`.replace('.', ',');
+  };
+
+  const applyDbLimitKb = async (kb: number, label: string) => {
+    setSavingDbLimit(true);
+    setDbLimitError('');
+    try {
+      const res = await fetch('/api/settings/database/limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_size_kb: kb }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.detail || 'Não foi possível alterar o teto do banco.';
+        setDbLimitError(msg);
+        onNotify(msg, 'error');
+        return;
+      }
+      setDbLimitKb(kb);
+      onNotify(`Teto do banco ajustado para ${label}.`, 'success');
+      await fetchSettings();
+    } catch (e: any) {
+      const msg = e.message || 'Erro ao atualizar teto do banco.';
+      setDbLimitError(msg);
+      onNotify(msg, 'error');
+    } finally {
+      setSavingDbLimit(false);
+    }
+  };
+
+  const requestDbLimitChange = (kb: number, label: string) => {
+    setDbLimitError('');
+    if (!Number.isFinite(kb) || kb < 50) {
+      const msg = 'Não é possível definir esse limite: o teto mínimo permitido pelo Nexo é 50 KB.';
+      setDbLimitError(msg);
+      onNotify(msg, 'error');
+      return;
+    }
+    if (kb * 1024 < dbHealth.size_bytes) {
+      const msg = `Não é possível definir ${label} porque é menor que o tamanho atual do banco (${dbSize}). Compacte o banco (VACUUM) ou limpe registros antigos antes.`;
+      setDbLimitError(msg);
+      onNotify(msg, 'error');
+      return;
+    }
+    if (dbHealth.max_disk_supported_kb !== null && kb > dbHealth.max_disk_supported_kb) {
+      const msg = `Não é possível definir ${label} porque ultrapassa a capacidade segura do disco atual (espaço livre: ${dbHealth.disk_free_fmt}). Máximo recomendado neste disco: ${formatLimitKbLabel(dbHealth.max_disk_supported_kb)}.`;
+      setDbLimitError(msg);
+      onNotify(msg, 'error');
+      return;
+    }
+
+    const defaultKb = 250 * 1024;
+    if (kb === defaultKb) {
+      void applyDbLimitKb(kb, label);
+      return;
+    }
+
+    setPendingDbLimitConfirm({
+      kb,
+      label,
+      isAboveDefault: kb > defaultKb,
+    });
+  };
+
+  const handleDbLimitChange = (selectedLabel: string) => {
+    const found = dbHealth.limit_options.find((o) => o.label === selectedLabel);
+    if (!found) return;
+    requestDbLimitChange(found.kb, found.label);
+  };
+
+  const handleCustomDbLimitSave = () => {
+    const num = parseFloat(customDbLimitValue.replace(',', '.'));
+    if (!Number.isFinite(num) || num <= 0) {
+      const msg = 'Informe um valor numérico válido maior que zero.';
+      setDbLimitError(msg);
+      onNotify(msg, 'error');
+      return;
+    }
+    const mult: Record<string, number> = {
+      KB: 1,
+      MB: 1024,
+      GB: 1024 * 1024,
+      TB: 1024 * 1024 * 1024,
+    };
+    const kb = Math.round(num * (mult[customDbLimitUnit] || 1));
+    requestDbLimitChange(kb, formatLimitKbLabel(kb));
+  };
+
+  const BI_PERIOD_MAP: Record<string, string> = {
+    'Últimos 30 dias': '30d',
+    'Últimos 3 meses': '3m',
+    'Últimos 6 meses': '6m',
+    'Últimos 12 meses': '12m',
+    'Todo o histórico': 'all',
+  };
+
+  const BI_STYLE_MAP: Record<string, string> = {
+    'Automático (Misto)': 'auto',
+    'Barras': 'bar',
+    'Linhas (Tendência)': 'line',
+  };
+
+  const BI_PALETTE_MAP: Record<string, string> = {
+    'Padrão Nexo': 'nexo',
+    'Cores da Minha Marca': 'brand',
+    'Alto Contraste': 'contrast',
+    'Corporativo (Tons Frios)': 'corporate',
+    'Personalizado': 'custom',
+  };
+
+  const getBiPreviewColors = (): string[] => {
+    switch (biColorPalette) {
+      case 'Cores da Minha Marca':
+        return [brandColor || '#F28C28', '#18223A', '#60769D', '#38BDF8'];
+      case 'Alto Contraste':
+        return ['#E11D48', '#2563EB', '#F59E0B', '#059669'];
+      case 'Corporativo (Tons Frios)':
+        return ['#1E3A8A', '#0284C7', '#0D9488', '#6366F1'];
+      case 'Personalizado':
+        return [biCustomPrimary, biCustomSecondary, '#60769D', '#94A3B8'];
+      default:
+        return ['#F28C28', '#18223A', '#2563EB', '#16A34A'];
+    }
+  };
+
+  const handleSaveBi = async () => {
+    const alertPct = parseFloat(biCostAlertPct.replace(',', '.'));
+    const marginPct = parseFloat(biTargetMarginPct.replace(',', '.'));
+    if (!Number.isFinite(alertPct) || alertPct < 0 || alertPct > 500) {
+      onNotify('Informe um percentual válido (0% a 500%) para o alerta de variação.', 'error');
+      return;
+    }
+    if (!Number.isFinite(marginPct) || marginPct < 0 || marginPct > 500) {
+      onNotify('Informe um percentual válido (0% a 500%) para a meta de margem.', 'error');
+      return;
+    }
+    setSavingBi(true);
+    try {
+      const res = await fetch('/api/settings/bi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          default_period: BI_PERIOD_MAP[biPeriod] || '12m',
+          chart_style: BI_STYLE_MAP[biChartStyle] || 'auto',
+          cost_variation_alert_pct: alertPct,
+          target_margin_pct: marginPct,
+          include_inactive: biIncludeInactive,
+          color_palette: BI_PALETTE_MAP[biColorPalette] || 'nexo',
+          custom_primary_color: biCustomPrimary,
+          custom_secondary_color: biCustomSecondary,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Erro ao salvar preferências de BI.');
+      onNotify('Preferências de BI & Indicadores salvas com sucesso!', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao salvar preferências de BI.', 'error');
+    } finally {
+      setSavingBi(false);
+    }
+  };
+
+  const handleCopySupportInfo = async () => {
+    const info = [
+      `Sistema: ${aboutInfo.app_name}`,
+      `Versão: ${aboutInfo.version} (${aboutInfo.release_date})`,
+      `Edição: ${aboutInfo.edition}`,
+      `Sistema Operacional: ${aboutInfo.os_info}`,
+      `Python: ${aboutInfo.python_version}`,
+      `Banco: ${dbSize} (Teto: ${dbHealth.max_size_label})`,
+      `Caminho DB: ${dbPath}`,
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(info);
+      onNotify('Dados de suporte copiados para a área de transferência!', 'success');
+    } catch {
+      onNotify('Não foi possível copiar automaticamente.', 'error');
+    }
+  };
+
+  const REPORT_SCOPE_MAP: Record<string, string> = {
+    'Geral (Banco Completo)': 'all',
+    'Insumos': 'materials',
+    'Receitas': 'recipes',
+    'Produtos': 'products',
+    'Unidades Personalizadas': 'custom_units',
+    'Histórico e Auditoria': 'audit',
+  };
+
+  const REPORT_FORMAT_MAP: Record<string, string> = {
+    'PDF': 'pdf',
+    'Excel (.xlsx)': 'xlsx',
+    'CSV': 'csv',
+    'XML': 'xml',
+  };
+
+  const handleExportReport = async () => {
+    const scope = REPORT_SCOPE_MAP[reportScope] || 'all';
+    const fmt = REPORT_FORMAT_MAP[reportFormat] || 'pdf';
+    setExportingReport(true);
+    try {
+      const res = await fetch(`/api/reports/export?scope=${encodeURIComponent(scope)}&fmt=${encodeURIComponent(fmt)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Não foi possível gerar o relatório.');
+      }
+      const blob = await res.blob();
+      const disp = res.headers.get('Content-Disposition') || '';
+      const match = disp.match(/filename="([^"]+)"/i);
+      const fallbackExt = fmt === 'csv' && scope === 'all' ? 'zip' : fmt;
+      const filename = match ? match[1] : `nexo_relatorio_${scope}.${fallbackExt}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      onNotify(`Relatório gerado: ${filename}`, 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao exportar relatório.', 'error');
+    } finally {
+      setExportingReport(false);
     }
   };
 
@@ -1481,11 +1961,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <span className="text-[12.5px] text-[#18223A] dark:text-[#F4F7FF]">
                   Alerta de Segurança Diário (Limitar em):
                 </span>
-                <div className="w-[80px]">
+                <div className="w-[56px]">
                   <CapsuleInput
                     value={aiDailyLimit}
                     onChange={(v) => setAiDailyLimit(v.replace(/[^0-9]/g, ''))}
                     placeholder="50"
+                    className="text-center !px-2"
                     disabled={!aiEnabled}
                   />
                 </div>
@@ -2119,58 +2600,53 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           {/* ========================================================= */}
           {activeTab === 'banco' && (
             <>
-              {/* Auditoria & BI */}
-              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
-                <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
-                  <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                    Auditoria & BI
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-[12.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
-                    Retenção do histórico de edições (Meses):
-                  </span>
-                  <div className="w-[80px]">
-                    <CapsuleInput
-                      value={retentionMonths}
-                      onChange={(v) => setRetentionMonths(v.replace(/[^0-9]/g, ''))}
-                      placeholder="36"
-                    />
-                  </div>
-                  <RoundedActionButton
-                    label={savingRetention ? 'Salvando...' : 'Salvar'}
-                    onClick={handleSaveRetention}
-                    variant="primary"
-                    height={34}
-                  />
-                  <span className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B] pl-2">
-                    Itens mais antigos serão limpos automaticamente na inicialização para otimizar o banco de dados.
-                  </span>
-                </div>
-              </div>
-
-              {/* Fonte de dados */}
+              {/* Banco de Dados */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
                   <div className="flex items-center gap-2">
                     <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                      Fonte de dados
+                      Banco de Dados
                     </h3>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBFBF0] dark:bg-[#133020] text-[#16A34A] dark:text-[#4ADE80]">
-                    SQLite Ativo ({dbSize})
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      dbHealth.health_status === 'red'
+                        ? 'bg-[#FEE2E2] dark:bg-[#3F1518] text-[#DC2626] dark:text-[#F87171]'
+                        : dbHealth.health_status === 'yellow'
+                        ? 'bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#D97706] dark:text-[#FBBF24]'
+                        : 'bg-[#EBFBF0] dark:bg-[#133020] text-[#16A34A] dark:text-[#4ADE80]'
+                    }`}
+                  >
+                    SQLite Ativo ({dbSize}) • {dbHealth.health_label}
                   </span>
                 </div>
+
+                {dbHealth.health_status !== 'green' && dbHealth.health_reasons.length > 0 && (
+                  <div
+                    className={`p-3 rounded-[14px] text-[12px] space-y-1 border ${
+                      dbHealth.health_status === 'red'
+                        ? 'bg-[#FEF2F2] dark:bg-[#3B1518] border-[#FECACA] dark:border-[#7F1D1D] text-[#B91C1C] dark:text-[#FCA5A5]'
+                        : 'bg-[#FFFBEB] dark:bg-[#38280E] border-[#FDE68A] dark:border-[#78350F] text-[#B45309] dark:text-[#FCD34D]'
+                    }`}
+                  >
+                    <div className="font-bold">
+                      {dbHealth.can_write
+                        ? 'Atenção à saúde do banco de dados:'
+                        : 'Bloqueio preventivo de gravação ativado:'}
+                    </div>
+                    {dbHealth.health_reasons.map((reason, idx) => (
+                      <div key={idx}>• {reason}</div>
+                    ))}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
                     SQLite atual
                   </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex-1 min-w-[220px]">
                       <CapsuleInput value={dbPath} onChange={() => {}} disabled />
                     </div>
                     <RoundedActionButton
@@ -2180,13 +2656,88 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       height={34}
                     />
                     <RoundedActionButton
-                      label={optimizing ? 'Otimizando...' : 'Otimizar (VACUUM)'}
+                      label={optimizing ? 'Compactando...' : 'Compactar (VACUUM)'}
                       onClick={handleVacuum}
                       variant="secondary"
                       height={34}
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                      Teto máximo do banco:
+                    </span>
+                    {!customDbLimitMode ? (
+                      <RoundedDropdown
+                        value={dbHealth.limit_options.find((o) => o.kb === dbLimitKb)?.label || dbHealth.max_size_label}
+                        onChange={handleDbLimitChange}
+                        options={dbHealth.limit_options.map((o) => o.label)}
+                        width={165}
+                        height={32}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <CapsuleQuantityUnit
+                          qtyValue={customDbLimitValue}
+                          onQtyChange={(v) => {
+                            setCustomDbLimitValue(v);
+                            if (dbLimitError) setDbLimitError('');
+                          }}
+                          unitValue={customDbLimitUnit}
+                          onUnitChange={(u) => {
+                            setCustomDbLimitUnit(u);
+                            if (dbLimitError) setDbLimitError('');
+                          }}
+                          unitOptions={['KB', 'MB', 'GB', 'TB']}
+                          width={165}
+                          height={32}
+                          qtyPlaceholder="250"
+                        />
+                        <RoundedActionButton
+                          label={savingDbLimit ? 'Salvando...' : 'Salvar'}
+                          onClick={handleCustomDbLimitSave}
+                          variant="primary"
+                          height={32}
+                        />
+                      </div>
+                    )}
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-[12px] text-[#60769D] dark:text-[#AFC0E2]">
+                      <NexoCheckbox
+                        checked={customDbLimitMode}
+                        onChange={() => {
+                          setCustomDbLimitMode(!customDbLimitMode);
+                          setDbLimitError('');
+                        }}
+                      />
+                      <span>Personalizar</span>
+                    </label>
+                    {savingDbLimit && !customDbLimitMode && (
+                      <span className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">Salvando...</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    <span>Uso do teto: <strong>{dbHealth.usage_pct.toFixed(1)}%</strong></span>
+                    <span>•</span>
+                    <span>Espaço morto: <strong>{dbHealth.wasted_fmt}</strong> ({dbHealth.wasted_pct.toFixed(1)}%)</span>
+                    <span>•</span>
+                    <span>Disco livre: <strong>{dbHealth.disk_free_fmt}</strong></span>
+                  </div>
+                </div>
+
+                {dbLimitError && (
+                  <div className="p-2.5 rounded-[12px] bg-[#FEF2F2] dark:bg-[#3B1518] border border-[#FECACA] dark:border-[#7F1D1D] text-[11.5px] text-[#B91C1C] dark:text-[#FCA5A5]">
+                    {dbLimitError}
+                  </div>
+                )}
+
+                {dbHealth.limit_advisory && (
+                  <div className="p-2.5 rounded-[12px] bg-[#FFFBEB] dark:bg-[#38280E] border border-[#FDE68A] dark:border-[#78350F] text-[11.5px] text-[#B45309] dark:text-[#FCD34D]">
+                    {dbHealth.limit_advisory}
+                  </div>
+                )}
 
                 {lastBackup && (
                   <div className="p-3 rounded-[14px] bg-[#EAFaf1] dark:bg-[#12372E] text-[12px] text-[#1E833F] dark:text-[#61E3B9] flex items-center justify-between">
@@ -2196,27 +2747,386 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 )}
 
                 <p className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
-                  SQLite local/arquivo de rede funciona nesta versão. Conectores PostgreSQL/MySQL podem ser adicionados depois.
+                  <strong>Compactar (VACUUM)</strong> remove apenas espaços vazios de itens já excluídos e reduz o tamanho do arquivo, preservando todo o histórico ativo e os dados usados para comparações. SQLite local/arquivo de rede funciona nesta versão; conectores PostgreSQL/MySQL podem ser adicionados depois.
                 </p>
+
+                <div className="border-t border-[#F0F4FA] dark:border-[#1E3156] pt-3.5 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[12.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                      Manter histórico de edições e custos por (meses):
+                    </span>
+                    <div className="w-[56px]">
+                      <CapsuleInput
+                        value={retentionMonths}
+                        onChange={(v) => setRetentionMonths(v.replace(/[^0-9]/g, ''))}
+                        placeholder="36"
+                        className="text-center !px-2"
+                      />
+                    </div>
+                    <RoundedActionButton
+                      label={savingRetention ? 'Salvando...' : 'Salvar'}
+                      onClick={handleSaveRetention}
+                      variant="primary"
+                      height={34}
+                    />
+                  </div>
+                  <p className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
+                    Registros dentro desse prazo são mantidos para futuras comparações e análises; itens mais antigos são limpos automaticamente ao abrir o sistema.
+                  </p>
+                </div>
               </div>
 
-              {/* Auditoria do banco */}
-              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3 transition-colors">
+              {/* Preferências de BI & Indicadores */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <span className="text-base">🔍</span>
+                  <BiIndicatorsIcon className="w-[22px] h-[22px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                    Auditoria do banco
+                    Preferências de BI & Indicadores
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Período padrão das análises
+                    </label>
+                    <RoundedDropdown
+                      value={biPeriod}
+                      onChange={setBiPeriod}
+                      options={Object.keys(BI_PERIOD_MAP)}
+                      width="100%"
+                      height={34}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Estilo padrão dos gráficos
+                    </label>
+                    <RoundedDropdown
+                      value={biChartStyle}
+                      onChange={setBiChartStyle}
+                      options={Object.keys(BI_STYLE_MAP)}
+                      width="100%"
+                      height={34}
+                    />
+                  </div>
+                </div>
+
+                {/* Paleta de Cores do BI */}
+                <div className="flex flex-wrap items-end justify-between gap-4 pt-1">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                        Paleta de cores dos gráficos
+                      </label>
+                      <RoundedDropdown
+                        value={biColorPalette}
+                        onChange={setBiColorPalette}
+                        options={Object.keys(BI_PALETTE_MAP)}
+                        width={220}
+                        height={34}
+                      />
+                    </div>
+
+                    {biColorPalette === 'Personalizado' && (
+                      <div className="flex items-center gap-3 pb-0.5">
+                        <label className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF] cursor-pointer">
+                          <span>Principal:</span>
+                          <span
+                            className="relative inline-block w-6 h-6 rounded-full border border-[#B0C0D6] dark:border-[#24385E] shadow-xs overflow-hidden cursor-pointer"
+                            style={{ backgroundColor: biCustomPrimary }}
+                          >
+                            <input
+                              type="color"
+                              value={biCustomPrimary}
+                              onChange={(e) => setBiCustomPrimary(e.target.value)}
+                              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                            />
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF] cursor-pointer">
+                          <span>Secundária:</span>
+                          <span
+                            className="relative inline-block w-6 h-6 rounded-full border border-[#B0C0D6] dark:border-[#24385E] shadow-xs overflow-hidden cursor-pointer"
+                            style={{ backgroundColor: biCustomSecondary }}
+                          >
+                            <input
+                              type="color"
+                              value={biCustomSecondary}
+                              onChange={(e) => setBiCustomSecondary(e.target.value)}
+                              className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                            />
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Prévia visual da paleta */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5F8FD] dark:bg-[#0E1B35] border border-[#E2EAF5] dark:border-[#24385E]">
+                    <span className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
+                      Prévia:
+                    </span>
+                    <div className="flex items-end gap-1 h-4">
+                      {getBiPreviewColors().map((hex, i) => (
+                        <span
+                          key={i}
+                          title={hex}
+                          className="w-2.5 rounded-t-sm transition-all"
+                          style={{
+                            backgroundColor: hex,
+                            height: `${[16, 11, 14, 9][i % 4]}px`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                  <div className="flex flex-wrap items-center gap-5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                        Alerta de variação de custo:
+                      </span>
+                      <div className="w-[56px]">
+                        <CapsuleInput
+                          value={biCostAlertPct}
+                          onChange={(v) => setBiCostAlertPct(v.replace(/[^0-9.,]/g, ''))}
+                          placeholder="10"
+                          className="text-center !px-2"
+                        />
+                      </div>
+                      <span className="text-[12px] font-semibold text-[#60769D] dark:text-[#93A4C6]">%</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                        Meta de margem de lucro:
+                      </span>
+                      <div className="w-[56px]">
+                        <CapsuleInput
+                          value={biTargetMarginPct}
+                          onChange={(v) => setBiTargetMarginPct(v.replace(/[^0-9.,]/g, ''))}
+                          placeholder="30"
+                          className="text-center !px-2"
+                        />
+                      </div>
+                      <span className="text-[12px] font-semibold text-[#60769D] dark:text-[#93A4C6]">%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5" title="Incluir itens inativos nos gráficos históricos">
+                    <NexoToggleSwitch
+                      checked={biIncludeInactive}
+                      onChange={setBiIncludeInactive}
+                    />
+                    <span className="text-[12px] text-[#60769D] dark:text-[#AFC0E2]">
+                      Incluir itens inativos nos gráficos
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <p className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
+                    Define a janela inicial dos gráficos, a linha de referência de margem e o gatilho de alertas quando insumos ou receitas variarem acima do limite.
+                  </p>
+                  <RoundedActionButton
+                    label={savingBi ? 'Salvando...' : 'Salvar BI'}
+                    onClick={handleSaveBi}
+                    variant="primary"
+                    height={34}
+                  />
+                </div>
+              </div>
+
+              {/* Auditoria & Relatórios */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
+                <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
+                  <AuditReportIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Auditoria & Relatórios
                   </h3>
                 </div>
 
                 <p className="text-[12px] text-[#60769D] dark:text-[#AFC0E2]">
-                  Veja as últimas operações, diferencie INSERT/UPDATE/DELETE e confira o antes/depois das edições diretamente no histórico de cada módulo.
+                  Veja as últimas operações (INSERT/UPDATE/DELETE, antes/depois) diretamente no histórico de cada módulo ou exporte relatórios completos divididos por aba/seção com sinalização de obsolescência.
+                </p>
+
+                <div className="flex flex-wrap items-end gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Conteúdo do relatório
+                    </label>
+                    <RoundedDropdown
+                      value={reportScope}
+                      onChange={setReportScope}
+                      options={Object.keys(REPORT_SCOPE_MAP)}
+                      width={230}
+                      height={34}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Formato
+                    </label>
+                    <RoundedDropdown
+                      value={reportFormat}
+                      onChange={setReportFormat}
+                      options={Object.keys(REPORT_FORMAT_MAP)}
+                      width={145}
+                      height={34}
+                    />
+                  </div>
+
+                  <RoundedActionButton
+                    label={exportingReport ? 'Gerando Relatório...' : 'Gerar Relatório'}
+                    onClick={handleExportReport}
+                    variant="primary"
+                    height={34}
+                  />
+                </div>
+
+                <p className="text-[11px] text-[#8C9BB5] dark:text-[#64748B]">
+                  No modo <strong>Geral (Banco Completo)</strong>, o arquivo inclui Resumo, Insumos, Receitas, Produtos, Unidades Personalizadas (ex.: xícara), Auditoria e Configurações (em abas separadas no Excel, seções no PDF/XML ou pacote .zip no CSV).
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* ==================== CATEGORIA 6: SOBRE ==================== */}
+          {activeTab === 'sobre' && (
+            <>
+              {/* Identidade e Versão */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-6 shadow-sm space-y-5 transition-colors">
+                <div className="flex flex-col items-center text-center border-b border-[#F0F4FA] dark:border-[#1E3156] pb-5 space-y-3">
+                  <img
+                    src={dark ? '/ui_assets/nexo_about_dark.png' : '/ui_assets/nexo_about_light.png'}
+                    alt="Nexo — Conexões que geram resultados"
+                    className="h-44 w-auto object-contain select-none"
+                  />
+                  <span className="px-3.5 py-1 rounded-full text-[11.5px] font-bold bg-[#FFF4E8] dark:bg-[#2B1F14] text-[#BA5200] dark:text-[#F28C28] border border-[#F5D6B5] dark:border-[#5C3A1B]">
+                    Versão {aboutInfo.version}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0E1B35] border border-[#E6EEF8] dark:border-[#1E3156]">
+                    <div className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">Versão Atual</div>
+                    <div className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] mt-0.5">{aboutInfo.version}</div>
+                  </div>
+                  <div className="p-3 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0E1B35] border border-[#E6EEF8] dark:border-[#1E3156]">
+                    <div className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">Data da Versão</div>
+                    <div className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] mt-0.5">{aboutInfo.release_date}</div>
+                  </div>
+                  <div className="p-3 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0E1B35] border border-[#E6EEF8] dark:border-[#1E3156]">
+                    <div className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">Edição</div>
+                    <div className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] mt-0.5">{aboutInfo.edition}</div>
+                  </div>
+                  <div className="p-3 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0E1B35] border border-[#E6EEF8] dark:border-[#1E3156]">
+                    <div className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">Ambiente</div>
+                    <div className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] mt-0.5 truncate" title={aboutInfo.os_info}>{aboutInfo.os_info}</div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <span className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
+                    Funcionamento 100% local — seus dados ficam armazenados no seu próprio dispositivo.
+                  </span>
+                  <RoundedActionButton
+                    label="Copiar dados para suporte"
+                    onClick={handleCopySupportInfo}
+                    variant="secondary"
+                    height={32}
+                  />
+                </div>
+              </div>
+
+              {/* Destaques da Versão */}
+              {aboutInfo.highlights.length > 0 && (
+                <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3 transition-colors">
+                  <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
+                    <AboutInfoIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Destaques da versão {aboutInfo.version}
+                    </h3>
+                  </div>
+                  <ul className="space-y-1.5 text-[12px] text-[#475978] dark:text-[#AFC0E2]">
+                    {aboutInfo.highlights.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-[#F28C28] font-bold mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Tecnologias & Privacidade */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-2.5 transition-colors">
+                <h3 className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Arquitetura & Privacidade
+                </h3>
+                <p className="text-[12px] text-[#60769D] dark:text-[#AFC0E2]">
+                  Desenvolvido com <strong>Python {aboutInfo.python_version} (FastAPI)</strong>, <strong>React + TypeScript</strong> e banco local <strong>SQLite</strong>. Nenhuma informação de custos, receitas ou preços é enviada para fora do seu computador sem sua ação explícita.
                 </p>
               </div>
             </>
           )}
         </div>
       </div>
+
+      {/* Modal Confirmação de Alteração do Teto do Banco */}
+      {pendingDbLimitConfirm && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+              <h3 className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                Confirmar teto fora do padrão
+              </h3>
+            </div>
+
+            <div className="space-y-2 text-[12.5px] text-[#475978] dark:text-[#AFC0E2]">
+              <p>
+                Você está alterando o teto máximo do banco para{' '}
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">{pendingDbLimitConfirm.label}</strong>{' '}
+                (o padrão recomendado do Nexo é <strong>250 MB</strong>).
+              </p>
+              {pendingDbLimitConfirm.isAboveDefault ? (
+                <p>
+                  Em computadores mais antigos ou com menos memória RAM, processador mais simples e pouco espaço em disco (HD/SSD), um banco muito grande pode deixar buscas, relatórios e backups mais lentos ou travar o sistema. Antes de aumentar o limite, prefira usar <strong>Compactar (VACUUM)</strong> ou reduzir os meses de retenção.
+                </p>
+              ) : (
+                <p>
+                  Esse teto é mais restrito que o padrão. Quando o banco atingir <strong>{pendingDbLimitConfirm.label}</strong>, o Nexo bloqueará novos cadastros até que você compacte o banco, limpe registros antigos ou aumente o limite.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <RoundedActionButton
+                label="Cancelar"
+                onClick={() => setPendingDbLimitConfirm(null)}
+                variant="secondary"
+                height={34}
+              />
+              <RoundedActionButton
+                label="Confirmar alteração"
+                onClick={() => {
+                  const target = pendingDbLimitConfirm;
+                  setPendingDbLimitConfirm(null);
+                  if (target) void applyDbLimitKb(target.kb, target.label);
+                }}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Calculadora Auxiliar de Custos Operacionais */}
       {showCostCalcModal && (
@@ -2848,7 +3758,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Tabela de Unidades (Padrão Oficial Nexo) */}
             <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-2.5 flex flex-col min-h-[300px] border border-[#E2EAF5] dark:border-[#203357] shadow-xs relative transition-colors overflow-hidden">
               <div className="flex-1 w-full overflow-auto flex flex-col relative">
-                <div className="min-w-full inline-block align-middle flex-1 flex flex-col">
+                <div className="min-w-full w-max align-middle flex-1 flex flex-col">
                   {(() => {
                     const q = conversionSearch.toLowerCase().trim();
                     const filtered = conversions.filter(c =>
@@ -2918,7 +3828,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         {/* Capsule Table Header Oficial Nexo (height=36px, rounded-full) */}
                         <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0 mb-1">
                           {/* Left Master Checkbox (60px) */}
-                          <div className="w-[60px] h-full flex items-center justify-center shrink-0 border-r border-[#E5ECF5] dark:border-[#24385E] rounded-l-full">
+                          <div className="w-[60px] h-full flex items-center justify-center shrink-0 border-r border-[#E5ECF5] dark:border-[#24385E] sticky left-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full z-30">
                             <NexoCheckbox
                               checked={isAllSelected}
                               onChange={toggleSelectAll}
@@ -2926,98 +3836,41 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                             />
                           </div>
 
-                          {/* Dynamic Columns with Sort Arrow */}
+                          {/* Dynamic Columns with Sort Arrow & Excel-style Resize */}
                           <div className="flex items-center flex-1 h-full">
-                            {/* Insumo */}
-                            {isColVis('material_name') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('material_name')}
-                                className="flex-[1.4] h-full px-3.5 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group text-left min-w-0"
-                              >
-                                <span className="truncate">
-                                  Insumo{convSortCol === 'material_name' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Código */}
-                            {isColVis('code') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('code')}
-                                className="w-[95px] h-full px-3 flex items-center justify-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group shrink-0"
-                              >
-                                <span>
-                                  Código{convSortCol === 'code' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Marca */}
-                            {isColVis('brand') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('brand')}
-                                className="w-[125px] h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group text-left shrink-0"
-                              >
-                                <span className="truncate">
-                                  Marca{convSortCol === 'brand' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Categoria */}
-                            {isColVis('category') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('category')}
-                                className="w-[125px] h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group text-left shrink-0"
-                              >
-                                <span className="truncate">
-                                  Categoria{convSortCol === 'category' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Unidade */}
-                            {isColVis('unit') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('unit')}
-                                className="w-[85px] h-full px-3 flex items-center justify-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group shrink-0"
-                              >
-                                <span>
-                                  Un.{convSortCol === 'unit' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Unidade Personalizada */}
-                            {isColVis('unit_name') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('unit_name')}
-                                className="flex-1 h-full px-3.5 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group text-left min-w-0"
-                              >
-                                <span className="truncate">
-                                  Unidade Personalizada{convSortCol === 'unit_name' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
-
-                            {/* Equivalência Base */}
-                            {isColVis('equivalence') && (
-                              <button
-                                type="button"
-                                onClick={() => handleConvSort('equivalence')}
-                                className="flex-[1.2] h-full px-3.5 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group text-left min-w-0"
-                              >
-                                <span className="truncate">
-                                  Equivalência Base{convSortCol === 'equivalence' ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : ''}
-                                </span>
-                              </button>
-                            )}
+                            {CONV_TABLE_COLUMNS.filter((c) => isColVis(c.key)).map((col) => {
+                              const isCenter = col.key === 'code' || col.key === 'unit';
+                              const isSorted = convSortCol === col.key;
+                              const arrow = isSorted ? (convSortDir === 'ASC' ? ' ↑' : ' ↓') : '';
+                              const colWidth = convColWidths[col.key] ?? col.width;
+                              return (
+                                <button
+                                  key={col.key}
+                                  type="button"
+                                  onClick={() => handleConvSort(col.key as any)}
+                                  style={{ width: `${colWidth}px`, flexShrink: 0 }}
+                                  className={`relative h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
+                                    isCenter ? 'justify-center text-center' : 'justify-start text-left'
+                                  }`}
+                                >
+                                  <span className="whitespace-nowrap">
+                                    {isCenter ? `${arrow}${col.label}` : `${col.label}${arrow}`}
+                                  </span>
+                                  <ColumnResizeHandle
+                                    onMouseDown={(e) => startConvResize(col.key, col.label, col.width, e)}
+                                    onDoubleClick={(e) =>
+                                      autoFitConvColumn(
+                                        col.key,
+                                        col.label,
+                                        sorted.map((it) => getConvCellText(it, col.key)),
+                                        0,
+                                        e
+                                      )
+                                    }
+                                  />
+                                </button>
+                              );
+                            })}
                           </div>
 
                           {/* Right Fixed Gear Column Header Oficial Nexo (90px) */}
@@ -3088,6 +3941,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                             const rowBg = isSelected
                               ? 'bg-[#FFF0D8] dark:bg-[#5A3518]'
                               : 'bg-white dark:bg-[#0E1B35] hover:bg-[#F8FAFD] dark:hover:bg-[#132342]';
+                            const stickyBg = isSelected
+                              ? 'bg-[#FFF0D8] dark:bg-[#5A3518]'
+                              : 'bg-white dark:bg-[#0E1B35] group-hover:bg-[#F8FAFD] dark:group-hover:bg-[#132342]';
 
                             return (
                               <div
@@ -3103,7 +3959,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                               >
                                 {/* Left Checkbox Cell (60px) */}
                                 <div
-                                  className="w-[60px] h-full flex items-center justify-center shrink-0"
+                                  className={`w-[60px] h-full flex items-center justify-center shrink-0 sticky left-0 z-10 transition-colors ${stickyBg}`}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <NexoCheckbox
@@ -3117,60 +3973,55 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                                   />
                                 </div>
 
-                                {/* Insumo */}
-                                {isColVis('material_name') && (
-                                  <div className="flex-[1.4] px-3.5 flex items-center overflow-hidden min-w-0">
-                                    <span className="font-semibold text-[13px] truncate">{item.material_name}</span>
-                                  </div>
-                                )}
+                                {/* Data Cells com largura independente e tooltip completo no hover */}
+                                <div className="flex items-center flex-1 h-full">
+                                  {CONV_TABLE_COLUMNS.filter((c) => isColVis(c.key)).map((col) => {
+                                    const fullText = getConvCellText(item, col.key);
+                                    const colWidth = convColWidths[col.key] ?? col.width;
+                                    const isCenter = col.key === 'code' || col.key === 'unit';
+                                    let cellContent: React.ReactNode = fullText;
 
-                                {/* Código */}
-                                {isColVis('code') && (
-                                  <div className="w-[95px] px-3 flex items-center justify-center font-mono text-[12px] text-[#60769D] dark:text-[#93A4C6] shrink-0">
-                                    {item.material_code || '-'}
-                                  </div>
-                                )}
+                                    if (col.key === 'material_name') {
+                                      cellContent = <span className="font-semibold">{item.material_name}</span>;
+                                    } else if (col.key === 'code') {
+                                      cellContent = (
+                                        <span className="font-mono text-[12px] text-[#60769D] dark:text-[#93A4C6]">
+                                          {fullText}
+                                        </span>
+                                      );
+                                    } else if (col.key === 'equivalence') {
+                                      cellContent = (
+                                        <span className="text-[#475569] dark:text-[#CBD5E1]">
+                                          1 {item.unit_name} ={' '}
+                                          <strong className="text-[#18223A] dark:text-white font-bold">
+                                            {item.factor_fmt} {item.base_unit}
+                                          </strong>
+                                        </span>
+                                      );
+                                    } else if (col.key === 'brand' || col.key === 'category' || col.key === 'unit') {
+                                      cellContent = (
+                                        <span className="text-[#475569] dark:text-[#CBD5E1]">{fullText}</span>
+                                      );
+                                    }
 
-                                {/* Marca */}
-                                {isColVis('brand') && (
-                                  <div className="w-[125px] px-3 flex items-center text-[12.5px] text-[#475569] dark:text-[#CBD5E1] shrink-0 truncate">
-                                    {item.material_brand || '-'}
-                                  </div>
-                                )}
-
-                                {/* Categoria */}
-                                {isColVis('category') && (
-                                  <div className="w-[125px] px-3 flex items-center text-[12.5px] text-[#475569] dark:text-[#CBD5E1] shrink-0 truncate">
-                                    {item.material_category || '-'}
-                                  </div>
-                                )}
-
-                                {/* Unidade do Insumo */}
-                                {isColVis('unit') && (
-                                  <div className="w-[85px] px-3 flex items-center justify-center text-[12.5px] font-medium text-[#475569] dark:text-[#CBD5E1] shrink-0">
-                                    {item.material_unit || item.base_unit}
-                                  </div>
-                                )}
-
-                                {/* Unidade Personalizada */}
-                                {isColVis('unit_name') && (
-                                  <div className="flex-1 px-3.5 flex items-center overflow-hidden min-w-0">
-                                    <span className="font-medium text-[13px] text-[#18223A] dark:text-[#F4F7FF] truncate">
-                                      {item.unit_name}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Equivalência Base */}
-                                {isColVis('equivalence') && (
-                                  <div className="flex-[1.2] px-3.5 text-[12.5px] text-[#475569] dark:text-[#CBD5E1] truncate min-w-0">
-                                    1 {item.unit_name} = <strong className="text-[#18223A] dark:text-white font-bold">{item.factor_fmt} {item.base_unit}</strong>
-                                  </div>
-                                )}
+                                    return (
+                                      <div
+                                        key={col.key}
+                                        title={fullText || undefined}
+                                        style={{ width: `${colWidth}px`, flexShrink: 0 }}
+                                        className={`px-3 text-[13px] truncate ${
+                                          isCenter ? 'text-center' : 'text-left'
+                                        }`}
+                                      >
+                                        {cellContent}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
 
                                 {/* Right Actions (90px) com os Ícones Oficiais do Nexo alinhados sob a engrenagem */}
                                 <div
-                                  className="w-[90px] h-full flex items-center justify-end pr-2.5 gap-1.5 shrink-0"
+                                  className={`w-[90px] h-full flex items-center justify-end pr-2.5 gap-1.5 shrink-0 sticky right-0 z-10 transition-colors ${stickyBg}`}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {/* Edit Button */}

@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClockIcon,
+  ColumnResizeHandle,
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
@@ -24,6 +25,7 @@ import {
   FlameIcon,
   ZapEnergyIcon,
   DropletWaterIcon,
+  useNexoColumnWidths,
 } from './DesignSystem';
 import { ConversionsModal } from './ConversionsModal';
 
@@ -65,6 +67,29 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
   const [orderBy, setOrderBy] = useState<string>('name');
   const [orderDir, setOrderDir] = useState<'ASC' | 'DESC'>('ASC');
   const [hiddenCols, setHiddenCols] = useState<string[]>(initialHiddenCols || ['code']);
+  const { colWidths, startResize, autoFitColumn, shouldIgnoreSortClick } =
+    useNexoColumnWidths('nexo_col_widths_recipes_v1', REC_COLUMNS);
+
+  const getRecipeCellText = (item: RecipeItem, key: string): string => {
+    switch (key) {
+      case 'code':
+        return item.code || '';
+      case 'name':
+        return item.name || '';
+      case 'yield':
+        return `${item.yield_qty} ${item.yield_unit}`;
+      case 'total_cost':
+        return item.total_cost_fmt || '';
+      case 'portion_cost':
+        return item.portion_cost_fmt || '';
+      case 'date':
+        return item.created_at ? item.created_at.slice(0, 10) : '';
+      case 'status':
+        return item.active ? 'Ativo' : 'Inativo';
+      default:
+        return '';
+    }
+  };
 
   // Selection & Multiselection
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -163,6 +188,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
 
   // Sorting Handler
   const handleSort = (key: string) => {
+    if (shouldIgnoreSortClick()) return;
     if (orderBy === key) {
       setOrderDir((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
     } else {
@@ -432,7 +458,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
       {/* 2. Table Panel (RoundedPanel radius=22px) */}
       <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-3 flex flex-col min-h-0 shadow-sm relative transition-colors">
         <div className="flex-1 w-full overflow-auto flex flex-col relative">
-          <div className="min-w-full inline-block align-middle flex-1 flex flex-col">
+          <div className="min-w-full w-max align-middle flex-1 flex flex-col">
             {/* Capsule Table Header (height=36px, rounded-full) */}
             <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0">
               {/* Left Master Checkbox (60px) */}
@@ -449,22 +475,35 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                 {visibleColumns.map((col) => {
                   const isSorted = orderBy === col.key;
                   const arrow = isSorted ? (orderDir === 'ASC' ? ' ↑' : ' ↓') : '';
+                  const colWidth = colWidths[col.key] ?? col.width;
                   return (
                     <button
                       key={col.key}
                       type="button"
                       onClick={() => handleSort(col.key)}
                       style={{
-                        minWidth: `${col.width}px`,
-                        flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                        width: `${colWidth}px`,
+                        flexShrink: 0,
                       }}
-                      className={`h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
+                      className={`relative h-full px-3 flex items-center border-r border-[#E5ECF5] dark:border-[#24385E] text-[12.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer group ${
                         col.align === 'left' ? 'justify-start text-left' : 'justify-center text-center'
                       }`}
                     >
-                      <span className="truncate">
+                      <span className="whitespace-nowrap">
                         {col.align === 'left' ? `${col.label}${arrow}` : `${arrow}${col.label}`}
                       </span>
+                      <ColumnResizeHandle
+                        onMouseDown={(e) => startResize(col.key, col.label, col.width, e)}
+                        onDoubleClick={(e) =>
+                          autoFitColumn(
+                            col.key,
+                            col.label,
+                            sortedItems.map((it) => getRecipeCellText(it, col.key)),
+                            col.key === 'status' ? 24 : 0,
+                            e
+                          )
+                        }
+                      />
                     </button>
                   );
                 })}
@@ -613,12 +652,14 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                               break;
                           }
 
+                          const fullText = getRecipeCellText(item, col.key);
                           return (
                             <div
                               key={col.key}
+                              title={fullText || undefined}
                               style={{
-                                minWidth: `${col.width}px`,
-                                flex: col.key === 'name' ? '1.4 1 0%' : '1 1 0%',
+                                width: `${colWidths[col.key] ?? col.width}px`,
+                                flexShrink: 0,
                               }}
                               className={`px-3 text-[13px] truncate ${
                                 col.align === 'left' ? 'text-left' : 'text-center'

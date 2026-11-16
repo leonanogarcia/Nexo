@@ -2,15 +2,26 @@ import ast
 import csv
 import io
 import json
+import math
+import platform
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from .reports import (
+    build_csv_or_zip_report,
+    build_pdf_report,
+    build_xlsx_report,
+    build_xml_report,
+    collect_report_sections,
+)
 
 from . import (
     UI_ASSETS,
@@ -54,7 +65,7 @@ from . import (
     to_float,
 )
 
-app = FastAPI(title="Nexo API", version="1.6.0")
+app = FastAPI(title="Nexo API", version="1.7.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +74,225 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _format_bytes_label(num_bytes: int) -> str:
+    if num_bytes < 1024:
+        return f"{num_bytes} B"
+    if num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024:.1f} KB"
+    if num_bytes < 1024 * 1024 * 1024:
+        return f"{num_bytes / (1024 * 1024):.2f} MB"
+    return f"{num_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def _format_limit_kb(kb: int) -> str:
+    if kb == 250 * 1024:
+        return "250 MB (Padrão)"
+    if kb < 1024:
+        return f"{kb} KB"
+    mb = kb / 1024.0
+    if mb >= 1000:
+        gb = mb / 1000.0
+        return f"{gb:g} GB".replace(".", ",")
+    return f"{mb:g} MB".replace(".", ",")
+
+
+def _next_limit_step_kb(kb: int) -> int:
+    if kb < 950:
+        return kb + 50
+    if kb < 1024:
+        return 1024
+    if kb < 50 * 1024:
+        step_5mb = 5 * 1024
+        return ((kb // step_5mb) + 1) * step_5mb
+    step_50mb = 50 * 1024
+    return ((kb // step_50mb) + 1) * step_50mb
+
+
+def get_database_health(db_file: Optional[Path] = None) -> Dict[str, Any]:
+    target = db_file or paths.get_db_path()
+    default_kb = 250 * 1024
+    max_size_kb = default_kb
+    try:
+        raw_kb = get_setting("db_max_size_kb", "")
+        if raw_kb:
+            max_size_kb = int(float(raw_kb))
+        else:
+            raw_mb = get_setting("db_max_size_mb", "250")
+            max_size_kb = int(float(raw_mb or 250)) * 1024
+    except Exception:
+        max_size_kb = default_kb
+    max_size_kb = max(50, max_size_kb)
+    max_size_bytes = max_size_kb * 1024
+
+    size_bytes = 0
+    try:
+        if target.exists():
+            size_bytes = target.stat().st_size
+    except Exception:
+        pass
+
+    page_count = 0
+    page_size = 4096
+    freelist_count = 0
+    try:
+        with db() as c:
+            page_count = int(c.execute("PRAGMA page_count").fetchone()[0] or 0)
+            page_size = int(c.execute("PRAGMA page_size").fetchone()[0] or 4096)
+            freelist_count = int(c.execute("PRAGMA freelist_count").fetchone()[0] or 0)
+    except Exception:
+        pass
+
+    wasted_bytes = freelist_count * page_size
+    wasted_pct = round((freelist_count / page_count) * 100, 1) if page_count > 0 else 0.0
+    usage_pct = round((size_bytes / max_size_bytes) * 100, 1) if max_size_bytes > 0 else 0.0
+
+    disk_free_bytes = 0
+    disk_total_bytes = 0
+    try:
+        usage = shutil.disk_usage(target.parent)
+        disk_free_bytes = int(usage.free)
+        disk_total_bytes = int(usage.total)
+    except Exception:
+        pass
+
+    reasons: List[str] = []
+    status = "green"
+    can_write = True
+
+    # 1. Disco do computador (PCs modestos)
+    if disk_free_bytes > 0:
+        if disk_free_bytes < 50 * 1024 * 1024:
+            status = "red"
+            can_write = False
+            reasons.append(f"Espaço livre em disco crítico ({_format_bytes_label(disk_free_bytes)}). Gravações bloqueadas para evitar corrupção.")
+        elif disk_free_bytes < 200 * 1024 * 1024:
+            status = "red"
+            reasons.append(f"Espaço livre em disco muito baixo ({_format_bytes_label(disk_free_bytes)}).")
+        elif disk_free_bytes < 500 * 1024 * 1024:
+            if status == "green":
+                status = "yellow"
+            reasons.append(f"Pouco espaço livre em disco ({_format_bytes_label(disk_free_bytes)}).")
+
+    # 2. Teto fixo configurado do Nexo
+    if usage_pct >= 100.0:
+        status = "red"
+        can_write = False
+        reasons.append(f"Banco atingiu o teto configurado ({_format_limit_kb(max_size_kb)}). Compacte ou ajuste o limite para continuar criando registros.")
+    elif usage_pct >= 90.0:
+        status = "red"
+        reasons.append(f"Banco em {usage_pct:.1f}% do teto configurado ({_format_limit_kb(max_size_kb)}).")
+    elif usage_pct >= 70.0:
+        if status == "green":
+            status = "yellow"
+        reasons.append(f"Banco em {usage_pct:.1f}% do teto configurado ({_format_limit_kb(max_size_kb)}).")
+
+    # 3. Fragmentação interna ("lixo" de exclusões)
+    if wasted_pct >= 40.0 and wasted_bytes >= 10 * 1024 * 1024:
+        status = "red"
+        reasons.append(f"Alto acúmulo de espaço morto ({_format_bytes_label(wasted_bytes)} / {wasted_pct:.1f}%). Recomenda-se Compactar (VACUUM).")
+    elif wasted_pct >= 20.0 and wasted_bytes >= 2 * 1024 * 1024:
+        if status == "green":
+            status = "yellow"
+        reasons.append(f"Banco fragmentado ({_format_bytes_label(wasted_bytes)} recuperáveis). Clique em Compactar (VACUUM).")
+
+    health_label = {
+        "green": "Saudável",
+        "yellow": "Atenção",
+        "red": "Crítico",
+    }[status]
+
+    can_vacuum = disk_free_bytes == 0 or disk_free_bytes > max(size_bytes * 2, 10 * 1024 * 1024)
+
+    # Janela deslizante inteligente: 9 opções progressivas (KB -> MB -> GB) acima do tamanho atual + 250 MB (Padrão)
+    size_kb = int(math.ceil(size_bytes / 1024)) if size_bytes > 0 else 50
+    if size_kb < 950:
+        first_kb = max(50, ((size_kb + 49) // 50) * 50)
+    elif size_kb < 1024:
+        first_kb = 1024
+    elif size_kb < 50 * 1024:
+        step_5mb = 5 * 1024
+        first_kb = ((size_kb + step_5mb - 1) // step_5mb) * step_5mb
+    else:
+        step_50mb = 50 * 1024
+        first_kb = ((size_kb + step_50mb - 1) // step_50mb) * step_50mb
+
+    if disk_free_bytes > 0:
+        safe_total_bytes = max(size_bytes, size_bytes + max(0, disk_free_bytes - 100 * 1024 * 1024))
+        max_disk_supported_kb = max(first_kb, int(safe_total_bytes // 1024))
+    else:
+        max_disk_supported_kb = None
+
+    option_kbs: List[int] = []
+    curr = first_kb
+    for _ in range(9):
+        if max_disk_supported_kb is not None and curr > max_disk_supported_kb:
+            break
+        option_kbs.append(curr)
+        curr = _next_limit_step_kb(curr)
+
+    if default_kb >= first_kb and (max_disk_supported_kb is None or default_kb <= max_disk_supported_kb):
+        if default_kb not in option_kbs:
+            option_kbs.append(default_kb)
+
+    if max_size_kb >= first_kb and (max_disk_supported_kb is None or max_size_kb <= max_disk_supported_kb):
+        if max_size_kb not in option_kbs:
+            option_kbs.append(max_size_kb)
+
+    option_kbs = sorted(set(option_kbs))
+    if not option_kbs:
+        option_kbs = [first_kb]
+
+    limit_options = [{"kb": kb, "label": _format_limit_kb(kb)} for kb in option_kbs]
+
+    limit_advisory = ""
+    if max_size_kb > 500 * 1024:
+        limit_advisory = (
+            f"Teto elevado ({_format_limit_kb(max_size_kb)}): em computadores mais antigos ou com menos memória RAM, processador mais simples e pouco espaço em disco (HD/SSD), "
+            "bancos muito grandes podem deixar buscas, relatórios e backups mais lentos ou travar o sistema. Prefira usar Compactar (VACUUM) ou reduzir os meses de retenção."
+        )
+    elif max_size_kb > default_kb and wasted_bytes >= 1024 * 1024:
+        limit_advisory = (
+            f"Há {_format_bytes_label(wasted_bytes)} de espaço morto recuperável no banco. "
+            "Considere compactar (VACUUM) antes de subir ainda mais o limite."
+        )
+
+    return {
+        "size_bytes": size_bytes,
+        "size_fmt": _format_bytes_label(size_bytes),
+        "max_size_kb": max_size_kb,
+        "max_size_mb": round(max_size_kb / 1024, 2),
+        "max_size_label": _format_limit_kb(max_size_kb),
+        "max_disk_supported_kb": max_disk_supported_kb,
+        "limit_options": limit_options,
+        "limit_advisory": limit_advisory,
+        "usage_pct": usage_pct,
+        "wasted_bytes": wasted_bytes,
+        "wasted_fmt": _format_bytes_label(wasted_bytes),
+        "wasted_pct": wasted_pct,
+        "disk_free_bytes": disk_free_bytes,
+        "disk_free_fmt": _format_bytes_label(disk_free_bytes) if disk_free_bytes > 0 else "-",
+        "disk_total_bytes": disk_total_bytes,
+        "health_status": status,
+        "health_label": health_label,
+        "health_reasons": reasons,
+        "can_write": can_write,
+        "can_vacuum": can_vacuum,
+    }
+
+
+@app.middleware("http")
+async def storage_guard_middleware(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH"):
+        path = request.url.path
+        guarded_prefixes = ("/api/materials", "/api/recipes", "/api/products", "/api/custom-units", "/api/purchases")
+        if path.startswith(guarded_prefixes) and not path.endswith("/delete"):
+            health = get_database_health()
+            if not health["can_write"]:
+                detail = " ".join(health["health_reasons"]) or "Sem espaço suficiente em disco ou teto do banco atingido."
+                return JSONResponse(status_code=507, content={"detail": detail})
+    return await call_next(request)
 
 # Mount ui_assets so the React frontend can load official Nexo icons and illustrations
 if UI_ASSETS.exists():
@@ -206,7 +436,7 @@ def get_system_status():
         "mat_hidden_cols": mat_hidden_cols,
         "rec_hidden_cols": rec_hidden_cols,
         "prod_hidden_cols": prod_hidden_cols,
-        "version": "v1.6.0",
+        "version": "v1.7.0",
     }
 
 
@@ -270,18 +500,8 @@ def get_all_settings():
     total_pct = sum(r["percentage"] for r in cost_list if r["cost_type"] == "PERCENT")
     total_fixed = sum(r["fixed_value"] for r in cost_list if r["cost_type"] == "FIXED")
 
-    # DB Size
-    size_bytes = 0
-    size_fmt = "0 KB"
-    try:
-        if db_file.exists():
-            size_bytes = db_file.stat().st_size
-            if size_bytes < 1024 * 1024:
-                size_fmt = f"{size_bytes / 1024:.1f} KB"
-            else:
-                size_fmt = f"{size_bytes / (1024 * 1024):.2f} MB"
-    except Exception:
-        pass
+    # DB Size & Health
+    health = get_database_health(db_file)
 
     return {
         "theme": theme,
@@ -315,9 +535,33 @@ def get_all_settings():
         "database": {
             "name": db_file.name,
             "path": str(db_file),
-            "size_bytes": size_bytes,
-            "size_fmt": size_fmt,
             "connected": True,
+            **health,
+        },
+        "bi": {
+            "default_period": get_setting("bi_default_period", "12m"),
+            "chart_style": get_setting("bi_chart_style", "auto"),
+            "cost_variation_alert_pct": float(get_setting("bi_cost_variation_alert_pct", "10") or 10),
+            "target_margin_pct": float(get_setting("bi_target_margin_pct", "30") or 30),
+            "include_inactive": get_setting("bi_include_inactive", "0") in ("1", "true", "True"),
+            "color_palette": get_setting("bi_color_palette", "nexo"),
+            "custom_primary_color": get_setting("bi_custom_primary_color", "#F28C28"),
+            "custom_secondary_color": get_setting("bi_custom_secondary_color", "#18223A"),
+        },
+        "about": {
+            "app_name": "Nexo",
+            "version": app.version,
+            "release_date": "16/11/2026",
+            "edition": "Local (SQLite)",
+            "os_info": f"{platform.system()} {platform.release()}",
+            "python_version": platform.python_version(),
+            "highlights": [
+                "Gerenciador central de unidades personalizadas com ordenação, visibilidade de colunas e ações em lote.",
+                "Padrão único de tabelas em todo o sistema: redimensionamento estilo Excel, autoajuste com duplo clique e tooltip.",
+                "Monitoramento inteligente de saúde do banco (Verde/Amarelo/Vermelho), teto configurável com modo Personalizar e trava preventiva de disco.",
+                "Preferências de BI & Indicadores com período padrão, estilo e paleta de cores dos gráficos.",
+                "Exportação completa de relatórios e auditoria em PDF, Excel (.xlsx), CSV e XML com sinalização de obsolescência.",
+            ],
         },
     }
 
@@ -445,11 +689,129 @@ def create_database_backup():
     }
 
 
+class DatabaseLimitPayload(BaseModel):
+    max_size_kb: Optional[int] = None
+    max_size_mb: Optional[int] = None
+
+
+@app.post("/api/settings/database/limit")
+def update_database_limit(payload: DatabaseLimitPayload):
+    if payload.max_size_kb is not None:
+        kb = int(payload.max_size_kb)
+    elif payload.max_size_mb is not None:
+        kb = int(payload.max_size_mb) * 1024
+    else:
+        raise HTTPException(status_code=400, detail="Informe o limite desejado para o banco.")
+
+    if kb < 50:
+        raise HTTPException(status_code=400, detail="O teto mínimo do banco é 50 KB.")
+    health = get_database_health()
+    if kb * 1024 < health["size_bytes"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"O limite escolhido ({_format_limit_kb(kb)}) é menor que o tamanho atual do banco ({health['size_fmt']}). Compacte o banco (VACUUM) ou limpe registros antigos antes de reduzir o teto.",
+        )
+    max_disk_kb = health.get("max_disk_supported_kb")
+    if max_disk_kb is not None and kb > max_disk_kb:
+        raise HTTPException(
+            status_code=400,
+            detail=f"O disco atual não comporta um teto de {_format_limit_kb(kb)} com segurança (espaço livre: {health['disk_free_fmt']}). Máximo recomendado neste disco: {_format_limit_kb(max_disk_kb)}.",
+        )
+    set_setting("db_max_size_kb", str(kb))
+    return {"ok": True, "max_size_kb": kb, "max_size_label": _format_limit_kb(kb)}
+
+
 @app.post("/api/settings/database/vacuum")
 def vacuum_database():
+    health = get_database_health()
+    if not health["can_vacuum"]:
+        raise HTTPException(
+            status_code=507,
+            detail=f"Espaço livre em disco insuficiente ({health['disk_free_fmt']}) para compactar o banco com segurança. É necessário pelo menos o dobro do tamanho atual ({health['size_fmt']}).",
+        )
     with db() as c:
         c.execute("VACUUM")
-    return {"ok": True, "message": "Banco de dados otimizado e compactado com sucesso."}
+    return {"ok": True, "message": "Banco de dados compactado e otimizado com sucesso."}
+
+
+class BiSettingsPayload(BaseModel):
+    default_period: str = "12m"
+    chart_style: str = "auto"
+    cost_variation_alert_pct: float = 10.0
+    target_margin_pct: float = 30.0
+    include_inactive: bool = False
+    color_palette: str = "nexo"
+    custom_primary_color: str = "#F28C28"
+    custom_secondary_color: str = "#18223A"
+
+
+@app.post("/api/settings/bi")
+def update_bi_settings(payload: BiSettingsPayload):
+    valid_periods = {"30d", "3m", "6m", "12m", "all"}
+    valid_styles = {"auto", "bar", "line"}
+    valid_palettes = {"nexo", "brand", "contrast", "corporate", "custom"}
+    if payload.default_period not in valid_periods:
+        raise HTTPException(status_code=400, detail="Período padrão de BI inválido.")
+    if payload.chart_style not in valid_styles:
+        raise HTTPException(status_code=400, detail="Estilo de gráfico inválido.")
+    if payload.color_palette not in valid_palettes:
+        raise HTTPException(status_code=400, detail="Paleta de cores do BI inválida.")
+    if payload.cost_variation_alert_pct < 0 or payload.cost_variation_alert_pct > 500:
+        raise HTTPException(status_code=400, detail="O alerta de variação de custo deve ficar entre 0% e 500%.")
+    if payload.target_margin_pct < 0 or payload.target_margin_pct > 500:
+        raise HTTPException(status_code=400, detail="A meta de margem de lucro deve ficar entre 0% e 500%.")
+
+    set_setting("bi_default_period", payload.default_period)
+    set_setting("bi_chart_style", payload.chart_style)
+    set_setting("bi_cost_variation_alert_pct", str(round(float(payload.cost_variation_alert_pct), 1)))
+    set_setting("bi_target_margin_pct", str(round(float(payload.target_margin_pct), 1)))
+    set_setting("bi_include_inactive", "1" if payload.include_inactive else "0")
+    set_setting("bi_color_palette", payload.color_palette)
+    if payload.custom_primary_color.startswith("#") and len(payload.custom_primary_color) == 7:
+        set_setting("bi_custom_primary_color", payload.custom_primary_color)
+    if payload.custom_secondary_color.startswith("#") and len(payload.custom_secondary_color) == 7:
+        set_setting("bi_custom_secondary_color", payload.custom_secondary_color)
+    return {"ok": True, "message": "Preferências de BI salvas com sucesso!"}
+
+
+@app.get("/api/reports/export")
+def export_database_report(
+    scope: str = Query("all", description="all | materials | recipes | products | custom_units | audit"),
+    fmt_type: str = Query("pdf", alias="fmt", description="pdf | xlsx | csv | xml"),
+):
+    valid_scopes = {"all", "materials", "recipes", "products", "custom_units", "audit"}
+    valid_formats = {"pdf", "xlsx", "csv", "xml"}
+    if scope not in valid_scopes:
+        raise HTTPException(status_code=400, detail="Escopo de relatório inválido.")
+    if fmt_type not in valid_formats:
+        raise HTTPException(status_code=400, detail="Formato de exportação inválido.")
+
+    init_db()
+    health = get_database_health()
+    sections = collect_report_sections(scope, health)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = f"nexo_relatorio_{scope}_{stamp}"
+
+    if fmt_type == "pdf":
+        data = build_pdf_report(sections, scope)
+        media_type = "application/pdf"
+        ext = "pdf"
+    elif fmt_type == "xlsx":
+        data = build_xlsx_report(sections)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ext = "xlsx"
+    elif fmt_type == "csv":
+        data, media_type, ext = build_csv_or_zip_report(sections)
+    else:
+        data = build_xml_report(sections, scope)
+        media_type = "application/xml; charset=utf-8"
+        ext = "xml"
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{base_name}.{ext}"'},
+    )
 
 
 @app.post("/api/settings/{key}")

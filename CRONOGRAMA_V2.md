@@ -11,7 +11,7 @@
 | **Etapa 1** | **Aba Insumos (Cadastro)** | ✅ **CONCLUÍDO** | Tabela inteligente, Histórico com HH:MM, Decisão de Salvamento, Duplicar e Exclusão Inteligente |
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
 | **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
-| **Etapa 3** | **Aba Configurações** | 🚀 **EM ANDAMENTO** | Menu lateral fiel (220px), Identidade da Empresa, Logo fluida (Redonda/Livre), Branding Dinâmico, Custos Operacionais, Unidades e Banco SQLite (Fase de Lapidação) |
+| **Etapa 3** | **Aba Configurações** | ✅ **CONCLUÍDO** | Menu lateral fiel (220px), Identidade da Empresa, Logo fluida (Redonda/Livre), Branding Dinâmico, Custos Operacionais, Unidades, Banco SQLite + Saúde/Teto, Preferências de BI, Relatórios e Aba Sobre |
 | **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
@@ -65,10 +65,10 @@
 
 ---
 
-### 🚀 Etapa 3: Aba Configurações & Identidade da Marca — EM ANDAMENTO
+### ✅ Etapa 3: Aba Configurações & Identidade da Marca — CONCLUÍDA
 * [x] **Arquitetura 1:1 Fiel com Menu Lateral Interno (220px):**
-  * 5 categorias dedicadas com navegação rápida: Geral, Inteligência Artificial, Métricas de Custo, Unidades de Medida e Banco de Dados & BI.
-  * Ícones monocromáticos elegantes do Design System: Engrenagem, Microchip IA vetorial de alta nitidez, Gráfico de Custos, Régua de Medição e Cilindro de Banco.
+  * 6 categorias dedicadas com navegação rápida: Geral, Sincronismo de IA, Métricas de Custo, Unidades de Medida, Banco de Dados & BI e Sobre.
+  * Ícones monocromáticos elegantes do Design System: Engrenagem, Microchip IA vetorial de alta nitidez, Gráfico de Custos, Régua de Medição, Cilindro de Banco e Informação.
 * [x] **Aparência & Tema:**
   * Seletor de tema: **Modo Claro**, **Modo Escuro** e **Automático (Sistema)**.
   * Persistência imediata no SQLite (`settings.theme`) e sincronização global reativa.
@@ -83,10 +83,16 @@
   * Configuração de taxas percentuais: **Gás**, **Energia Elétrica** e **Água** com totalizador dinâmico e integração ao `calculator.py`.
 * [x] **Unidades de Medida Globais:**
   * Visualização e configuração das unidades de massa (`mg`, `g`, `kg`, `t`), volume (`ml`, `L`, `kL`) e contagem (`un`).
-* [x] **Banco de Dados & Manutenção:**
-  * Status e tamanho do banco de dados SQLite ativo.
-  * Retenção de histórico de auditoria configurável em meses.
-  * Ações instantâneas de **Backup de Segurança** (salvo com carimbo de data/hora em `backups/`) e **Otimização / Compactação (`VACUUM`)**.
+* [x] **Banco de Dados, BI & Manutenção (v1.7.0):**
+  * Status, saúde em cores (Verde/Amarelo/Vermelho), espaço morto (`freelist`), espaço livre em disco e trava preventiva de gravação.
+  * Teto máximo configurável em lista deslizante inteligente (KB → MB → GB) + modo **Personalizar** (`CapsuleQuantityUnit` KB/MB/GB/TB) com janela de confirmação para valores fora do padrão (`250 MB`).
+  * Retenção de histórico de edições e custos configurável em meses integrada ao card Banco de Dados.
+  * Ações instantâneas de **Backup de Segurança** (salvo com carimbo de data/hora em `backups/`) e **Compactar (`VACUUM`)**.
+  * Card **Preferências de BI & Indicadores** (período padrão, estilo de gráfico, alerta de variação %, meta de margem %, itens inativos e paleta de cores com prévia).
+  * Card **Auditoria & Relatórios** com exportação em PDF, Excel (`.xlsx`), CSV/ZIP e XML dividida por módulo e com sinalização de obsolescência.
+* [x] **Padrão Único de Tabelas & Aba Sobre (v1.7.0):**
+  * Redimensionamento estilo Excel, autoajuste no duplo clique, tooltip completo, cabeçalhos sem truncamento e persistência em todas as tabelas (`docs/02_DESIGN_SYSTEM.md`).
+  * Aba **Sobre** com logo oficial em alta definição (Claro/Escuro), versão, data, ambiente e cópia de dados de suporte.
 
 ---
 
