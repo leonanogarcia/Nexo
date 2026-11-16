@@ -403,6 +403,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [aiProvider, setAiProvider] = useState('Google Gemini');
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiDailyLimit, setAiDailyLimit] = useState('50');
+  const [aiBaseUrl, setAiBaseUrl] = useState('');
+  const [aiModel, setAiModel] = useState('');
+  const [testingAi, setTestingAi] = useState(false);
   const [showAiHelpModal, setShowAiHelpModal] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
 
@@ -636,7 +639,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '1.7.0',
+    version: '1.8.0',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -707,6 +710,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         }
       }
 
+      if (data.ai) {
+        setAiEnabled(!!data.ai.enabled);
+        setAiProvider(data.ai.provider || 'Google Gemini');
+        setAiApiKey(data.ai.api_key || '');
+        setAiDailyLimit(String(data.ai.daily_limit || '50'));
+        setAiBaseUrl(data.ai.base_url || '');
+        setAiModel(data.ai.model || '');
+      }
+
       // Banco de dados
       if (data.database) {
         setDbPath(data.database.path || 'nexo.db');
@@ -769,7 +781,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '1.7.0',
+          version: data.about.version || '1.8.0',
           release_date: data.about.release_date || '16/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
@@ -929,13 +941,42 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   // --- Handlers: IA ---
+  const resetAiLocalState = () => {
+    setAiEnabled(false);
+    setAiProvider('Google Gemini');
+    setAiApiKey('');
+    setAiDailyLimit('50');
+    setAiBaseUrl('');
+    setAiModel('');
+  };
+
+  const handleToggleAi = async (checked: boolean) => {
+    if (!checked) {
+      resetAiLocalState();
+      try {
+        await fetch('/api/settings/ai/reset', { method: 'POST' });
+        onNotify('IA desativada e configurações/chave apagadas com segurança.', 'success');
+      } catch {
+        // ignore network error; local state already cleared
+      }
+      return;
+    }
+    setAiEnabled(true);
+  };
+
   const handleSaveAi = async () => {
     setSavingAi(true);
     try {
+      if (!aiEnabled) {
+        resetAiLocalState();
+        await fetch('/api/settings/ai/reset', { method: 'POST' });
+        onNotify('IA desativada e configurações zeradas com sucesso!', 'success');
+        return;
+      }
       await fetch('/api/settings/ai_enabled', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: aiEnabled ? '1' : '0' }),
+        body: JSON.stringify({ value: '1' }),
       });
       await fetch('/api/settings/ai_provider', {
         method: 'POST',
@@ -952,11 +993,44 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: aiDailyLimit }),
       });
+      await fetch('/api/settings/ai_base_url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: aiBaseUrl }),
+      });
+      await fetch('/api/settings/ai_model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: aiModel }),
+      });
       onNotify('Configurações de IA salvas com sucesso!', 'success');
     } catch (e: any) {
       onNotify(e.message || 'Erro ao salvar configurações de IA.', 'error');
     } finally {
       setSavingAi(false);
+    }
+  };
+
+  const handleTestAi = async () => {
+    setTestingAi(true);
+    try {
+      const res = await fetch('/api/settings/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: aiProvider,
+          api_key: aiApiKey,
+          base_url: aiBaseUrl,
+          model: aiModel,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Não foi possível validar a conexão com a IA.');
+      onNotify(data.message || 'Conexão validada com sucesso!', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao testar conexão de IA.', 'error');
+    } finally {
+      setTestingAi(false);
     }
   };
 
@@ -1904,27 +1978,68 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
                 <NexoToggleSwitch
                   checked={aiEnabled}
-                  onChange={setAiEnabled}
-                  tooltip={aiEnabled ? 'IA ativada (Clique para desativar)' : 'Clique para ativar a IA'}
+                  onChange={handleToggleAi}
+                  tooltip={aiEnabled ? 'IA ativada (Clique para desativar e limpar chave)' : 'Clique para ativar a IA'}
                 />
               </div>
 
               {/* Linha 1: Provedor de IA */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-[12px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
                   Provedor de IA:
                 </span>
-                <div className="w-[200px]">
+                <div className="w-[240px]">
                   <RoundedDropdown
                     value={aiProvider}
                     onChange={setAiProvider}
-                    options={['Google Gemini', 'OpenAI ChatGPT']}
-                    width={200}
+                    options={['Google Gemini', 'OpenAI ChatGPT', 'OpenRouter', 'Outro (Compatível OpenAI)']}
+                    width={240}
                     height={34}
                     disabled={!aiEnabled}
                   />
                 </div>
+                {aiProvider === 'OpenRouter' && (
+                  <span className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
+                    Endpoint automático: <code className="font-semibold">openrouter.ai/api/v1</code>
+                  </span>
+                )}
               </div>
+
+              {/* Campos extras para OpenRouter / Outro (Compatível OpenAI) */}
+              {(aiProvider === 'OpenRouter' || aiProvider === 'Outro (Compatível OpenAI)') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {aiProvider === 'Outro (Compatível OpenAI)' && (
+                    <div>
+                      <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                        URL Base da API (Base URL):
+                      </label>
+                      <CapsuleInput
+                        value={aiBaseUrl}
+                        onChange={setAiBaseUrl}
+                        autoCapitalizeFirst={false}
+                        placeholder="Ex.: https://api.groq.com/openai/v1"
+                        disabled={!aiEnabled}
+                      />
+                    </div>
+                  )}
+                  <div className={aiProvider === 'OpenRouter' ? 'md:col-span-2' : ''}>
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Modelo (Opcional):
+                    </label>
+                    <CapsuleInput
+                      value={aiModel}
+                      onChange={setAiModel}
+                      autoCapitalizeFirst={false}
+                      placeholder={
+                        aiProvider === 'OpenRouter'
+                          ? 'Ex.: google/gemini-2.0-flash-exp:free ou openai/gpt-4o-mini'
+                          : 'Ex.: llama-3.3-70b-versatile ou qwen2.5-vl'
+                      }
+                      disabled={!aiEnabled}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Linha 2: Chave API */}
               <div className="flex items-center gap-2.5">
@@ -1975,7 +2090,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </span>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex flex-wrap items-center justify-end gap-2">
+                <RoundedActionButton
+                  label={testingAi ? 'Testando...' : 'Testar Conexão'}
+                  onClick={handleTestAi}
+                  variant="secondary"
+                  height={34}
+                />
                 <RoundedActionButton
                   label={savingAi ? 'Salvando...' : 'Salvar IA'}
                   onClick={handleSaveAi}
@@ -3828,12 +3949,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         {/* Capsule Table Header Oficial Nexo (height=36px, rounded-full) */}
                         <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0 mb-1">
                           {/* Left Master Checkbox (60px) */}
-                          <div className="w-[60px] h-full flex items-center justify-center shrink-0 border-r border-[#E5ECF5] dark:border-[#24385E] sticky left-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full z-30">
-                            <NexoCheckbox
-                              checked={isAllSelected}
-                              onChange={toggleSelectAll}
-                              title="Selecionar todos"
-                            />
+                          <div className="w-[60px] h-full shrink-0 sticky left-0 z-30 bg-white dark:bg-[#111F3B]">
+                            <div className="w-full h-full flex items-center justify-center border-r border-[#E5ECF5] dark:border-[#24385E] bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full">
+                              <NexoCheckbox
+                                checked={isAllSelected}
+                                onChange={toggleSelectAll}
+                                title="Selecionar todos"
+                              />
+                            </div>
                           </div>
 
                           {/* Dynamic Columns with Sort Arrow & Excel-style Resize */}
@@ -3876,20 +3999,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           {/* Right Fixed Gear Column Header Oficial Nexo (90px) */}
                           <div
                             ref={convColMenuRef}
-                            className="w-[90px] h-full flex items-center justify-end pr-3 shrink-0 sticky right-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-r-full border-l border-[#E5ECF5] dark:border-[#24385E] z-30 relative"
+                            className="w-[90px] h-full shrink-0 sticky right-0 z-30 bg-white dark:bg-[#111F3B]"
                           >
-                            <button
-                              type="button"
-                              onClick={() => setConvColMenuOpen((o) => !o)}
-                              title="Exibir / ocultar colunas"
-                              className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#60769D] dark:text-[#AFC0E2] hover:text-[#F28C28] dark:hover:text-[#F28C28] transition-colors cursor-pointer"
-                            >
-                              <GearPolygonIcon
-                                size={16}
-                                strokeColor="currentColor"
-                                centerFill={dark ? '#142544' : '#EEF4FB'}
-                              />
-                            </button>
+                            <div className="w-full h-full flex items-center justify-end pr-3 bg-[#EEF4FB] dark:bg-[#142544] rounded-r-full border-l border-[#E5ECF5] dark:border-[#24385E]">
+                              <button
+                                type="button"
+                                onClick={() => setConvColMenuOpen((o) => !o)}
+                                title="Exibir / ocultar colunas"
+                                className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#60769D] dark:text-[#AFC0E2] hover:text-[#F28C28] dark:hover:text-[#F28C28] transition-colors cursor-pointer"
+                              >
+                                <GearPolygonIcon
+                                  size={16}
+                                  strokeColor="currentColor"
+                                  centerFill={dark ? '#142544' : '#EEF4FB'}
+                                />
+                              </button>
+                            </div>
 
                             {/* Menu Flutuante de Exibir Colunas */}
                             {convColMenuOpen && (

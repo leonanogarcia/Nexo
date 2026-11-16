@@ -19,6 +19,7 @@ import {
   ReferenceSidebar,
   RoundedActionButton,
 } from './components/DesignSystem';
+import { HomePage } from './components/HomePage';
 import { MaterialsPage } from './components/MaterialsPage';
 import { RecipesPage } from './components/RecipesPage';
 import { ProductsPage } from './components/ProductsPage';
@@ -78,7 +79,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.7.0',
+    version: 'v1.8.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -264,6 +265,13 @@ export const App: React.FC = () => {
             />
           )}
 
+          {loaded && activePage === 'Geral' && (
+            <HomePage
+              onNavigate={(tab) => setActivePage(tab)}
+              onNotify={notify}
+            />
+          )}
+
           {loaded && activePage === 'Configurações' && (
             <SettingsPage
               onNotify={notify}
@@ -278,7 +286,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {loaded && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && activePage !== 'Configurações' && (
+          {loaded && activePage !== 'Geral' && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && activePage !== 'Configurações' && (
             <div className="flex-1 rounded-[22px] bg-white dark:bg-[#111F3B] p-8 flex flex-col items-center justify-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-full bg-[#FFF0D8] dark:bg-[#5A3518] text-[#F28C28] flex items-center justify-center text-2xl font-bold mb-4">
                 ✨
@@ -301,10 +309,31 @@ export const App: React.FC = () => {
 
         {/* Footer Status Bar */}
         <footer className="h-[26px] px-2 pb-1.5 flex items-center justify-between text-[11px] text-[#60769D] dark:text-[#93A4C6] shrink-0 select-none">
-          <span>
-            Banco de dados: {status.connected ? 'Conectado ✓' : 'Desconectado ✕'} · {status.db_name}
-          </span>
-          <span>Nexo · Gestão de Custos e Precificação · v1.7.0 (Etapa 3: Configurações & Identidade Concluída)</span>
+          <button
+            type="button"
+            onClick={() => setActivePage('Configurações')}
+            title={
+              status.db_health?.health_reasons?.length
+                ? status.db_health.health_reasons.join(' | ')
+                : `Banco de dados ${status.db_health?.health_label || 'Saudável'} (${status.db_health?.size_fmt || ''}). Clique para gerenciar.`
+            }
+            className="flex items-center gap-1.5 hover:text-[#18223A] dark:hover:text-[#F4F7FF] transition-colors cursor-pointer"
+          >
+            <span
+              className={`w-[7px] h-[7px] rounded-full shrink-0 ${
+                !status.connected || status.db_health?.health_status === 'red'
+                  ? 'bg-[#DC2626]'
+                  : status.db_health?.health_status === 'yellow'
+                  ? 'bg-[#F59E0B]'
+                  : 'bg-[#16A34A]'
+              }`}
+            />
+            <span>
+              Banco de dados: {status.connected ? 'Conectado' : 'Desconectado'} · {status.db_name}
+              {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
+            </span>
+          </button>
+          <span>Nexo · Gestão de Custos e Precificação · v1.8.0 (Etapa 4: Início & BI Concluída)</span>
         </footer>
       </main>
     </div>

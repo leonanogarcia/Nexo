@@ -842,6 +842,7 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
       onChange={handleChange}
       placeholder={placeholder}
       disabled={disabled}
+      autoComplete={type === 'password' ? 'new-password' : 'off'}
       spellCheck={type === 'text' ? spellCheck : false}
       lang="pt-BR"
       className={`h-[32px] w-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-3.5 text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none focus:border-[#F28C28] dark:focus:border-[#F28C28] transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
@@ -1445,4 +1446,33 @@ export const ColumnResizeHandle: React.FC<{
     title="Arraste para redimensionar · Duplo clique para auto-ajustar"
     className="absolute right-[-4px] top-0 h-full w-[8px] cursor-col-resize z-30 select-none"
   />
+);
+
+/**
+ * Ícone padrão Nexo para links de navegação/expansão ("Ver todas", "Ajustar", pendências).
+ */
+export const OpenSectionIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <rect
+      x="2.75"
+      y="2.75"
+      width="18.5"
+      height="18.5"
+      rx="5"
+      stroke="currentColor"
+      strokeWidth="2.4"
+    />
+    <path
+      d="M3 12.2h6.3a3 3 0 0 1 3 3V21H7.5A4.5 4.5 0 0 1 3 16.5v-4.3z"
+      fill="currentColor"
+    />
+    <path
+      d="M12.3 11.7l4.6-4.6m0 0h-3.4m3.4 0v3.4"
+      stroke="currentColor"
+      strokeOpacity="0.65"
+      strokeWidth="2.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );

@@ -4,6 +4,12 @@ export interface SystemStatus {
   connected: boolean;
   db_name: string;
   db_path: string;
+  db_health?: {
+    health_status: 'green' | 'yellow' | 'red';
+    health_label: string;
+    size_fmt: string;
+    health_reasons: string[];
+  };
   theme: 'light' | 'dark' | 'system';
   company_name: string;
   units: string[];

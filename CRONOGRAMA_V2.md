@@ -12,7 +12,7 @@
 | **Etapa 2.1** | **Aba Receitas Base (Fichas Técnicas)** | ✅ **CONCLUÍDO** | Fichas técnicas ativas, cálculo dinâmico de custo total e porção, expansão de ingredientes na tabela, conversões culinárias, cápsula unificada [Qtd \| Unidade] e modal compacto |
 | **Etapa 2.2** | **Aba Produtos (Precificação e Venda)** | ✅ **CONCLUÍDO** | Precificação de venda, composição flexível (insumos + receitas + produtos), custos operacionais, cálculo de margem % e lucro R$, tabela com divisórias e menu de 3 pontinhos alinhado |
 | **Etapa 3** | **Aba Configurações** | ✅ **CONCLUÍDO** | Menu lateral fiel (220px), Identidade da Empresa, Logo fluida (Redonda/Livre), Branding Dinâmico, Custos Operacionais, Unidades, Banco SQLite + Saúde/Teto, Preferências de BI, Relatórios e Aba Sobre |
-| **Etapa 4** | **Aba Início (Dashboard + BI)** | ⏳ Pendente | KPIs estratégicos, 2 gráficos de rosca interativos e Modal de BI completo |
+| **Etapa 4** | **Aba Início (Dashboard + BI)** | ✅ **CONCLUÍDO** | KPIs estratégicos, gráficos interativos, Modal de BI completo, Produtos abaixo da meta, Ranking Lucro & Custo, Pendências e bolinha de saúde no rodapé |
 | **Etapa 5** | **Recursos Avançados & Empacotamento** | ⏳ Pendente | Sincronismo de IA (leitura de notas/receitas por foto), Backup e Instalador Desktop Oficial Windows |
 
 ---
@@ -96,12 +96,14 @@
 
 ---
 
-### ⏳ Etapa 4: Aba Início (Dashboard + BI)
-* [ ] 3 Cards de KPI clicáveis no topo: Insumos, Receitas Base, Produtos.
-* [ ] 2 Gráficos de rosca interativos:
-  * Distribuição de compras por insumo.
-  * Composição de custos (Receitas e Produtos).
-* [ ] Modal de BI com tabelas detalhadas por Insumo, por Marca e por Receita/Produto com filtro de mês.
+### ✅ Etapa 4: Aba Início (Dashboard + BI) — CONCLUÍDA (v1.8.0)
+* [x] 3 Cards de KPI clicáveis no topo: Produtos, Receitas Base, Insumos.
+* [x] Gráfico Custo dos Produtos (barras/linhas/misto com período configurável) + Custo médio e margem média vs. meta.
+* [x] Compras por categoria e Variação de preços com rolagem interna, alerta de variação % e link `Ver todas`.
+* [x] Produtos abaixo da meta de margem, Ranking de Lucro & Custo e Pendências do Cadastro clicáveis.
+* [x] 2 Gráficos de rosca interativos (Distribuição de compras por insumo e Composição de custos de Receitas e Produtos).
+* [x] Modal de BI com tabelas detalhadas (Por Insumo, Por Marca e Evolução de Custos), filtro de mês, busca, exportação CSV e Padrão Único de Tabelas.
+* [x] Bolinha de saúde do banco (Verde/Amarelo/Vermelho) no rodapé global + suporte a OpenRouter/OpenAI-compatível e zeramento seguro ao desligar a IA.
 
 ---
 

@@ -719,12 +719,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             {/* Capsule Table Header (height=36px, rounded-full) */}
             <div className="h-[36px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] flex items-center sticky top-0 z-20 select-none shrink-0">
               {/* Left Master Checkbox (60px) */}
-              <div className="w-[60px] h-full flex items-center justify-center shrink-0 border-r border-[#E5ECF5] dark:border-[#24385E] sticky left-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full z-30">
-                <NexoCheckbox
-                  checked={isAllChecked}
-                  onChange={toggleAllCheckboxes}
-                  title="Selecionar todos"
-                />
+              <div className="w-[60px] h-full shrink-0 sticky left-0 z-30 bg-white dark:bg-[#111F3B]">
+                <div className="w-full h-full flex items-center justify-center border-r border-[#E5ECF5] dark:border-[#24385E] bg-[#EEF4FB] dark:bg-[#142544] rounded-l-full">
+                  <NexoCheckbox
+                    checked={isAllChecked}
+                    onChange={toggleAllCheckboxes}
+                    title="Selecionar todos"
+                  />
+                </div>
               </div>
 
               {/* Dynamic Visible Columns */}
@@ -769,8 +771,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
               {/* Right Fixed Actions Header (90px: edit 30 + delete 30 + gear 30) */}
               <div
                 ref={colMenuRef}
-                className="w-[90px] h-full flex items-center justify-end pr-2 shrink-0 sticky right-0 bg-[#EEF4FB] dark:bg-[#142544] rounded-r-full border-l border-[#E5ECF5] dark:border-[#24385E] z-30 relative"
+                className="w-[90px] h-full shrink-0 sticky right-0 z-30 bg-white dark:bg-[#111F3B]"
               >
+                <div className="w-full h-full flex items-center justify-end pr-2 bg-[#EEF4FB] dark:bg-[#142544] rounded-r-full border-l border-[#E5ECF5] dark:border-[#24385E] relative">
                 <button
                   type="button"
                   onClick={() => setColMenuOpen((o) => !o)}
@@ -783,6 +786,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     centerFill={dark ? '#142544' : '#EEF4FB'}
                   />
                 </button>
+                </div>
 
                 {/* Floating Column Visibility Menu */}
                 {colMenuOpen && (
