@@ -15,6 +15,7 @@ export interface SystemStatus {
   units: string[];
   mat_hidden_cols: string[];
   rec_hidden_cols?: string[];
+  ai_enabled?: boolean;
   version: string;
 }
 
@@ -90,6 +91,7 @@ export interface RecipeIngredient {
   unit: string;
   cost: number;
   cost_fmt: string;
+  broken?: boolean;
 }
 
 export interface RecipeItem {
@@ -109,6 +111,7 @@ export interface RecipeItem {
   portion_cost: number;
   portion_cost_fmt: string;
   items_count: number;
+  has_broken_items?: boolean;
   items: RecipeIngredient[];
 }
 

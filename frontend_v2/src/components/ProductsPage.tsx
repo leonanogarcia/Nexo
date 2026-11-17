@@ -7,6 +7,7 @@ import {
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
+  PaperclipIcon,
   PlusIcon,
   RoundedActionButton,
   RoundedDropdown,
@@ -15,15 +16,17 @@ import {
   FlameIcon,
   ZapEnergyIcon,
   DropletWaterIcon,
-  PackageBoxIcon,
   useNexoColumnWidths,
 } from './DesignSystem';
+import { DocumentAttachmentsModal } from './DocumentAttachmentsModal';
+import { AiParsedRecipeResult, AiRecipePreviewModal, QuickCreateMaterialModal } from './AiPreviewModals';
 
 interface ProductsPageProps {
   units: string[];
   initialHiddenCols?: string[];
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
   dark: boolean;
+  aiEnabled?: boolean;
 }
 
 export interface ProductItem {
@@ -51,6 +54,7 @@ export interface ProductItem {
   created_at: string;
   updated_at: string;
   items_count: number;
+  has_broken_items?: boolean;
   items?: Array<{
     id: number;
     item_type: string;
@@ -61,6 +65,7 @@ export interface ProductItem {
     unit: string;
     cost: number;
     cost_fmt: string;
+    broken?: boolean;
   }>;
 }
 
@@ -89,7 +94,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   initialHiddenCols,
   onNotify,
   dark,
+  aiEnabled = false,
 }) => {
+  const [docsModal, setDocsModal] = useState<{ open: boolean; product: ProductItem | null }>({ open: false, product: null });
+  const [aiProductModalOpen, setAiProductModalOpen] = useState(false);
+  const [aiDraft, setAiDraft] = useState<AiParsedRecipeResult | null>(null);
   const [items, setItems] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -411,6 +420,14 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 icon={<ClockIcon size={16} />}
                 height={38}
               />
+              {aiEnabled && (
+                <RoundedActionButton
+                  label="Ler Ficha (IA)"
+                  onClick={() => setAiProductModalOpen(true)}
+                  variant="secondary"
+                  height={38}
+                />
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2.5">
@@ -630,9 +647,19 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                               break;
                             case 'name':
                               cellContent = (
-                                <span className="font-medium text-[#18223A] dark:text-[#F4F7FF]">
-                                  {prod.name}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-[#18223A] dark:text-[#F4F7FF]">
+                                    {prod.name}
+                                  </span>
+                                  {prod.has_broken_items && (
+                                    <span
+                                      title="Este produto possui componente inativo ou arquivado"
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#B45309] dark:text-[#FBBF24] border border-[#F59E0B]/40 shrink-0"
+                                    >
+                                      ⚠ Item quebrado
+                                    </span>
+                                  )}
+                                </div>
                               );
                               break;
                             case 'weight':
@@ -828,6 +855,19 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             onClick={() => {
               const target = rowMenu.item;
               setRowMenu(null);
+              setDocsModal({ open: true, product: target });
+            }}
+            className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] cursor-pointer"
+          >
+            <PaperclipIcon size={15} className="text-[#687796] dark:text-[#AFC0E2] shrink-0" />
+            <span>Anexos & Viewer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const target = rowMenu.item;
+              setRowMenu(null);
               triggerDeleteCheck([target.id]);
             }}
             className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] cursor-pointer"
@@ -872,10 +912,15 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       {formModal.open && (
         <ProductFormModal
           editItem={formModal.editItem}
+          aiDraft={aiDraft}
           units={units}
-          onClose={() => setFormModal({ open: false, editItem: null })}
+          onClose={() => {
+            setFormModal({ open: false, editItem: null });
+            setAiDraft(null);
+          }}
           onSaved={async () => {
             setFormModal({ open: false, editItem: null });
+            setAiDraft(null);
             await fetchProducts();
             onNotify(
               formModal.editItem
@@ -887,6 +932,30 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           onNotify={onNotify}
         />
       )}
+
+      {/* Modal: Anexos & Viewer (independente da IA) */}
+      {docsModal.open && docsModal.product && (
+        <DocumentAttachmentsModal
+          open={docsModal.open}
+          entityType="PRODUCT"
+          entityId={docsModal.product.id}
+          entityName={docsModal.product.name}
+          onClose={() => setDocsModal({ open: false, product: null })}
+          onNotify={onNotify}
+        />
+      )}
+
+      {/* Modal: Leitura de Ficha / Montagem com IA (só abre com IA ativa) */}
+      <AiRecipePreviewModal
+        open={aiProductModalOpen}
+        targetKind="product"
+        onClose={() => setAiProductModalOpen(false)}
+        onApplyToForm={(draft) => {
+          setAiDraft(draft);
+          setFormModal({ open: true, editItem: null });
+        }}
+        onNotify={onNotify}
+      />
 
       {/* Modal: Histórico de Custos do Produto */}
       {historyModal.open && historyModal.product && (
@@ -960,10 +1029,13 @@ interface FormCompositionRow {
   unit: string;
   cost_fmt: string;
   available_units: string[];
+  unresolved_name?: string;
+  broken_reason?: string;
 }
 
 interface ProductFormModalProps {
   editItem: ProductItem | null;
+  aiDraft?: AiParsedRecipeResult | null;
   units: string[];
   onClose: () => void;
   onSaved: () => void;
@@ -972,16 +1044,17 @@ interface ProductFormModalProps {
 
 const ProductFormModal: React.FC<ProductFormModalProps> = ({
   editItem,
+  aiDraft,
   units,
   onClose,
   onSaved,
   onNotify,
 }) => {
-  const [name, setName] = useState(editItem ? editItem.name : '');
-  const [weightQty, setWeightQty] = useState(editItem ? String(editItem.weight_qty) : '1');
-  const [weightUnit, setWeightUnit] = useState(editItem ? editItem.weight_unit : 'un');
+  const [name, setName] = useState(editItem ? editItem.name : (aiDraft?.name || ''));
+  const [weightQty, setWeightQty] = useState(editItem ? String(editItem.weight_qty) : (aiDraft ? String(aiDraft.yield_qty || 1) : '1'));
+  const [weightUnit, setWeightUnit] = useState(editItem ? editItem.weight_unit : (aiDraft?.yield_unit || 'un'));
   const [salePrice, setSalePrice] = useState(editItem ? editItem.sale_price_fmt : 'R$ 0,00');
-  const [notes, setNotes] = useState(editItem ? editItem.notes : '');
+  const [notes, setNotes] = useState(editItem ? editItem.notes : (aiDraft?.notes || ''));
 
   // Options caches
   const [options, setOptions] = useState<{
@@ -1000,7 +1073,23 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         unit: it.unit,
         cost_fmt: it.cost_fmt,
         available_units: [it.unit, 'g', 'kg', 'ml', 'L', 'un'],
+        broken_reason: it.broken
+          ? `Componente inativo/arquivado: "${it.name}" — substitua por outro, remova ou cancele para cadastrar/reativar`
+          : undefined,
       }));
+    }
+    if (!editItem && aiDraft?.ingredients?.length) {
+      return aiDraft.ingredients
+        .filter((g) => g.selected)
+        .map((g) => ({
+          item_type: g.item_type,
+          ref_id: g.matched_id || 0,
+          qty: String(g.qty || 1),
+          unit: g.unit || 'g',
+          cost_fmt: '-',
+          available_units: [g.unit || 'g', 'g', 'kg', 'ml', 'L', 'un'],
+          unresolved_name: g.matched_id ? undefined : g.name,
+        }));
     }
     return [];
   });
@@ -1012,9 +1101,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [marginFmt, setMarginFmt] = useState(editItem ? editItem.profit_margin_fmt : '0.0%');
   const [markupVal, setMarkupVal] = useState(editItem ? editItem.markup : 0);
 
-  const [loadingOpts, setLoadingOpts] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickCreateTarget, setQuickCreateTarget] = useState<{ idx: number; name: string; unit: string } | null>(null);
 
   // Fetch composition options
   useEffect(() => {
@@ -1027,8 +1116,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       } catch (e) {
         console.error(e);
-      } finally {
-        setLoadingOpts(false);
       }
     })();
   }, []);
@@ -1193,14 +1280,31 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     recalculatePreview(next, salePrice);
   };
 
+  const failSave = (msg: string, type: 'warning' | 'error' = 'warning') => {
+    setError(msg);
+    onNotify(msg, type);
+  };
+
   const handleSave = async () => {
     setError(null);
     const n = name.trim();
-    if (!n) return setError('O nome do produto é obrigatório.');
+    if (!n) return failSave('O nome do produto é obrigatório.');
+
+    const brokenRows = items.filter((r) => r.ref_id <= 0 || Boolean(r.broken_reason));
+    if (brokenRows.length > 0) {
+      const names = brokenRows.map((b) => b.unresolved_name || 'Sem vínculo').join(', ');
+      return failSave(`Não é possível salvar com componente quebrado ou inativo. Substitua ou remova: ${names}.`);
+    }
 
     const validRows = items.filter((r) => r.ref_id > 0);
     if (validRows.length === 0) {
-      return setError('Adicione ao menos um componente na composição do produto.');
+      return failSave('Adicione ao menos um componente na composição do produto.');
+    }
+    for (const r of validRows) {
+      const q = parseFloat(r.qty.replace(',', '.'));
+      if (isNaN(q) || q <= 0) {
+        return failSave('Informe uma quantidade maior que zero para todos os componentes.');
+      }
     }
 
     setSaving(true);
@@ -1231,12 +1335,23 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.detail || 'Não foi possível salvar o produto.');
+        failSave(data.detail || 'Não foi possível salvar o produto.', 'error');
         return;
+      }
+      if (!editItem && aiDraft?.source_file && data.id) {
+        try {
+          await fetch(`/api/documents/PRODUCT/${data.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aiDraft.source_file),
+          });
+        } catch (attachErr) {
+          console.error('Erro ao auto-anexar documento do produto:', attachErr);
+        }
       }
       onSaved();
     } catch (e: any) {
-      setError(e.message || 'Erro de conexão com o servidor.');
+      failSave(e.message || 'Erro de conexão com o servidor.', 'error');
     } finally {
       setSaving(false);
     }
@@ -1394,55 +1509,97 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                   const selectedComp = componentOptions.find((c) => c.id === row.ref_id);
                   const selectedLabel = selectedComp ? selectedComp.label : '';
+                  const isBroken = row.ref_id <= 0 || Boolean(row.broken_reason);
 
                   return (
                     <div
                       key={idx}
-                      className="p-2 rounded-[14px] bg-[#F9FBFC] dark:bg-[#0E1A30] border border-[#E2EAF5] dark:border-[#1E3156] flex items-center gap-2"
+                      className={`p-2 rounded-[14px] border space-y-1.5 ${
+                        isBroken
+                          ? 'bg-[#FFFBEB] dark:bg-[#2A1F0D] border-[#F59E0B] dark:border-[#B45309]'
+                          : 'bg-[#F9FBFC] dark:bg-[#0E1A30] border-[#E2EAF5] dark:border-[#1E3156]'
+                      }`}
                     >
-                      {/* Dropdown Tipo de Componente */}
-                      <div className="w-[110px] shrink-0">
-                        <RoundedDropdown
-                          value={
-                            row.item_type === 'MATERIAL'
-                              ? 'Insumo'
-                              : row.item_type === 'RECIPE_BASE'
-                              ? 'Receita'
-                              : 'Produto'
-                          }
-                          onChange={(lbl) => {
-                            const newType =
-                              lbl === 'Receita'
-                                ? 'RECIPE_BASE'
-                                : lbl === 'Produto'
-                                ? 'PRODUCT'
-                                : 'MATERIAL';
-                            updateComponentRow(idx, { item_type: newType, ref_id: 0, cost_fmt: '-' });
-                          }}
-                          options={['Insumo', 'Receita', 'Produto']}
-                          width="100%"
-                          height={34}
-                          align="center"
-                        />
-                      </div>
-
-                      {/* Dropdown Componente */}
-                      <div className="flex-1 min-w-0">
-                        <RoundedDropdown
-                          value={selectedLabel}
-                          onChange={(newLabel) => {
-                            const found = componentOptions.find((c) => c.label === newLabel);
-                            if (found) {
-                              updateComponentRow(idx, { ref_id: found.id });
+                      {isBroken && (
+                        <div className="flex items-center justify-between gap-2 px-1">
+                          <span className="text-[11px] font-bold text-[#B45309] dark:text-[#FBBF24]">
+                            ⚠{' '}
+                            {row.broken_reason
+                              ? row.broken_reason
+                              : row.unresolved_name
+                              ? `Não encontrado pela IA: "${row.unresolved_name}" — vincule abaixo ou crie agora`
+                              : 'Componente sem vínculo — vincule abaixo ou crie agora'}
+                          </span>
+                          {!row.broken_reason && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setQuickCreateTarget({
+                                  idx,
+                                  name: row.unresolved_name || '',
+                                  unit: row.unit || 'g',
+                                })
+                              }
+                              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#BA5200] hover:bg-[#9C4400] text-white transition-colors cursor-pointer shrink-0"
+                            >
+                              + Criar insumo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {/* Dropdown Tipo de Componente */}
+                        <div className="w-[110px] shrink-0">
+                          <RoundedDropdown
+                            value={
+                              row.item_type === 'MATERIAL'
+                                ? 'Insumo'
+                                : row.item_type === 'RECIPE_BASE'
+                                ? 'Receita'
+                                : 'Produto'
                             }
-                          }}
-                          options={componentOptions.map((c) => c.label)}
-                          width="100%"
-                          height={34}
-                          align="left"
-                          placeholder="Selecione o componente..."
-                        />
-                      </div>
+                            onChange={(lbl) => {
+                              const newType =
+                                lbl === 'Receita'
+                                  ? 'RECIPE_BASE'
+                                  : lbl === 'Produto'
+                                  ? 'PRODUCT'
+                                  : 'MATERIAL';
+                              updateComponentRow(idx, {
+                                item_type: newType,
+                                ref_id: 0,
+                                cost_fmt: '-',
+                                broken_reason: undefined,
+                              });
+                            }}
+                            options={['Insumo', 'Receita', 'Produto']}
+                            width="100%"
+                            height={34}
+                            align="center"
+                          />
+                        </div>
+
+                        {/* Dropdown Componente */}
+                        <div className="flex-1 min-w-0">
+                          <RoundedDropdown
+                            value={selectedLabel}
+                            onChange={(newLabel) => {
+                              const found = componentOptions.find((c) => c.label === newLabel);
+                              if (found) {
+                                updateComponentRow(idx, {
+                                  ref_id: found.id,
+                                  unresolved_name: undefined,
+                                  broken_reason: undefined,
+                                });
+                              }
+                            }}
+                            options={componentOptions.map((c) => c.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                            placeholder="Selecione o componente..."
+                          />
+                        </div>
 
                       {/* Quantidade e Unidade unificadas em cápsula Nexo */}
                       <div className="w-[160px] shrink-0 flex items-center justify-center">
@@ -1477,6 +1634,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         >
                           <TrashIcon size={16} />
                         </button>
+                      </div>
                       </div>
                     </div>
                   );
@@ -1611,6 +1769,38 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           />
         </div>
       </div>
+
+      <QuickCreateMaterialModal
+        open={Boolean(quickCreateTarget)}
+        initialName={quickCreateTarget?.name || ''}
+        initialUnit={quickCreateTarget?.unit || 'g'}
+        onClose={() => setQuickCreateTarget(null)}
+        onNotify={onNotify}
+        onCreated={async (newId) => {
+          const targetIdx = quickCreateTarget?.idx ?? -1;
+          try {
+            const res = await fetch('/api/products/composition-options');
+            if (res.ok) {
+              const data = await res.json();
+              setOptions(data);
+              if (targetIdx >= 0) {
+                const nextRows = [...items];
+                if (nextRows[targetIdx]) {
+                  nextRows[targetIdx] = {
+                    ...nextRows[targetIdx],
+                    item_type: 'MATERIAL',
+                    ref_id: newId,
+                    unresolved_name: undefined,
+                  };
+                  setItems(nextRows);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
     </div>
   );
 };

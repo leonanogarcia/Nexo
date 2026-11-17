@@ -449,6 +449,26 @@ export const PackageBoxIcon: React.FC<{ color?: string; size?: number; className
   </svg>
 );
 
+export const PaperclipIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 16,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.1"
+    strokeLinecap="butt"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+  </svg>
+);
+
 // ---------- RoundedActionButton ----------
 
 interface RoundedActionButtonProps {
@@ -1136,7 +1156,7 @@ export const AnimatedFeedbackModal: React.FC<AnimatedFeedbackModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${closing ? 'opacity-0' : 'opacity-100'
+      className={`fixed inset-0 z-[100] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${closing ? 'opacity-0' : 'opacity-100'
         }`}
     >
       <div

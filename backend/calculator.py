@@ -1,4 +1,4 @@
-from .database import db, get_cost_settings, get_cost_settings_detailed, get_setting, now_iso
+from .database import db, get_cost_settings_detailed, get_setting, now_iso
 from .units import conversion_to_base, convert_generic
 
 

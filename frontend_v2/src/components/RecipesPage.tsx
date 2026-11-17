@@ -9,13 +9,12 @@ import {
 import {
   CapsuleInput,
   CapsuleQuantityUnit,
-  ChevronDownIcon,
-  ChevronRightIcon,
   ClockIcon,
   ColumnResizeHandle,
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
+  PaperclipIcon,
   PlusIcon,
   RoundedActionButton,
   RoundedDropdown,
@@ -28,12 +27,15 @@ import {
   useNexoColumnWidths,
 } from './DesignSystem';
 import { ConversionsModal } from './ConversionsModal';
+import { DocumentAttachmentsModal } from './DocumentAttachmentsModal';
+import { AiParsedRecipeResult, AiRecipePreviewModal, QuickCreateMaterialModal } from './AiPreviewModals';
 
 interface RecipesPageProps {
   units: string[];
   initialHiddenCols: string[];
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
   dark: boolean;
+  aiEnabled?: boolean;
 }
 
 interface RecColumnSpec {
@@ -59,7 +61,11 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
   initialHiddenCols,
   onNotify,
   dark,
+  aiEnabled = false,
 }) => {
+  const [docsModal, setDocsModal] = useState<{ open: boolean; recipe: RecipeItem | null }>({ open: false, recipe: null });
+  const [aiRecipeModalOpen, setAiRecipeModalOpen] = useState(false);
+  const [aiDraft, setAiDraft] = useState<AiParsedRecipeResult | null>(null);
   const [items, setItems] = useState<RecipeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -418,6 +424,14 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                 icon={<ClockIcon size={16} />}
                 height={38}
               />
+              {aiEnabled && (
+                <RoundedActionButton
+                  label="Ler Receita (IA)"
+                  onClick={() => setAiRecipeModalOpen(true)}
+                  variant="secondary"
+                  height={38}
+                />
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2.5">
@@ -627,7 +641,19 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                               );
                               break;
                             case 'name':
-                              cellContent = <span className="font-medium">{item.name}</span>;
+                              cellContent = (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{item.name}</span>
+                                  {item.has_broken_items && (
+                                    <span
+                                      title="Esta receita possui insumo inativo ou arquivado"
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#B45309] dark:text-[#FBBF24] border border-[#F59E0B]/40 shrink-0"
+                                    >
+                                      ⚠ Item quebrado
+                                    </span>
+                                  )}
+                                </div>
+                              );
                               break;
                             case 'yield':
                               cellContent = `${item.yield_qty} ${item.yield_unit}`;
@@ -800,6 +826,19 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
             onClick={() => {
               const target = rowMenu.item;
               setRowMenu(null);
+              setDocsModal({ open: true, recipe: target });
+            }}
+            className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] cursor-pointer"
+          >
+            <PaperclipIcon size={15} className="text-[#687796] dark:text-[#AFC0E2] shrink-0" />
+            <span>Anexos & Viewer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const target = rowMenu.item;
+              setRowMenu(null);
               triggerDeleteCheck([target.id]);
             }}
             className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] cursor-pointer"
@@ -844,16 +883,45 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
       {formModal.open && (
         <RecipeFormModal
           editItem={formModal.editItem}
+          aiDraft={aiDraft}
           units={units}
-          onClose={() => setFormModal({ open: false, editItem: null })}
+          onClose={() => {
+            setFormModal({ open: false, editItem: null });
+            setAiDraft(null);
+          }}
           onSaved={async () => {
             setFormModal({ open: false, editItem: null });
+            setAiDraft(null);
             await fetchRecipes();
             onNotify('Receita salva com sucesso!', 'success');
           }}
           onNotify={onNotify}
         />
       )}
+
+      {/* Modal: Anexos & Viewer (independente da IA) */}
+      {docsModal.open && docsModal.recipe && (
+        <DocumentAttachmentsModal
+          open={docsModal.open}
+          entityType="RECIPE_BASE"
+          entityId={docsModal.recipe.id}
+          entityName={docsModal.recipe.name}
+          onClose={() => setDocsModal({ open: false, recipe: null })}
+          onNotify={onNotify}
+        />
+      )}
+
+      {/* Modal: Leitura de Receita com IA (só abre com IA ativa) */}
+      <AiRecipePreviewModal
+        open={aiRecipeModalOpen}
+        targetKind="recipe"
+        onClose={() => setAiRecipeModalOpen(false)}
+        onApplyToForm={(draft) => {
+          setAiDraft(draft);
+          setFormModal({ open: true, editItem: null });
+        }}
+        onNotify={onNotify}
+      />
 
       {/* Modal: Histórico de Custos da Receita */}
       {historyModal.open && historyModal.recipe && (
@@ -931,6 +999,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
 
 interface RecipeFormModalProps {
   editItem: RecipeItem | null;
+  aiDraft?: AiParsedRecipeResult | null;
   units: string[];
   onClose: () => void;
   onSaved: () => void;
@@ -945,6 +1014,8 @@ interface FormIngredientRow {
   unit: string;
   cost_fmt: string;
   available_units: string[];
+  unresolved_name?: string;
+  broken_reason?: string;
 }
 
 function getCompatibleUnits(purchaseUnit: string, customUnits: string[] = []): string[] {
@@ -966,20 +1037,38 @@ function getCompatibleUnits(purchaseUnit: string, customUnits: string[] = []): s
 
 const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   editItem,
+  aiDraft,
   units,
   onClose,
   onSaved,
   onNotify,
 }) => {
-  const [name, setName] = useState(editItem ? editItem.name : '');
-  const [yieldQty, setYieldQty] = useState(editItem ? String(editItem.yield_qty) : '1');
-  const [yieldUnit, setYieldUnit] = useState(editItem ? editItem.yield_unit : 'un');
+  const [name, setName] = useState(editItem ? editItem.name : (aiDraft?.name || ''));
+  const [yieldQty, setYieldQty] = useState(editItem ? String(editItem.yield_qty) : (aiDraft ? String(aiDraft.yield_qty || 1) : '1'));
+  const [yieldUnit, setYieldUnit] = useState(editItem ? editItem.yield_unit : (aiDraft?.yield_unit || 'un'));
   const [cookingAppliance, setCookingAppliance] = useState<string>(editItem ? ((editItem as any).cooking_appliance || 'none') : 'none');
   const [cookingTime, setCookingTime] = useState<string>(editItem ? String((editItem as any).cooking_time_minutes || '0') : '0');
-  const [notes, setNotes] = useState(editItem ? editItem.notes : '');
+  const [notes, setNotes] = useState(editItem ? editItem.notes : (aiDraft?.notes || ''));
 
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
-  const [ingredients, setIngredients] = useState<FormIngredientRow[]>([]);
+  const [quickCreateTarget, setQuickCreateTarget] = useState<{ idx: number; name: string; unit: string } | null>(null);
+  const [ingredients, setIngredients] = useState<FormIngredientRow[]>(() => {
+    if (!editItem && aiDraft?.ingredients?.length) {
+      return aiDraft.ingredients
+        .filter((g) => g.selected)
+        .map((g) => ({
+          material_id: g.matched_id || 0,
+          material_name: g.matched_name || g.name,
+          material_brand: '',
+          qty: String(g.qty || 1),
+          unit: g.unit || 'g',
+          cost_fmt: '-',
+          available_units: getCompatibleUnits(g.unit || 'g', [g.unit || 'g']),
+          unresolved_name: g.matched_id ? undefined : g.name,
+        }));
+    }
+    return [];
+  });
   const [error, setError] = useState<string | null>(null);
 
   // Live preview totals
@@ -1050,6 +1139,9 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
             unit: it.unit,
             cost_fmt: it.cost_fmt,
             available_units: availUnits,
+            broken_reason: it.broken
+              ? `Insumo inativo/arquivado: "${it.material_name}" — substitua por outro, remova ou cancele para cadastrar em Insumos`
+              : undefined,
           });
         }
         setIngredients(rows);
@@ -1158,6 +1250,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       const mat = materials.find((m) => m.id === patch.material_id);
       if (mat) {
         updated.material_name = mat.name;
+        updated.unresolved_name = undefined;
+        updated.broken_reason = undefined;
         let customNames: string[] = [];
         try {
           const cRes = await fetch(`/api/materials/${mat.id}/conversions`);
@@ -1186,28 +1280,39 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
     recalculatePreview(nextRows, yieldQty, yieldUnit);
   };
 
+  const failSave = (msg: string, type: 'warning' | 'error' = 'warning') => {
+    setError(msg);
+    onNotify(msg, type);
+  };
+
   const handleSave = async () => {
     setError(null);
     const n = name.trim();
-    if (!n) return setError('O nome da receita é obrigatório.');
+    if (!n) return failSave('O nome da receita é obrigatório.');
 
     const yq = parseFloat(yieldQty.replace(',', '.'));
-    if (isNaN(yq) || yq <= 0) return setError('O rendimento deve ser maior que zero.');
+    if (isNaN(yq) || yq <= 0) return failSave('O rendimento deve ser maior que zero.');
 
     const yu = yieldUnit.trim();
-    if (!yu) return setError('A unidade de rendimento é obrigatória.');
+    if (!yu) return failSave('A unidade de rendimento é obrigatória.');
+
+    const brokenItems = ingredients.filter((it) => it.material_id <= 0 || Boolean(it.broken_reason));
+    if (brokenItems.length > 0) {
+      const names = brokenItems.map((b) => b.unresolved_name || b.material_name || 'Sem nome').join(', ');
+      return failSave(`Não é possível salvar com item quebrado ou inativo. Substitua ou remova: ${names}.`);
+    }
 
     const validItems = ingredients.filter((it) => it.material_id > 0);
     if (validItems.length === 0) {
-      return setError('Adicione e selecione ao menos um ingrediente à receita.');
+      return failSave('Adicione e selecione ao menos um ingrediente à receita.');
     }
     for (const it of validItems) {
       const q = parseFloat(it.qty.replace(',', '.'));
       if (isNaN(q) || q <= 0) {
-        return setError(`Informe uma quantidade válida para "${it.material_name || 'o ingrediente'}".`);
+        return failSave(`Informe uma quantidade válida para "${it.material_name || 'o ingrediente'}".`);
       }
       if (!it.unit) {
-        return setError(`Selecione a unidade para "${it.material_name || 'o ingrediente'}".`);
+        return failSave(`Selecione a unidade para "${it.material_name || 'o ingrediente'}".`);
       }
     }
 
@@ -1235,12 +1340,23 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.detail || 'Não foi possível salvar a receita.');
+        failSave(data.detail || 'Não foi possível salvar a receita.', 'error');
         return;
+      }
+      if (!editItem && aiDraft?.source_file && data.id) {
+        try {
+          await fetch(`/api/documents/RECIPE_BASE/${data.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(aiDraft.source_file),
+          });
+        } catch (attachErr) {
+          console.error('Erro ao auto-anexar documento da receita:', attachErr);
+        }
       }
       onSaved();
     } catch (e: any) {
-      setError(e.message || 'Erro de conexão com o servidor.');
+      failSave(e.message || 'Erro de conexão com o servidor.', 'error');
     }
   };
 
@@ -1376,63 +1492,101 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                 {ingredients.map((ing, idx) => {
                   const selectedMat = materials.find((m) => m.id === ing.material_id);
                   const selectedMatLabel = selectedMat ? selectedMat.label : '';
+                  const isBroken = ing.material_id <= 0 || Boolean(ing.broken_reason);
 
                   return (
                     <div
                       key={idx}
-                      className="p-2 rounded-[14px] bg-[#F9FBFC] dark:bg-[#0E1A30] border border-[#E2EAF5] dark:border-[#1E3156] flex items-center gap-2"
+                      className={`p-2 rounded-[14px] border space-y-1.5 ${
+                        isBroken
+                          ? 'bg-[#FFFBEB] dark:bg-[#2A1F0D] border-[#F59E0B] dark:border-[#B45309]'
+                          : 'bg-[#F9FBFC] dark:bg-[#0E1A30] border-[#E2EAF5] dark:border-[#1E3156]'
+                      }`}
                     >
-                      {/* Insumo Dropdown com busca / autocomplete do Nexo */}
-                      <div className="flex-1 min-w-0">
-                        <RoundedDropdown
-                          value={selectedMatLabel}
-                          onChange={(newLabel) => {
-                            const found = materials.find((m) => m.label === newLabel);
-                            if (found) {
-                              updateIngredientRow(idx, { material_id: found.id });
+                      {isBroken && (
+                        <div className="flex items-center justify-between gap-2 px-1">
+                          <span className="text-[11px] font-bold text-[#B45309] dark:text-[#FBBF24]">
+                            ⚠{' '}
+                            {ing.broken_reason
+                              ? ing.broken_reason
+                              : ing.unresolved_name
+                              ? `Não encontrado pela IA: "${ing.unresolved_name}" — vincule abaixo ou crie agora`
+                              : 'Ingrediente sem vínculo — vincule abaixo ou crie agora'}
+                          </span>
+                          {!ing.broken_reason && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setQuickCreateTarget({
+                                  idx,
+                                  name: ing.unresolved_name || ing.material_name || '',
+                                  unit: ing.unit || 'g',
+                                })
+                              }
+                              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#BA5200] hover:bg-[#9C4400] text-white transition-colors cursor-pointer shrink-0"
+                            >
+                              + Criar insumo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {/* Insumo Dropdown com busca / autocomplete do Nexo */}
+                        <div className="flex-1 min-w-0">
+                          <RoundedDropdown
+                            value={selectedMatLabel}
+                            onChange={(newLabel) => {
+                              const found = materials.find((m) => m.label === newLabel);
+                              if (found) {
+                                updateIngredientRow(idx, {
+                                  material_id: found.id,
+                                  unresolved_name: undefined,
+                                  broken_reason: undefined,
+                                });
+                              }
+                            }}
+                            options={materials.map((m) => m.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                            placeholder="Selecione o insumo..."
+                          />
+                        </div>
+
+                        {/* Quantidade e Unidade unificadas em cápsula Nexo */}
+                        <div className="w-[160px] shrink-0 flex items-center justify-center">
+                          <CapsuleQuantityUnit
+                            qtyValue={ing.qty}
+                            onQtyChange={(v) => updateIngredientRow(idx, { qty: v })}
+                            unitValue={ing.unit}
+                            onUnitChange={(newUnit) => updateIngredientRow(idx, { unit: newUnit })}
+                            unitOptions={
+                              ing.available_units.length > 0
+                                ? ing.available_units
+                                : [ing.unit || 'g', 'g', 'kg', 'ml', 'L', 'un']
                             }
-                          }}
-                          options={materials.map((m) => m.label)}
-                          width="100%"
-                          height={34}
-                          align="left"
-                          placeholder="Selecione o insumo..."
-                        />
-                      </div>
+                            qtyPlaceholder="Ex: 200"
+                            width={160}
+                            height={34}
+                          />
+                        </div>
 
-                      {/* Quantidade e Unidade unificadas em cápsula Nexo */}
-                      <div className="w-[160px] shrink-0 flex items-center justify-center">
-                        <CapsuleQuantityUnit
-                          qtyValue={ing.qty}
-                          onQtyChange={(v) => updateIngredientRow(idx, { qty: v })}
-                          unitValue={ing.unit}
-                          onUnitChange={(newUnit) => updateIngredientRow(idx, { unit: newUnit })}
-                          unitOptions={
-                            ing.available_units.length > 0
-                              ? ing.available_units
-                              : [ing.unit || 'g', 'g', 'kg', 'ml', 'L', 'un']
-                          }
-                          qtyPlaceholder="Ex: 200"
-                          width={160}
-                          height={34}
-                        />
-                      </div>
+                        {/* Custo Calculado */}
+                        <div className="w-[95px] h-[34px] rounded-full bg-white dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] flex items-center justify-center font-bold text-[13px] text-[#18223A] dark:text-[#F4F7FF] shrink-0 shadow-sm">
+                          {ing.cost_fmt}
+                        </div>
 
-                      {/* Custo Calculado */}
-                      <div className="w-[95px] h-[34px] rounded-full bg-white dark:bg-[#142340] border border-[#DDE5F2] dark:border-[#24385E] flex items-center justify-center font-bold text-[13px] text-[#18223A] dark:text-[#F4F7FF] shrink-0 shadow-sm">
-                        {ing.cost_fmt}
-                      </div>
-
-                      {/* Remover Linha com TrashIcon do Nexo */}
-                      <div className="w-[36px] flex items-center justify-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => removeIngredientRow(idx)}
-                          title="Remover ingrediente"
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] transition-colors cursor-pointer"
-                        >
-                          <TrashIcon size={16} />
-                        </button>
+                        {/* Remover Linha com TrashIcon do Nexo */}
+                        <div className="w-[36px] flex items-center justify-center shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => removeIngredientRow(idx)}
+                            title="Remover ingrediente"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] transition-colors cursor-pointer"
+                          >
+                            <TrashIcon size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1616,6 +1770,44 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           />
         </div>
       </div>
+
+      <QuickCreateMaterialModal
+        open={Boolean(quickCreateTarget)}
+        initialName={quickCreateTarget?.name || ''}
+        initialUnit={quickCreateTarget?.unit || 'g'}
+        onClose={() => setQuickCreateTarget(null)}
+        onNotify={onNotify}
+        onCreated={async (newId, newName) => {
+          const targetIdx = quickCreateTarget?.idx ?? -1;
+          try {
+            const res = await fetch('/api/materials/options');
+            if (res.ok) {
+              const data = await res.json();
+              const list: MaterialOption[] = data.items || [];
+              setMaterials(list);
+              if (targetIdx >= 0) {
+                const mat = list.find((m) => m.id === newId);
+                const avail = mat ? getCompatibleUnits(mat.purchase_unit, []) : ['g', 'kg', 'ml', 'L', 'un'];
+                const nextRows = [...ingredients];
+                if (nextRows[targetIdx]) {
+                  nextRows[targetIdx] = {
+                    ...nextRows[targetIdx],
+                    material_id: newId,
+                    material_name: mat?.name || newName,
+                    unresolved_name: undefined,
+                    available_units: avail,
+                    unit: avail.includes(nextRows[targetIdx].unit) ? nextRows[targetIdx].unit : avail[0] || 'un',
+                  };
+                  setIngredients(nextRows);
+                  recalculatePreview(nextRows, yieldQty, yieldUnit);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
     </div>
   );
 };

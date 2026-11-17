@@ -18,12 +18,14 @@ import {
   TrashIcon,
   useNexoColumnWidths,
 } from './DesignSystem';
+import { AiReceiptPreviewModal } from './AiPreviewModals';
 
 interface MaterialsPageProps {
   units: string[];
   initialHiddenCols: string[];
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
   dark: boolean;
+  aiEnabled?: boolean;
 }
 
 interface ColumnSpec {
@@ -53,7 +55,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
   initialHiddenCols,
   onNotify,
   dark,
+  aiEnabled = false,
 }) => {
+  const [aiReceiptModalOpen, setAiReceiptModalOpen] = useState(false);
   const [items, setItems] = useState<MaterialItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -675,6 +679,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 icon={<ClockIcon size={16} />}
                 height={38}
               />
+              {aiEnabled && (
+                <RoundedActionButton
+                  label="Ler Notinha (IA)"
+                  onClick={() => setAiReceiptModalOpen(true)}
+                  variant="secondary"
+                  height={38}
+                />
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2.5">
@@ -1094,6 +1106,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
           </button>
         </div>
       )}
+
+      <AiReceiptPreviewModal
+        open={aiReceiptModalOpen}
+        units={units}
+        onClose={() => setAiReceiptModalOpen(false)}
+        onApplied={() => void fetchMaterials()}
+        onNotify={onNotify}
+      />
 
       {/* =====================================================================
           MODAL 1: Novo item / Editar item (material_form)

@@ -79,7 +79,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.8.0',
+    version: 'v1.9.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -146,21 +146,6 @@ export const App: React.FC = () => {
       root.style.removeProperty('--nexo-brand-border');
     }
   }, [brandSettings]);
-
-  const toggleTheme = async () => {
-    const nextDark = !dark;
-    setDark(nextDark);
-    document.documentElement.classList.toggle('dark', nextDark);
-    try {
-      await fetch('/api/settings/theme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: nextDark ? 'dark' : 'light' }),
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const notify = (msg: string, type: FeedbackType = 'success') => {
     let finalType = type;
@@ -244,6 +229,7 @@ export const App: React.FC = () => {
               initialHiddenCols={status.mat_hidden_cols}
               onNotify={notify}
               dark={dark}
+              aiEnabled={!!status.ai_enabled}
             />
           )}
 
@@ -253,6 +239,7 @@ export const App: React.FC = () => {
               initialHiddenCols={status.rec_hidden_cols || ['code']}
               onNotify={notify}
               dark={dark}
+              aiEnabled={!!status.ai_enabled}
             />
           )}
 
@@ -262,6 +249,7 @@ export const App: React.FC = () => {
               initialHiddenCols={(status as any).prod_hidden_cols || ['code']}
               onNotify={notify}
               dark={dark}
+              aiEnabled={!!status.ai_enabled}
             />
           )}
 
@@ -282,6 +270,9 @@ export const App: React.FC = () => {
               }}
               onBrandUpdate={(newBrand) => {
                 setBrandSettings(newBrand);
+              }}
+              onAiStatusChange={(enabled) => {
+                setStatus((prev) => ({ ...prev, ai_enabled: enabled }));
               }}
             />
           )}
@@ -333,7 +324,7 @@ export const App: React.FC = () => {
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>Nexo · Gestão de Custos e Precificação · v1.8.0 (Etapa 4: Início & BI Concluída)</span>
+          <span>Nexo · Gestão de Custos e Precificação · v1.9.0 (Etapa 5: IA, Anexos & Regras de Estoque)</span>
         </footer>
       </main>
     </div>

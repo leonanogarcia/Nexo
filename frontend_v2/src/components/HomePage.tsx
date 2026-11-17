@@ -312,12 +312,14 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
 
   const W = 640;
   const H = 205;
-  const padL = 72;
-  const padR = 22;
-  const padT = 18;
+  const padL = 78;
+  const padR = 24;
+  const padT = 22;
   const padB = 30;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
+  const innerPad = 28;
+  const innerW = Math.max(10, plotW - innerPad * 2);
 
   const vals = series.map((s) => s.avg_cost);
   let minV = Math.min(...vals);
@@ -328,7 +330,7 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
   }
 
   const getX = (i: number) =>
-    series.length === 1 ? padL + plotW / 2 : padL + (i * plotW) / (series.length - 1);
+    series.length === 1 ? padL + plotW / 2 : padL + innerPad + (i * innerW) / (series.length - 1);
   const getY = (v: number) => padT + plotH - ((v - minV) / (maxV - minV)) * plotH;
 
   const showBars = chartStyle === 'bar' || (chartStyle === 'auto' && series.length <= 4);
@@ -340,7 +342,7 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
       ? `${getX(0)},${padT + plotH} ${points} ${getX(series.length - 1)},${padT + plotH}`
       : '';
 
-  const barWidth = Math.min(34, Math.max(14, plotW / Math.max(series.length * 2, 4)));
+  const barWidth = Math.min(22, Math.max(12, innerW / Math.max(series.length * 3, 6)));
 
   return (
     <div className="relative w-full h-[205px]">
@@ -394,7 +396,7 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
 
         {showLine && series.length >= 2 && (
           <>
-            <polygon points={areaPoints} fill={primaryColor} opacity="0.12" />
+            <polygon points={areaPoints} fill={primaryColor} opacity="0.12" pointerEvents="none" />
             <polyline
               fill="none"
               stroke={primaryColor}
@@ -402,6 +404,7 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
               points={points}
+              pointerEvents="none"
             />
           </>
         )}
@@ -409,6 +412,7 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
         {series.map((s, i) => {
           const cx = getX(i);
           const cy = getY(s.avg_cost);
+          const hitW = Math.max(36, innerW / Math.max(series.length, 1));
           return (
             <g key={s.month}>
               {showLine && (
@@ -419,26 +423,38 @@ const CostEvolutionChart: React.FC<CostEvolutionChartProps> = ({
                   fill={primaryColor}
                   stroke="#FFFFFF"
                   strokeWidth="1.5"
-                  className="cursor-pointer transition-all"
-                  onMouseEnter={() => setHoverIdx(i)}
-                  onMouseLeave={() => setHoverIdx(null)}
+                  pointerEvents="none"
+                  className="transition-all"
                 />
               )}
               <text
                 x={cx}
                 y={H - 8}
                 textAnchor="middle"
+                pointerEvents="none"
                 className="fill-[#60769D] dark:fill-[#93A4C6] text-[10px]"
               >
                 {s.month}
               </text>
+              {/* Faixa invisível no topo garantindo hover e clique sem bloqueio da sombra */}
+              <rect
+                x={cx - hitW / 2}
+                y={padT}
+                width={hitW}
+                height={plotH + 18}
+                fill="transparent"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoverIdx(i)}
+                onMouseLeave={() => setHoverIdx(null)}
+                onClick={() => setHoverIdx((prev) => (prev === i ? null : i))}
+              />
             </g>
           );
         })}
       </svg>
 
       {hoverIdx !== null && series[hoverIdx] && (
-        <div className="absolute top-1 right-3 px-3 py-1 rounded-full bg-[#18223A] dark:bg-[#0E1B35] text-white text-[11px] font-semibold shadow-md pointer-events-none border border-[#24385E]">
+        <div className="absolute top-0 left-20 px-3 py-1 rounded-full bg-[#18223A] dark:bg-[#0E1B35] text-white text-[11px] font-semibold shadow-md pointer-events-none border border-[#24385E]">
           {series[hoverIdx].month}: {fmtMoneyBR(series[hoverIdx].avg_cost)}
         </div>
       )}

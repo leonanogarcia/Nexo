@@ -70,6 +70,7 @@ export interface SettingsPageProps {
   dark: boolean;
   onThemeToggle: (isDark: boolean) => void;
   onBrandUpdate?: (brand: CompanyBrandSettings) => void;
+  onAiStatusChange?: (enabled: boolean) => void;
 }
 
 type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco' | 'sobre';
@@ -379,6 +380,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   dark,
   onThemeToggle,
   onBrandUpdate,
+  onAiStatusChange,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsCategoryKey>('geral');
   const [loading, setLoading] = useState(true);
@@ -407,6 +409,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [aiModel, setAiModel] = useState('');
   const [testingAi, setTestingAi] = useState(false);
   const [showAiHelpModal, setShowAiHelpModal] = useState(false);
+  const [showAiModelHelpModal, setShowAiModelHelpModal] = useState(false);
+  const [showBrandHelpModal, setShowBrandHelpModal] = useState(false);
+  const [showAiOverviewModal, setShowAiOverviewModal] = useState(false);
+  const [showMetricsHelpModal, setShowMetricsHelpModal] = useState(false);
+  const [showUnitsHelpModal, setShowUnitsHelpModal] = useState(false);
+  const [showDbBiHelpModal, setShowDbBiHelpModal] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
 
   // --- Categoria 3: Métricas de Custo & Jornada da Cozinha ---
@@ -417,7 +425,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [elecBillInput, setElecBillInput] = useState('350,00');
   const [waterBillInput, setWaterBillInput] = useState('80,00');
   const [savingKitchen, setSavingKitchen] = useState(false);
-  const [kitchenRates, setKitchenRates] = useState<any>(null);
 
   const [gasType, setGasType] = useState<'PERCENT' | 'FIXED'>('PERCENT');
   const [gasPct, setGasPct] = useState('20.0');
@@ -639,7 +646,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '1.8.0',
+    version: '1.9.0',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -676,7 +683,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         setGasPriceInput(parseFloat(data.kitchen.gas_price || 125).toFixed(2).replace('.', ','));
         setElecBillInput(parseFloat(data.kitchen.electricity_bill_monthly || 350).toFixed(2).replace('.', ','));
         setWaterBillInput(parseFloat(data.kitchen.water_bill_monthly || 80).toFixed(2).replace('.', ','));
-        setKitchenRates(data.kitchen.rates);
       }
 
       // Custos operacionais
@@ -781,7 +787,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '1.8.0',
+          version: data.about.version || '1.9.0',
           release_date: data.about.release_date || '16/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
@@ -953,6 +959,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const handleToggleAi = async (checked: boolean) => {
     if (!checked) {
       resetAiLocalState();
+      onAiStatusChange?.(false);
       try {
         await fetch('/api/settings/ai/reset', { method: 'POST' });
         onNotify('IA desativada e configurações/chave apagadas com segurança.', 'success');
@@ -969,6 +976,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     try {
       if (!aiEnabled) {
         resetAiLocalState();
+        onAiStatusChange?.(false);
         await fetch('/api/settings/ai/reset', { method: 'POST' });
         onNotify('IA desativada e configurações zeradas com sucesso!', 'success');
         return;
@@ -1003,6 +1011,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: aiModel }),
       });
+      onAiStatusChange?.(true);
       onNotify('Configurações de IA salvas com sucesso!', 'success');
     } catch (e: any) {
       onNotify(e.message || 'Erro ao salvar configurações de IA.', 'error');
@@ -1052,8 +1061,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Falha ao salvar parâmetros da cozinha.');
-      const d = await res.json();
-      if (d.rates) setKitchenRates(d.rates);
+      await res.json();
       onNotify('Parâmetros da jornada da cozinha salvos com sucesso!', 'success');
       await fetchSettings();
     } catch (e: any) {
@@ -1659,6 +1667,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                       Empresa & Identidade Visual
                     </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowBrandHelpModal(true)}
+                      className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                      title="Como funciona a Identidade Visual"
+                    >
+                      <InfoCircleIcon className="w-[18px] h-[18px]" />
+                    </button>
                   </div>
                   {/* Status Indicator */}
                   {brandThemeEnabled ? (
@@ -1969,11 +1985,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
               {/* Topo: Título à esquerda e Chavinha Redondinha com Tooltip à direita */}
               <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                   <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Sincronismo de IA
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiOverviewModal(true)}
+                    className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                    title="Para que serve o Sincronismo de IA"
+                  >
+                    <InfoCircleIcon className="w-[18px] h-[18px]" />
+                  </button>
                 </div>
 
                 <NexoToggleSwitch
@@ -2022,21 +2046,36 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       />
                     </div>
                   )}
-                  <div className={aiProvider === 'OpenRouter' ? 'md:col-span-2' : ''}>
-                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
-                      Modelo (Opcional):
-                    </label>
-                    <CapsuleInput
-                      value={aiModel}
-                      onChange={setAiModel}
-                      autoCapitalizeFirst={false}
-                      placeholder={
-                        aiProvider === 'OpenRouter'
-                          ? 'Ex.: google/gemini-2.0-flash-exp:free ou openai/gpt-4o-mini'
-                          : 'Ex.: llama-3.3-70b-versatile ou qwen2.5-vl'
-                      }
-                      disabled={!aiEnabled}
-                    />
+                  <div className={aiProvider === 'OpenRouter' ? 'md:col-span-2 flex items-center gap-2.5' : 'flex items-center gap-2.5'}>
+                    <div className="flex-1">
+                      <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                        Modelo (Opcional):
+                      </label>
+                      <CapsuleInput
+                        value={aiModel}
+                        onChange={setAiModel}
+                        autoCapitalizeFirst={false}
+                        placeholder={
+                          aiProvider === 'OpenRouter'
+                            ? 'Ex.: google/gemini-2.0-flash-exp:free ou openai/gpt-4o-mini'
+                            : 'Ex.: llama-3.3-70b-versatile ou qwen2.5-vl'
+                        }
+                        disabled={!aiEnabled}
+                      />
+                    </div>
+                    <div className="pt-5 relative group flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAiModelHelpModal(true)}
+                        className="p-1 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                        title="Para que serve e como escolher o Modelo"
+                      >
+                        <InfoCircleIcon className="w-[22px] h-[22px]" />
+                      </button>
+                      <div className="absolute right-0 top-[38px] h-[32px] px-4 rounded-full bg-[#101A33] dark:bg-[#2A3B5C] text-white font-bold text-[12px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        Como funciona o Modelo de IA
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2118,9 +2157,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div className="flex items-center gap-2">
                     <WorkShiftClockIcon className="w-[26px] h-[26px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
-                      <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                        Jornada & Custos Reais da Cozinha
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                          Jornada & Custos Reais da Cozinha
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowMetricsHelpModal(true)}
+                          className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                          title="Como entender e usar as Métricas de Custo"
+                        >
+                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                        </button>
+                      </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
                         Informe a rotina de produção da sua doceria e o valor das suas faturas. O Nexo calcula o custo real de cada hora ativa.
                       </p>
@@ -2312,9 +2361,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div className="flex items-center gap-2">
                     <KitchenUtilitiesCostIcon className="w-[26px] h-[26px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
-                      <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                        Custos Indiretos Adicionais da Cozinha (Opcional)
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                          Custos Indiretos Adicionais da Cozinha (Opcional)
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowMetricsHelpModal(true)}
+                          className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                          title="Como entender e usar os Custos Indiretos"
+                        >
+                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                        </button>
+                      </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
                         Taxas ou valores fixos adicionais para cobrir custos indiretos de operação, higienização e manutenção da cozinha.
                       </p>
@@ -2619,6 +2678,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Unidades internas
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowUnitsHelpModal(true)}
+                    className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                    title="Como funcionam as Unidades de Medida"
+                  >
+                    <InfoCircleIcon className="w-[18px] h-[18px]" />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-4 gap-3 items-end">
@@ -2678,9 +2745,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <div className="flex items-center gap-2.5">
                     <KitchenUtensilsIcon className="w-[22px] h-[22px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
-                      <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                        Unidades configuráveis por insumo
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                          Unidades configuráveis por insumo
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowUnitsHelpModal(true)}
+                          className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                          title="Como funcionam as Unidades de Medida"
+                        >
+                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                        </button>
+                      </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
                         Ex.: 1 xícara de leite equivale a 240 ml; 1 xícara de farinha equivale a 120 g.
                       </p>
@@ -2729,6 +2806,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                       Banco de Dados
                     </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowDbBiHelpModal(true)}
+                      className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                      title="Como funciona Banco de Dados & BI"
+                    >
+                      <InfoCircleIcon className="w-[18px] h-[18px]" />
+                    </button>
                   </div>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
@@ -2904,6 +2989,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Preferências de BI & Indicadores
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowDbBiHelpModal(true)}
+                    className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                    title="Como funciona Banco de Dados & BI"
+                  >
+                    <InfoCircleIcon className="w-[18px] h-[18px]" />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3069,6 +3162,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Auditoria & Relatórios
                   </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowDbBiHelpModal(true)}
+                    className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                    title="Como funciona Banco de Dados & BI"
+                  >
+                    <InfoCircleIcon className="w-[18px] h-[18px]" />
+                  </button>
                 </div>
 
                 <p className="text-[12px] text-[#60769D] dark:text-[#AFC0E2]">
@@ -3671,6 +3772,457 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Unidades de Medida */}
+      {showUnitsHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <ScalesUnitsIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Como funcionam as Unidades de Medida
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Entenda a base padrão de cálculo e as medidas caseiras por insumo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUnitsHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[12.5px] text-[#334155] dark:text-[#CBD5E1] leading-relaxed">
+              <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  1. Unidades internas (para que servem)
+                </p>
+                <p>
+                  Define em qual grandeza padrão o Nexo consolida e exibe os custos de <strong>Massa</strong> (<code>mg</code>, <code>g</code>, <code>kg</code>, <code>t</code>), <strong>Volume</strong> (<code>ml</code>, <code>L</code>, <code>kL</code>) e <strong>Quantidade</strong> (<code>un</code>). Mesmo que você compre um saco de 25 kg e use 150 g na receita, o sistema converte tudo automaticamente sem erro de escala.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  2. Unidades configuráveis por insumo (como funciona)
+                </p>
+                <p>
+                  Na cozinha, muitas receitas usam medidas caseiras (<strong>xícara</strong>, <strong>colher de sopa</strong>, <strong>pitada</strong>, <strong>lata</strong>), e o mesmo utensílio tem pesos diferentes conforme o ingrediente (ex.: 1 xícara de leite = 240 ml, mas 1 xícara de farinha = 120 g). Aqui você vincula cada medida caseira diretamente ao insumo e à equivalência real em g, ml ou un.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-[14px] bg-[#FFF8F1] dark:bg-[#23180F] border border-[#F6DEC8] dark:border-[#4A301B] space-y-1.5">
+                <p className="font-bold text-[#BA5200] dark:text-[#F28C28]">
+                  3. Como usar na prática
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    <strong>Passo 1:</strong> Escolha suas <strong>Unidades internas</strong> preferidas (recomendado: <code>g</code>, <code>ml</code> e <code>un</code>) e clique em <strong>Salvar unidades internas</strong>.
+                  </li>
+                  <li>
+                    <strong>Passo 2:</strong> Clique em <strong>Gerenciar Unidades</strong> para cadastrar equivalências caseiras por insumo.
+                  </li>
+                  <li>
+                    <strong>Passo 3:</strong> Ao montar receitas ou fichas técnicas de produtos, essas medidas personalizadas já aparecerão disponíveis com o cálculo exato de custo.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowUnitsHelpModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Banco de Dados & BI */}
+      {showDbBiHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Como funciona Banco de Dados & BI
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Entenda a saúde do banco, backups, indicadores de margem e exportação de auditoria
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDbBiHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[12.5px] text-[#334155] dark:text-[#CBD5E1] leading-relaxed">
+              <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  1. Banco de Dados, Saúde & Manutenção
+                </p>
+                <p>
+                  Todos os seus dados ficam salvos localmente em SQLite com indicador de saúde (<strong>Verde</strong>, <strong>Amarelo</strong> ou <strong>Vermelho</strong>) conforme o tamanho atual frente ao <strong>Teto máximo</strong> configurado. Use <strong>Fazer Backup Agora</strong> para salvar uma cópia segura, <strong>Compactar (VACUUM)</strong> para limpar apenas espaço morto de registros excluídos (sem apagar histórico ativo) e ajuste o <strong>Limite de retenção</strong> em meses se quiser arquivar logs antigos.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  2. Preferências de BI & Indicadores
+                </p>
+                <p>
+                  Define como o painel <strong>Início (BI)</strong> exibe seus gráficos e alertas: <strong>Período padrão</strong> (ex.: Últimos 30 dias), <strong>Estilo dos gráficos</strong>, <strong>Paleta visual</strong> e duas metas fundamentais: <strong>Alerta de variação de custo (%)</strong> (sinaliza insumos ou receitas que subiram acima do tolerado) e <strong>Margem de lucro alvo (%)</strong> (referência para destacar produtos abaixo da rentabilidade esperada).
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-[14px] bg-[#FFF8F1] dark:bg-[#23180F] border border-[#F6DEC8] dark:border-[#4A301B] space-y-1.5">
+                <p className="font-bold text-[#BA5200] dark:text-[#F28C28]">
+                  3. Auditoria & Relatórios (como usar)
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    Cada módulo guarda o histórico de alterações (quem/quando alterou valores antes e depois).
+                  </li>
+                  <li>
+                    Aqui você pode escolher o formato (<strong>PDF</strong>, <strong>Excel .xlsx</strong>, <strong>CSV/ZIP</strong> ou <strong>XML</strong>) e clicar em <strong>Exportar Relatório</strong> para gerar um pacote completo separado por seções, inclusive sinalizando itens obsoletos ou desatualizados.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowDbBiHelpModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Métricas de Custo & Jornada da Cozinha */}
+      {showMetricsHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <TrendingCostsIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Como entender e usar as Métricas de Custo
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Entenda como gás, energia, água e custos indiretos entram no preço dos seus produtos
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMetricsHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-[12px] text-[#475978] dark:text-[#AFC0E2]">
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">1. Para que serve a Jornada & Custos Reais da Cozinha?</strong><br />
+                Ao informar quantos dias por mês e horas por dia você produz — junto com o valor do botijão/gás e das contas mensais de luz e água —, o Nexo descobre quanto custa <strong>1 minuto ou 1 hora</strong> de funcionamento da sua cozinha e dos seus equipamentos (forno, fogão, batedeira, geladeira, etc.).
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">2. Como usar na prática:</strong><br />
+                Quando você cadastra uma <strong>Receita Base</strong> ou um <strong>Produto</strong> e informa o equipamento e o tempo de preparo (ex.: 40 min de forno), o Nexo soma automaticamente esse gasto real ao custo dos ingredientes!
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">3. O que são os Custos Indiretos Adicionais (Opcional)?</strong><br />
+                Servem para cobrir despesas gerais difíceis de medir por minuto (limpeza, manutenção, desgaste, perdas). Você pode definir uma <strong>porcentagem (%)</strong> sobre o custo direto ou um <strong>valor fixo (R$)</strong> — se não quiser somar nada extra além do tempo de equipamento, basta deixar zerado.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">4. Calculadora Auxiliar:</strong><br />
+                Não sabe qual percentual colocar? Use o botão <strong>Calculadora Auxiliar</strong> no card de custos indiretos para descobrir automaticamente a porcentagem equivalente às suas contas mensais.
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowMetricsHelpModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Para que serve o Sincronismo de IA */}
+      {showAiOverviewModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Para que serve o Sincronismo de IA?
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Automatize o lançamento de notinhas e receitas usando sua própria chave de IA
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiOverviewModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-[12px] text-[#475978] dark:text-[#AFC0E2]">
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">1. Leitura automática por foto ou documento:</strong> com a IA ativa, aparecem botões nas abas <strong>Insumos</strong> (ler notinhas/cupons fiscais), <strong>Receitas</strong> e <strong>Produtos</strong> (extrair ingredientes e rendimento de fotos, PDF, Word ou TXT).
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">2. Sempre com pré-visualização:</strong> a IA nunca grava nada direto no banco. Tudo passa antes por uma tela de conferência editável para você revisar e confirmar.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">3. Privacidade & Segurança:</strong> se a IA estiver desligada, nenhum botão de IA aparece nas telas; ao desligar o switch, a chave e os dados de IA são apagados imediatamente do banco.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">4. Alerta de Segurança Diário:</strong> limita quantas leituras podem ser feitas por dia para evitar consumo inesperado da sua conta no provedor.
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowAiOverviewModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Empresa & Identidade Visual */}
+      {showBrandHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <BuildingCompanyIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Como funciona a Identidade Visual
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Personalize o Nexo com o nome, logotipo e cores da sua marca
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBrandHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-[12px] text-[#475978] dark:text-[#AFC0E2]">
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">1. Nome da empresa:</strong> aparece no topo da barra lateral e nos relatórios exportados. Se a sua logo já tiver o nome escrito na imagem, desmarque a opção de exibir o nome na barra lateral para não ficar repetido.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">2. Logotipo oficial & Formato:</strong> envie PNG (inclusive transparente), JPG ou WebP. Escolha <strong>Redonda / Circular</strong> para símbolos quadrados/redondos, ou <strong>Livre / Retangular</strong> para logos horizontais sem cortar as pontas.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">3. Cores da Marca no Sistema:</strong> ao enviar a logo, o Nexo detecta automaticamente a cor predominante dela para aplicar na barra lateral e nos botões (você também pode ajustar a cor manualmente quando ativar a identidade da marca).
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">4. Restaurar Padrão Nexo:</strong> volta instantaneamente para a logo e cores originais do Nexo sem apagar nenhum insumo, receita ou produto cadastrado.
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowBrandHelpModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Como escolher o Modelo de IA */}
+      {showAiModelHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Para que serve o campo Modelo (Opcional)?
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Escolha qual inteligência artificial vai ler suas fotos de notas e receitas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiModelHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-[16px] bg-[#EFF6FF] dark:bg-[#13233E] border border-[#BFDBFE]/60 dark:border-[#1E3A5F] text-[12px] text-[#1E3A8A] dark:text-[#93C5FD] leading-relaxed flex items-start gap-2.5">
+              <InfoCircleIcon className="w-4 h-4 shrink-0 mt-0.5 text-[#2563EB] dark:text-[#60A5FA]" />
+              <div>
+                Em plataformas como o <strong>OpenRouter</strong>, uma única chave dá acesso a centenas de IAs diferentes (algumas gratuitas e outras pagas). Esse campo diz ao provedor qual modelo específico você deseja usar. Para ler notas fiscais e receitas por foto, prefira modelos com suporte a <strong>Visão (imagem)</strong>.
+              </div>
+            </div>
+
+            {/* Opção 1: Automático */}
+            <div className="p-4 rounded-[18px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357] flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1 flex-1 min-w-[220px]">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[13px] text-[#18223A] dark:text-[#F4F7FF]">
+                    1. Deixar em branco (Automático)
+                  </span>
+                  <span className="text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-[#EBF7EE] text-[#16A34A] dark:bg-[#143320] dark:text-[#4ADE80]">
+                    Recomendado
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                  Se você não sabe qual escolher, deixe o campo vazio: o Nexo seleciona automaticamente um modelo compatível com leitura de imagens.
+                </p>
+              </div>
+              <RoundedActionButton
+                label="Usar automático"
+                onClick={() => {
+                  setAiModel('');
+                  setShowAiModelHelpModal(false);
+                }}
+                variant="secondary"
+                height={32}
+              />
+            </div>
+
+            {/* Opção 2: Modelos sugeridos */}
+            <div className="p-4 rounded-[18px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357] space-y-2.5">
+              <div className="font-bold text-[13px] text-[#18223A] dark:text-[#F4F7FF]">
+                2. Modelos prontos (Gratuito Automático vs Pago / Específico)
+              </div>
+              <div className="space-y-2">
+                {[
+                  {
+                    id: 'openrouter/free',
+                    badge: 'Automático Gratuito (OpenRouter)',
+                    desc: 'Padrão custo zero: busca os modelos :free ativos no OpenRouter e troca sozinho se algum estiver ocupado.',
+                  },
+                  {
+                    id: 'google/gemma-3-27b-it:free',
+                    badge: 'Gratuito (OpenRouter)',
+                    desc: 'Modelo gratuito fixo do Google com suporte a texto e visão.',
+                  },
+                  {
+                    id: 'qwen/qwen2.5-vl-72b-instruct:free',
+                    badge: 'Gratuito (OpenRouter)',
+                    desc: 'Alternativa gratuita especializada em visão e leitura de documentos.',
+                  },
+                  {
+                    id: 'google/gemini-2.5-flash',
+                    badge: 'Pago • Rápido e econômico',
+                    desc: 'Para quem tem saldo no OpenRouter e quer alta precisão sem fila gratuita.',
+                  },
+                  {
+                    id: 'openai/gpt-4o-mini',
+                    badge: 'Pago • Econômico OpenAI',
+                    desc: 'Leve, confiável e bom para leitura de imagens e fichas.',
+                  },
+                  {
+                    id: 'openrouter/auto',
+                    badge: 'Pago • Automático OpenRouter',
+                    desc: 'Roteador pago oficial do OpenRouter: escolhe o melhor modelo disponível usando seu saldo.',
+                  },
+                  {
+                    id: 'qwen2.5vl:7b',
+                    badge: 'Local / Offline',
+                    desc: 'Para quem roda IA no próprio PC via Ollama ou LM Studio.',
+                  },
+                ].map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-[14px] bg-white dark:bg-[#111F3B] border border-[#E6EEF8] dark:border-[#1E3156]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="text-[12px] font-bold text-[#18223A] dark:text-[#F4F7FF]">{m.id}</code>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFF4E8] dark:bg-[#2B1F14] text-[#BA5200] dark:text-[#F28C28]">
+                          {m.badge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6] mt-0.5">{m.desc}</p>
+                    </div>
+                    <RoundedActionButton
+                      label="Usar"
+                      onClick={() => {
+                        setAiModel(m.id);
+                        setShowAiModelHelpModal(false);
+                      }}
+                      variant="primary"
+                      height={30}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <RoundedActionButton
+                label="Fechar"
+                onClick={() => setShowAiModelHelpModal(false)}
+                variant="secondary"
+                height={34}
+              />
+            </div>
           </div>
         </div>
       )}
