@@ -110,3 +110,11 @@
 ### ⏳ Etapa 5: Recursos Avançados & Empacotamento
 * [ ] Integração com IA de Visão para leitura de notas fiscais e fotos de receitas.
 * [ ] Build PyInstaller standalone e instalador Windows Inno Setup oficial (`Nexo_Setup_v2.0.0_x64.exe`).
+
+* [x] **Etapa 5 — IA, Anexos, Regras Rígidas & Responsividade (v1.9.0):**
+  * [x] Sincronismo de IA com OpenRouter Automático Gratuito (`:free` + fallback em HTTP/conexão) e suporte a modelos específicos/pagos.
+  * [x] Leitura de Receitas/Produtos e Notinha Fiscal com pré-visualização, faixa de erro inline e botão `↻ Tentar novamente`.
+  * [x] Fluxo de itens quebrados (IA com `+ Criar insumo` e exclusão/inativação com destaque âmbar sem criação na hora) + bloqueio de salvamento no Front e Back.
+  * [x] Auto-anexo de receita/produto lido pela IA e download multi-formato (`Original`, `PDF`, `Word .docx`, `JPG`) no Anexos & Viewer (`PaperclipIcon`).
+  * [x] Regras rígidas de Insumos (`Nome + Marca + Embalagem Base`, `☐ Sem marca`, anti-lixo, anti-duplicado e detector de digitação).
+  * [x] Modularização do backend (`backend/routes/`) e `React.lazy` no frontend + responsividade (`main.py` centralizado na área útil, `NexoEmptyTableWatermark`, `NexoToolbarOverflowMenu` `⋮`, modais fluidos, `truncate` + `title`).

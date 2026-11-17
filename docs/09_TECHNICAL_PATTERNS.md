@@ -19,3 +19,28 @@ O uso indiscriminado da propriedade `attributes('-topmost', True)` deve ser evit
 ## 4. Filtros de Entrada em Arquivos (Prevenção > Tratamento)
 A validação de formatos suportados pelo sistema não deve ocorrer apenas "depois" do carregamento para tentar tratar o erro no Python. 
 - **Padrão:** Sempre que o sistema solicitar o anexo de um arquivo (via `filedialog.askopenfilename`), o parâmetro `filetypes` deve restringir as opções *estritamente* aos formatos suportados por aquela função (ex: permitir apenas Imagens e PDFs para o importador da receita). Isso oculta arquivos indesejados da visão do usuário e previne quebra de sistema.
+
+
+---
+
+## Padrões Técnicos Consolidados na v1.9.0
+
+### 1. Arquitetura Modular Backend (`backend/routes/`) & Frontend (`React.lazy`)
+- O monolito antigo `backend/api.py` foi dividido em routers por domínio usando `APIRouter`:
+  - `backend/api.py`: entrypoint (FastAPI, CORS, `storage_guard_middleware`, assets/dist e `include_router`).
+  - `backend/routes/common.py`: helpers compartilhados (`get_database_health`, validação de qualidade/duplicado, payloads base) exportados explicitamente via `__all__` (obrigatório para nomes com `_`).
+  - `backend/routes/settings.py`, `materials.py`, `recipes.py`, `products.py`, `home_bi.py`, `documents_ai.py`.
+- No frontend (`App.tsx`), as páginas principais (`HomePage`, `MaterialsPage`, `RecipesPage`, `ProductsPage`, `SettingsPage`) carregam sob demanda com `React.lazy` + `Suspense`, mantendo os chunks abaixo de 200 kB.
+
+### 2. Conexão HTTP Externa de IA (`backend/ai_vision.py`)
+- Requisições para provedores OpenAI-compatíveis/OpenRouter usam `ssl.create_default_context()`, `"Accept": "application/json"` e `"Connection": "close"`, tratando tanto `HTTPError` quanto `(URLError, TimeoutError, OSError)` como `RuntimeError` para acionar fallback limpo no modo gratuito.
+
+### 3. Download Multi-Formato no Anexos & Viewer (`GET /api/documents/file/{doc_id}/download?fmt=...`)
+- Suporta `fmt=original|pdf|docx|jpg`:
+  - `pdf`: gerado via `reportlab` (com transcrição por IA via `transcribe_image_to_text` quando foto + IA ativa, ou imagem/texto direto).
+  - `docx`: gerado via `python-docx` (parágrafos editáveis + imagem embutida quando aplicável).
+  - `jpg`: gerado/convertido via `Pillow` (card limpo 1080px para documentos de texto ou conversão RGB para imagens, pronto para WhatsApp).
+
+### 4. Higiene de IA e UX de Modais
+- Modais de IA (`AiReceiptPreviewModal` e `AiRecipePreviewModal`) devem sempre manter: nome do arquivo selecionado, botão **`↻ Tentar novamente`** (`lastFile`) e faixa de erro inline visível dentro do modal.
+- `tsc --noUnusedLocals --noEmit` deve sempre sair com código `0` (zero imports/estados mortos).

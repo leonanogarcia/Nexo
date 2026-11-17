@@ -86,3 +86,29 @@ Qualquer histórico transacional (Insumos, Receitas, Produtos) DEVE utilizar a c
 - **Pureza de Dados (Golden Rule):** O histórico deve exibir APENAS dados voláteis pertinentes à transação ou snapshot de custo (Data/Hora, Qtd, Unidade, Custo, Marca). É **expressamente proibido** injetar dados cadastrais estáticos ou mestre (como Categoria, Código, Código de Barras, Status Ativo/Inativo) nas tabelas de histórico, pois isso polui a UI e repete o mesmo dado de hoje em linhas do passado falsamente.
 - **Injeção do Hoje:** A condição atual do item (valores extraídos vivos da tabela no momento do clique) deve ser mapeada na ordem correta e injetada no array com a data Agora (Hoje). Ela deve participar da lista ordenável organicamente, sem fixação mágica, permitindo que os filtros operem sobre ela livremente.
 - **Formatação Automática de Data:** Registros antigos importados sem hora definida (ex: "2026-09-22") devem ser completados com "00:00" para manter o espaçamento visual perfeito na coluna "Data/Hora".
+
+
+---
+
+## Padrões Oficiais Consolidados na v1.9.0 (Obrigatórios)
+
+### 1. Janela Principal & Responsividade (`main.py` + React)
+- **Posicionamento seguro no Windows (`main.py`):** A janela sempre consulta `SystemParametersInfoW(0x0030)` (`SPI_GETWORKAREA`), que já desconta a barra de tarefas (menu Iniciar), calcula `w = min(1280, int(sw * 0.94))`, `h = min(800, int(sh * 0.88))` e centraliza via `x = rect.left + max(0, (sw - w) // 2)` e `y = rect.top + max(0, (sh - h) // 2)`. `min_size` é limitado dinamicamente a `(min(920, max(640, sw - 40)), min(560, max(480, sh - 40)))`.
+- **Sidebar (`ReferenceSidebar`):** A cápsula vertical usa `height: min(500px, calc(100vh - 140px))`, padding `py-[clamp(12px,2.8vh,26px)]`, botões com `height: clamp(42px, 7.2vh, 60px)` e ícones `w-[clamp(26px,4.2vh,34px)] h-[clamp(26px,4.2vh,34px)]` — garantindo que nunca corte em notebooks 1366×768 com escala 125% nem estique em monitores grandes.
+
+### 2. Barras de Ferramentas & Menu `⋮`
+- Todas as toolbars principais (`MaterialsPage`, `RecipesPage`, `ProductsPage`) usam `min-h-[64px] py-2 flex-wrap gap-2.5`.
+- O campo `Pesquisar` (`RoundedEntry`) usa largura fluida `clamp(160px, 22vw, 280px)`.
+- **Regra anti-encavalamento e anti-scroll de botões:** É **proibido** usar barra de rolagem horizontal para botões. Em larguras `< 1280px` (`< xl`), os botões secundários (`Conversões`, `Histórico`, `Ler com IA`) recolhem automaticamente para o componente **`NexoToolbarOverflowMenu`** (ícone **`⋮`** 3 pontinhos verticais).
+- `RoundedActionButton` sempre usa `shrink-0`, `px-3.5` e largura automática, impedindo que textos estourem a cápsula ou fiquem minúsculos.
+
+### 3. Marca D'água Fixa em Tabelas Vazias (`NexoEmptyTableWatermark`)
+- Toda tabela principal com scroll horizontal (`MaterialsPage`, `RecipesPage`, `ProductsPage`) **deve** renderizar `NexoEmptyTableWatermark` **fora** do container `overflow-auto` (como filho direto do painel `relative`, com `absolute inset-x-0 top-[48px] bottom-0 pointer-events-none`).
+- Assim a marca d'água permanece fixa e centralizada na área visível da tabela em qualquer tamanho de janela e nunca rola junto com a barra horizontal.
+
+### 4. Modais, `truncate` + Tooltip e Alertas Centrais
+- **Modais fluidos:** Todos os modais usam `w-full max-w-[XXXpx]` e `p-4` no backdrop (`max-h-[90vh]`/`92vh`), nunca largura fixa isolada `w-[XXXpx]`.
+- **Fechamento seguro:** Modais **não** fecham com a tecla `Esc` (evita perda acidental de formulários longos ou revisões da IA). Mantêm `✕` no topo + `Cancelar`/`Fechar` no rodapé.
+- **Trava de duplo clique:** Todos os botões de salvar/aplicar em modais devem controlar `saving`/`applying` e passar `disabled={saving}`.
+- **Padrão Universal `truncate` + `title`:** Todo elemento no Nexo que usar a classe `truncate` **é obrigado** a definir `title={textoCompleto}` para exibir o conteúdo integral em tooltip ao passar o mouse.
+- **Alertas Centrais (`AnimatedFeedbackModal`):** Sempre em `z-[100]` (acima de todos os modais `z-50`/`z-60`). Todo bloqueio ou erro em `handleSave` deve disparar `onNotify(msg, 'warning' | 'error')` além do banner interno no topo do modal.

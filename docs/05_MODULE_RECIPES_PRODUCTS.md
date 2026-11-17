@@ -49,3 +49,26 @@
 - **Janela de Revisão Humana:**
   - NUNCA inserir dados gerados por IA diretamente no banco. 
   - Sempre exibir uma tela intermediária "Revisão da IA". O sistema compara os ingredientes lidos com o banco materials. Se não encontrar correspondência perfeita (De-Para), a linha é destacada em Laranja, exigindo que o usuário mapeie manualmente via dropdown antes de permitir o salvamento.
+
+
+---
+
+## Regras de Itens Quebrados, IA e Auto-Anexo (v1.9.0)
+
+### 1. Comportamento de Itens Não Encontrados pela IA (`unresolved_name`)
+- Ao aplicar uma leitura de **Ler Receita (IA)** ou **Ler Ficha (IA)** em Receitas/Produtos, **todos** os ingredientes marcados são trazidos para o formulário (inclusive os não encontrados no cadastro, com quantidade e unidade extraídas).
+- Linhas sem vínculo válido (`material_id <= 0` ou `ref_id <= 0`) ficam destacadas em âmbar (`⚠ Não encontrado pela IA: "..."`) e exibem o botão **`+ Criar insumo`** (`QuickCreateMaterialModal`) para cadastrar na hora sem perder a ficha nem re-executar a IA.
+
+### 2. Comportamento de Itens Excluídos/Inativados/Arquivados (`broken_reason`)
+- Quando um insumo/receita vinculado é inativado (`active=0`) ou arquivado (`archived=1`), ele **nunca** some das receitas ou produtos que dependem dele.
+- A listagem (`GET /api/recipes` e `GET /api/products`) marca os itens afetados com `broken: true` e a ficha com `has_broken_items: true`, exibindo o selo **`⚠ Item quebrado`** na tabela.
+- Ao abrir a ficha para edição, a linha permanece visível em destaque âmbar (`⚠ Insumo/Componente inativo/arquivado`), **sem** o botão `+ Criar insumo` — orientando o usuário a substituir pelo dropdown, remover a linha ou cancelar para ajustar no módulo principal.
+
+### 3. Trava Absoluta de Salvamento (Frontend + Backend)
+- É **proibido** salvar Receita ou Produto com qualquer vínculo quebrado, inativo ou arquivado:
+  - **Frontend:** `handleSave` bloqueia via `failSave(...)` (banner no topo + `AnimatedFeedbackModal` central em `z-[100]`).
+  - **Backend:** `_validate_recipe_items` e `_validate_product_items` validam `POST` e `PUT` exigindo registros existentes com `active=1` e `archived=0`.
+
+### 4. Auto-Anexo e Ícone Oficial
+- O botão **Anexos & Viewer** no menu de contexto usa o ícone vetorial oficial `PaperclipIcon` (disponível em Receitas e Produtos, independente da IA).
+- Ao criar uma nova Receita ou Produto a partir da leitura da IA (`aiDraft.source_file`), o arquivo original é anexado automaticamente em `/api/documents/{RECIPE_BASE|PRODUCT}/{id}` logo após o salvamento.

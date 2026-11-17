@@ -36,3 +36,23 @@
   - O sistema rastreia localmente quantas requisições de IA foram feitas no dia (reset em 24h).
   - Um input numérico permite definir o "Alerta de Segurança Diário".
   - Se ultrapassar, a requisição NÃO é enviada ao provedor e exibe o alerta claro: *"Atenção: Limite de segurança de {limite} leituras diárias atingido. O Nexo salvou o documento apenas como anexo. Para importar automaticamente, aguarde a renovação no dia seguinte (tempo de recarga 24H) ou altere seu limite nas Configurações da IA."*
+
+
+---
+
+## Atualizações da Sidebar, Ajuda `ⓘ` e OpenRouter Gratuito (v1.9.0)
+
+### 1. Sidebar Responsiva
+- A cápsula vertical da sidebar usa `height: min(500px, calc(100vh - 140px))` com espaçamento e ícones proporcionais via `clamp(...)`, evitando cortes verticais em notebooks menores com escala DPI 125%/150%.
+
+### 2. Botões de Ajuda Contextual (`ⓘ`) em Configurações
+- Todas as categorias relevantes de Configurações possuem botões `ⓘ` (`InfoCircleIcon`) com modais explicativos claros em português ("como funciona, para que serve e como usar"):
+  - Identidade da Marca;
+  - Visão Geral de IA, Chave API e Seleção de Modelos;
+  - Métricas de Custo & Jornada da Cozinha;
+  - Unidades de Medida (internas e configuráveis por insumo);
+  - Banco de Dados & BI (saúde, VACUUM, backup, preferências e auditoria/exportação).
+
+### 3. Política de Modelos OpenRouter (Gratuito Automático vs Pago)
+- **Modo Automático Gratuito:** Quando o provedor é `OpenRouter` e o campo **Modelo** está vazio ou configurado como `openrouter/free` / `free` / `auto` / `auto-free`, o Nexo consulta `https://openrouter.ai/api/v1/models` (cache de 10 min), filtra exclusivamente modelos `:free` (e com modalidade `"image"` quando há foto) e faz fallback automático em até 6 candidatos em caso de erro HTTP ou queda de conexão (`URLError`/`WinError 10054`/`TimeoutError`).
+- **Modo Específico / Pago:** Quando o usuário informa qualquer modelo específico (ex.: `google/gemini-2.5-flash`, `openai/gpt-4o-mini` ou `openrouter/auto`), o Nexo respeita exatamente aquele modelo sem misturar com o pool gratuito.

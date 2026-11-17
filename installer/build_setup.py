@@ -12,17 +12,21 @@ OUTPUT_DIR = ROOT_DIR / 'instaladores'
 
 
 def detect_version() -> str:
-    app_file = ROOT_DIR / 'frontend' / 'app.py'
-    if app_file.exists():
-        m = re.search(r'v(\d+\.\d+\.\d+)', app_file.read_text(encoding='utf-8'))
-        if m:
-            return m.group(1)
+    import json
+    pkg_file = ROOT_DIR / 'frontend' / 'package.json'
+    if pkg_file.exists():
+        try:
+            ver = str(json.loads(pkg_file.read_text(encoding='utf-8')).get('version') or '').strip()
+            if re.match(r'^\d+\.\d+\.\d+$', ver):
+                return ver
+        except Exception:
+            pass
     main_file = ROOT_DIR / 'main.py'
     if main_file.exists():
         m = re.search(r'v(\d+\.\d+\.\d+)', main_file.read_text(encoding='utf-8'))
         if m:
             return m.group(1)
-    return '1.0.0'
+    return '2.0.0'
 
 
 def make_pyinstaller_version_info(version: str) -> str:
@@ -850,7 +854,11 @@ def main():
     version_info_file = ROOT_DIR / 'build' / 'version_info.txt'
     version_info_file.write_text(make_pyinstaller_version_info(version), encoding='utf-8')
 
-    print(f'=== 1. Empacotando Nexo v{version} (x64) com PyInstaller ===')
+    frontend_dist = ROOT_DIR / 'frontend' / 'dist'
+    if not (frontend_dist / 'index.html').exists():
+        raise RuntimeError('Build do frontend não encontrado em frontend/dist. Execute "npm --prefix frontend run build" antes de empacotar.')
+
+    print(f'=== 1. Empacotando Nexo v{version} (x64) com PyInstaller (banco zerado, sem dados de teste) ===')
     cmd = [
         sys.executable, '-m', 'PyInstaller',
         '--noconfirm', '--onedir', '--windowed',
@@ -860,7 +868,8 @@ def main():
         '--workpath', str(build_work),
         '--distpath', str(dist_dir),
         '--collect-submodules', 'backend',
-        '--collect-submodules', 'frontend',
+        '--collect-submodules', 'webview',
+        '--add-data', f'{frontend_dist};frontend/dist',
         '--add-data', f'{ROOT_DIR / "ui_assets"};ui_assets',
         '--add-data', f'{ROOT_DIR / "nexo_icon.ico"};.',
         '--add-data', f'{ROOT_DIR / "nexo_icon.png"};.',

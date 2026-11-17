@@ -1,0 +1,588 @@
+import ast
+import csv
+import io
+import json
+import math
+import platform
+import shutil
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel
+
+from ..reports import (
+    build_csv_or_zip_report,
+    build_pdf_report,
+    build_xlsx_report,
+    build_xml_report,
+    collect_report_sections,
+)
+from .. import (
+    UNITS,
+    custom_units_for_material,
+    db,
+    fmt,
+    fmt_num,
+    get_db_path,
+    get_setting,
+    init_db,
+    material_cost,
+    money_to_float,
+    next_code,
+    normalize_text,
+    now_iso,
+    paths,
+    recipe_cost,
+    item_cost,
+    item_direct_cost,
+    item_operational_cost,
+    calculate_product_operational_breakdown,
+    get_kitchen_rates,
+    EQUIPMENT_PRESETS,
+    get_cost_settings_detailed,
+    product_unit_cost,
+    product_direct_cost,
+    product_operational_cost,
+    recipe_operational_breakdown,
+    product_operational_breakdown,
+    convert_generic,
+    record_edit,
+    set_setting,
+    snapshot_costs,
+    to_float,
+)
+
+
+from .common import *
+
+router = APIRouter()
+
+
+@router.get("/api/status")
+def get_system_status():
+    init_db()
+    connected = False
+    db_file = paths.get_db_path()
+    try:
+        with db() as c:
+            c.execute("SELECT 1").fetchone()
+        connected = True
+    except Exception:
+        connected = False
+
+    theme = get_setting("theme", "light")
+    company_name = get_setting("company_name", "Nexo")
+    mat_hidden_cols = _load_hidden_cols("mat_hidden_cols", ["code"])
+    rec_hidden_cols = _load_hidden_cols("rec_hidden_cols", ["code"])
+    prod_hidden_cols = _load_hidden_cols("prod_hidden_cols", ["code"])
+
+    import sys
+
+    health = get_database_health(db_file)
+
+    return {
+        "connected": connected,
+        "db_name": db_file.name,
+        "db_path": str(db_file),
+        "db_health": {
+            "health_status": health["health_status"],
+            "health_label": health["health_label"],
+            "size_fmt": health["size_fmt"],
+            "health_reasons": health["health_reasons"],
+        },
+        "theme": theme,
+        "company_name": company_name,
+        "units": list(UNITS),
+        "mat_hidden_cols": mat_hidden_cols,
+        "rec_hidden_cols": rec_hidden_cols,
+        "prod_hidden_cols": prod_hidden_cols,
+        "ai_enabled": get_setting("ai_enabled", "0") in ("1", "true", "True"),
+        "is_packaged": bool(getattr(sys, "frozen", False)),
+        "version": "v1.9.1",
+    }
+
+
+# ---------- Settings Models & Endpoints (Etapa 3) ----------
+
+class CompanyPayload(BaseModel):
+    name: str
+    logo: Optional[str] = ""
+    brand_theme_enabled: Optional[bool] = False
+    brand_color: Optional[str] = "#F28C28"
+    apply_brand_to_sidebar: Optional[bool] = True
+    apply_brand_to_buttons: Optional[bool] = True
+    show_company_name: Optional[bool] = True
+    logo_shape: Optional[str] = "round" 
+
+class OperationalCostItemPayload(BaseModel):
+    id: Optional[int] = None
+    name: str
+    percentage: Optional[Any] = 0.0
+    cost_type: Optional[str] = "PERCENT"
+    fixed_value: Optional[Any] = 0.0
+
+class OperationalCostsPayload(BaseModel):
+    costs: List[OperationalCostItemPayload]
+
+class KitchenSettingsPayload(BaseModel):
+    kitchen_days_month: Optional[Any] = "26"
+    kitchen_hours_day: Optional[Any] = "8"
+    gas_supply_type: Optional[str] = "cylinder_13"
+    gas_price: Optional[Any] = "125.00"
+    electricity_bill_monthly: Optional[Any] = "350.00"
+    water_bill_monthly: Optional[Any] = "80.00" 
+
+
+@router.get("/api/settings")
+def get_all_settings():
+    init_db()
+    db_file = paths.get_db_path()
+    theme = get_setting("theme", "light")
+    company_name = get_setting("company_name", "Nexo")
+    company_logo = get_setting("company_logo", "")
+    brand_theme_enabled = get_setting("brand_theme_enabled", "0") in ("1", "true", "True")
+    brand_color = get_setting("brand_color", "#F28C28")
+    apply_brand_to_sidebar = get_setting("apply_brand_to_sidebar", "1") in ("1", "true", "True")
+    apply_brand_to_buttons = get_setting("apply_brand_to_buttons", "1") in ("1", "true", "True")
+    show_company_name = get_setting("show_company_name", "1") in ("1", "true", "True")
+    logo_shape = get_setting("logo_shape", "round")
+    
+    cost_detailed = get_cost_settings_detailed()
+    cost_list = [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "cost_type": r["cost_type"],
+            "percentage": float(r["percentage"] or 0.0),
+            "fixed_value": float(r["fixed_value"] or 0.0),
+            "rate_label": (f"R$ {float(r['fixed_value'] or 0.0):.2f}".replace(".", ",") if r["cost_type"] == "FIXED" else f"{float(r['percentage'] or 0.0):.1f}%".replace(".", ",")),
+        }
+        for r in cost_detailed
+    ]
+    total_pct = sum(r["percentage"] for r in cost_list if r["cost_type"] == "PERCENT")
+    total_fixed = sum(r["fixed_value"] for r in cost_list if r["cost_type"] == "FIXED")
+
+    # DB Size & Health
+    health = get_database_health(db_file)
+
+    return {
+        "theme": theme,
+        "company_name": company_name,
+        "company_logo": company_logo,
+        "brand_theme_enabled": brand_theme_enabled,
+        "brand_color": brand_color,
+        "apply_brand_to_sidebar": apply_brand_to_sidebar,
+        "apply_brand_to_buttons": apply_brand_to_buttons,
+        "show_company_name": show_company_name,
+        "logo_shape": logo_shape,
+        "cost_settings": cost_list,
+        "total_operational_percentage": round(total_pct, 1),
+        "total_operational_fixed": round(total_fixed, 2),
+        "total_operational_fixed_fmt": f"R$ {total_fixed:.2f}".replace(".", ","),
+        "kitchen": {
+            "days_month": get_setting("kitchen_days_month", "26"),
+            "hours_day": get_setting("kitchen_hours_day", "8"),
+            "gas_supply_type": get_setting("gas_supply_type", "cylinder_13"),
+            "gas_price": float(get_setting("gas_price", "125.00") or 125.0),
+            "electricity_bill_monthly": float(get_setting("electricity_bill_monthly", "350.00") or 350.0),
+            "water_bill_monthly": float(get_setting("water_bill_monthly", "80.00") or 80.0),
+            "rates": get_kitchen_rates(),
+            "presets": list(EQUIPMENT_PRESETS.values()),
+        },
+        "units": {
+            "mass": ["mg", "g", "kg", "t"],
+            "volume": ["ml", "L", "kL"],
+            "count": ["un"],
+        },
+        "database": {
+            "name": db_file.name,
+            "path": str(db_file),
+            "connected": True,
+            **health,
+        },
+        "bi": {
+            "default_period": get_setting("bi_default_period", "12m"),
+            "chart_style": get_setting("bi_chart_style", "auto"),
+            "cost_variation_alert_pct": float(get_setting("bi_cost_variation_alert_pct", "10") or 10),
+            "target_margin_pct": float(get_setting("bi_target_margin_pct", "30") or 30),
+            "include_inactive": get_setting("bi_include_inactive", "0") in ("1", "true", "True"),
+            "color_palette": get_setting("bi_color_palette", "nexo"),
+            "custom_primary_color": get_setting("bi_custom_primary_color", "#F28C28"),
+            "custom_secondary_color": get_setting("bi_custom_secondary_color", "#18223A"),
+        },
+        "ai": (
+            {
+                "enabled": True,
+                "provider": get_setting("ai_provider", "Google Gemini"),
+                "api_key": get_setting("ai_api_key", ""),
+                "daily_limit": get_setting("ai_daily_limit", "50"),
+                "base_url": get_setting("ai_base_url", ""),
+                "model": get_setting("ai_model", ""),
+            }
+            if get_setting("ai_enabled", "0") in ("1", "true", "True")
+            else {
+                "enabled": False,
+                "provider": "Google Gemini",
+                "api_key": "",
+                "daily_limit": "50",
+                "base_url": "",
+                "model": "",
+            }
+        ),
+        "about": {
+            "app_name": "Nexo",
+            "version": "1.9.1",
+            "release_date": "16/11/2026",
+            "edition": "Local (SQLite)",
+            "os_info": f"{platform.system()} {platform.release()}",
+            "python_version": platform.python_version(),
+            "highlights": [
+                "Aba Início (Dashboard + BI): 3 KPIs clicáveis, gráfico de Custo dos Produtos, Compras por categoria e Variação de preços.",
+                "Inteligência de Precificação: Produtos abaixo da meta de margem, Ranking de Lucro & Custo e Pendências do Cadastro.",
+                "Modal de BI Detalhado (Insumo, Marca e Custos) com filtro de mês, exportação CSV e Padrão Único de Tabelas.",
+                "Indicador de saúde do banco (Verde/Amarelo/Vermelho) no rodapé global e suporte universal a IA (Gemini, OpenAI, OpenRouter e Compatível OpenAI).",
+                "Padrão Único de Tabelas, Relatórios completos (PDF/Excel/CSV/XML) e Aba Sobre.",
+            ],
+        },
+    }
+
+
+class AiTestPayload(BaseModel):
+    provider: str
+    api_key: str = ""
+    base_url: str = ""
+    model: str = ""
+
+
+@router.post("/api/settings/ai/reset")
+def reset_ai_settings():
+    set_setting("ai_enabled", "0")
+    set_setting("ai_provider", "Google Gemini")
+    set_setting("ai_api_key", "")
+    set_setting("ai_daily_limit", "50")
+    set_setting("ai_base_url", "")
+    set_setting("ai_model", "")
+    return {"ok": True, "message": "Configurações e chave de IA zeradas com sucesso."}
+
+
+@router.post("/api/settings/ai/test")
+def test_ai_connection(payload: AiTestPayload):
+    import urllib.error
+    import urllib.request
+
+    provider = payload.provider.strip()
+    api_key = payload.api_key.strip().strip('"').strip("'")
+    base_url = payload.base_url.strip().rstrip("/")
+    base_headers = {"User-Agent": "Nexo/1.9.1"}
+
+    if provider == "Google Gemini":
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Informe a Chave API do Google Gemini.")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        headers = {**base_headers}
+    elif provider == "OpenAI ChatGPT":
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Informe a Chave API da OpenAI.")
+        url = "https://api.openai.com/v1/models"
+        headers = {**base_headers, "Authorization": f"Bearer {api_key}"}
+    elif provider == "OpenRouter":
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Informe o Token/Chave API do OpenRouter.")
+        url = "https://openrouter.ai/api/v1/auth/key"
+        headers = {
+            **base_headers,
+            "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://nexo.local",
+            "X-Title": "Nexo",
+        }
+    else:
+        if not base_url:
+            raise HTTPException(status_code=400, detail="Informe a URL Base da API (ex.: https://api.groq.com/openai/v1).")
+        url = f"{base_url}/models"
+        headers = {**base_headers, "Authorization": f"Bearer {api_key}"} if api_key else {**base_headers}
+
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read().decode("utf-8", errors="ignore")
+            data = json.loads(raw) if raw else {}
+            if provider == "OpenRouter" and isinstance(data, dict) and "data" in data:
+                label = data["data"].get("label") or "Chave ativa"
+                return {"ok": True, "message": f"OpenRouter conectado com sucesso! ({label})"}
+            return {"ok": True, "message": f"Conexão com {provider} validada com sucesso!"}
+    except urllib.error.HTTPError as e:
+        err_msg = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="ignore")
+            err_json = json.loads(err_body) if err_body else {}
+            if isinstance(err_json, dict):
+                err_msg = err_json.get("error", {}).get("message") if isinstance(err_json.get("error"), dict) else str(err_json.get("error") or err_json.get("detail") or "")
+        except Exception:
+            pass
+        if e.code in (401, 403):
+            extra = f" ({err_msg})" if err_msg else ""
+            raise HTTPException(status_code=400, detail=f"Chave API recusada pelo provedor {provider} (HTTP {e.code}){extra}.")
+        raise HTTPException(status_code=400, detail=f"O provedor {provider} respondeu com erro HTTP {e.code}{': ' + err_msg if err_msg else ''}.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Não foi possível conectar em {provider}: {str(e)}")
+
+
+@router.post("/api/settings/company")
+def update_company_settings(payload: CompanyPayload):
+    c_name = payload.name.strip()
+    if not c_name:
+        raise HTTPException(status_code=400, detail="O nome da empresa não pode ficar em branco.")
+    set_setting("company_name", c_name)
+    if payload.logo is not None:
+        set_setting("company_logo", payload.logo)
+    set_setting("brand_theme_enabled", "1" if payload.brand_theme_enabled else "0")
+    if payload.brand_color:
+        set_setting("brand_color", payload.brand_color)
+    set_setting("apply_brand_to_sidebar", "1" if payload.apply_brand_to_sidebar else "0")
+    set_setting("apply_brand_to_buttons", "1" if payload.apply_brand_to_buttons else "0")
+    set_setting("show_company_name", "1" if payload.show_company_name is not False else "0")
+    if payload.logo_shape:
+        set_setting("logo_shape", payload.logo_shape)
+    return {
+        "ok": True,
+        "company_name": c_name,
+        "company_logo": payload.logo,
+        "brand_theme_enabled": bool(payload.brand_theme_enabled),
+        "brand_color": payload.brand_color or "#F28C28",
+        "apply_brand_to_sidebar": bool(payload.apply_brand_to_sidebar),
+        "apply_brand_to_buttons": bool(payload.apply_brand_to_buttons),
+        "show_company_name": payload.show_company_name is not False,
+        "logo_shape": payload.logo_shape or "round",
+    }
+
+
+@router.post("/api/settings/company/reset")
+def reset_company_settings():
+    set_setting("company_name", "Nexo")
+    set_setting("company_logo", "")
+    set_setting("brand_theme_enabled", "0")
+    set_setting("brand_color", "#F28C28")
+    set_setting("apply_brand_to_sidebar", "1")
+    set_setting("apply_brand_to_buttons", "1")
+    set_setting("show_company_name", "1")
+    set_setting("logo_shape", "round")
+    return {
+        "ok": True,
+        "company_name": "Nexo",
+        "company_logo": "",
+        "brand_theme_enabled": False,
+        "brand_color": "#F28C28",
+        "apply_brand_to_sidebar": True,
+        "apply_brand_to_buttons": True,
+        "show_company_name": True,
+        "logo_shape": "round",
+        "message": "Padrão oficial Nexo restaurado com sucesso.",
+    }
+
+
+@router.post("/api/settings/kitchen-costs")
+def update_kitchen_costs(payload: KitchenSettingsPayload):
+    set_setting("kitchen_days_month", str(payload.kitchen_days_month or "26").replace(",", "."))
+    set_setting("kitchen_hours_day", str(payload.kitchen_hours_day or "8").replace(",", "."))
+    set_setting("gas_supply_type", str(payload.gas_supply_type or "cylinder_13"))
+    set_setting("gas_price", str(payload.gas_price or "125.00").replace(",", "."))
+    set_setting("electricity_bill_monthly", str(payload.electricity_bill_monthly or "350.00").replace(",", "."))
+    set_setting("water_bill_monthly", str(payload.water_bill_monthly or "80.00").replace(",", "."))
+    try:
+        snapshot_costs()
+    except Exception:
+        pass
+    return {"ok": True, "message": "Parâmetros da jornada da cozinha salvos com sucesso.", "rates": get_kitchen_rates()}
+
+
+@router.post("/api/settings/operational-costs")
+def update_operational_costs(payload: OperationalCostsPayload):
+    with db() as c:
+        for it in payload.costs:
+            try:
+                p_val = float(str(it.percentage or 0.0).replace(",", "."))
+            except Exception:
+                p_val = 0.0
+            try:
+                f_val = float(str(it.fixed_value or 0.0).replace(",", "."))
+            except Exception:
+                f_val = 0.0
+            c_type = "FIXED" if str(it.cost_type or "").upper() == "FIXED" else "PERCENT"
+            
+            if it.id:
+                c.execute("UPDATE cost_settings SET percentage=?, cost_type=?, fixed_value=? WHERE id=?", (p_val, c_type, f_val, it.id))
+            else:
+                c.execute("UPDATE cost_settings SET percentage=?, cost_type=?, fixed_value=? WHERE name=?", (p_val, c_type, f_val, it.name))
+        c.commit()
+    try:
+        snapshot_costs()
+    except Exception:
+        pass
+    return {"ok": True, "message": "Custos operacionais atualizados com sucesso."}
+
+
+@router.post("/api/settings/database/backup")
+def create_database_backup():
+    db_file = paths.get_db_path()
+    if not db_file.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de banco de dados não encontrado.")
+    
+    backup_dir = db_file.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    from datetime import datetime
+    import shutil
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = backup_dir / f"nexo_backup_{timestamp}.db"
+    
+    shutil.copy2(db_file, backup_file)
+    
+    size_bytes = backup_file.stat().st_size
+    size_fmt = f"{size_bytes / 1024:.1f} KB" if size_bytes < 1024*1024 else f"{size_bytes / (1024*1024):.2f} MB"
+    
+    return {
+        "ok": True,
+        "backup_name": backup_file.name,
+        "backup_path": str(backup_file),
+        "size_fmt": size_fmt,
+        "created_at": datetime.now().strftime("%d/%m/%Y às %H:%M:%S"),
+        "message": f"Backup criado com sucesso: {backup_file.name}",
+    }
+
+
+class DatabaseLimitPayload(BaseModel):
+    max_size_kb: Optional[int] = None
+    max_size_mb: Optional[int] = None
+
+
+@router.post("/api/settings/database/limit")
+def update_database_limit(payload: DatabaseLimitPayload):
+    if payload.max_size_kb is not None:
+        kb = int(payload.max_size_kb)
+    elif payload.max_size_mb is not None:
+        kb = int(payload.max_size_mb) * 1024
+    else:
+        raise HTTPException(status_code=400, detail="Informe o limite desejado para o banco.")
+
+    if kb < 50:
+        raise HTTPException(status_code=400, detail="O teto mínimo do banco é 50 KB.")
+    health = get_database_health()
+    if kb * 1024 < health["size_bytes"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"O limite escolhido ({_format_limit_kb(kb)}) é menor que o tamanho atual do banco ({health['size_fmt']}). Compacte o banco (VACUUM) ou limpe registros antigos antes de reduzir o teto.",
+        )
+    max_disk_kb = health.get("max_disk_supported_kb")
+    if max_disk_kb is not None and kb > max_disk_kb:
+        raise HTTPException(
+            status_code=400,
+            detail=f"O disco atual não comporta um teto de {_format_limit_kb(kb)} com segurança (espaço livre: {health['disk_free_fmt']}). Máximo recomendado neste disco: {_format_limit_kb(max_disk_kb)}.",
+        )
+    set_setting("db_max_size_kb", str(kb))
+    return {"ok": True, "max_size_kb": kb, "max_size_label": _format_limit_kb(kb)}
+
+
+@router.post("/api/settings/database/vacuum")
+def vacuum_database():
+    health = get_database_health()
+    if not health["can_vacuum"]:
+        raise HTTPException(
+            status_code=507,
+            detail=f"Espaço livre em disco insuficiente ({health['disk_free_fmt']}) para compactar o banco com segurança. É necessário pelo menos o dobro do tamanho atual ({health['size_fmt']}).",
+        )
+    with db() as c:
+        c.execute("VACUUM")
+    return {"ok": True, "message": "Banco de dados compactado e otimizado com sucesso."}
+
+
+class BiSettingsPayload(BaseModel):
+    default_period: str = "12m"
+    chart_style: str = "auto"
+    cost_variation_alert_pct: float = 10.0
+    target_margin_pct: float = 30.0
+    include_inactive: bool = False
+    color_palette: str = "nexo"
+    custom_primary_color: str = "#F28C28"
+    custom_secondary_color: str = "#18223A"
+
+
+@router.post("/api/settings/bi")
+def update_bi_settings(payload: BiSettingsPayload):
+    valid_periods = {"30d", "3m", "6m", "12m", "all"}
+    valid_styles = {"auto", "bar", "line"}
+    valid_palettes = {"nexo", "brand", "contrast", "corporate", "custom"}
+    if payload.default_period not in valid_periods:
+        raise HTTPException(status_code=400, detail="Período padrão de BI inválido.")
+    if payload.chart_style not in valid_styles:
+        raise HTTPException(status_code=400, detail="Estilo de gráfico inválido.")
+    if payload.color_palette not in valid_palettes:
+        raise HTTPException(status_code=400, detail="Paleta de cores do BI inválida.")
+    if payload.cost_variation_alert_pct < 0 or payload.cost_variation_alert_pct > 500:
+        raise HTTPException(status_code=400, detail="O alerta de variação de custo deve ficar entre 0% e 500%.")
+    if payload.target_margin_pct < 0 or payload.target_margin_pct > 500:
+        raise HTTPException(status_code=400, detail="A meta de margem de lucro deve ficar entre 0% e 500%.")
+
+    set_setting("bi_default_period", payload.default_period)
+    set_setting("bi_chart_style", payload.chart_style)
+    set_setting("bi_cost_variation_alert_pct", str(round(float(payload.cost_variation_alert_pct), 1)))
+    set_setting("bi_target_margin_pct", str(round(float(payload.target_margin_pct), 1)))
+    set_setting("bi_include_inactive", "1" if payload.include_inactive else "0")
+    set_setting("bi_color_palette", payload.color_palette)
+    if payload.custom_primary_color.startswith("#") and len(payload.custom_primary_color) == 7:
+        set_setting("bi_custom_primary_color", payload.custom_primary_color)
+    if payload.custom_secondary_color.startswith("#") and len(payload.custom_secondary_color) == 7:
+        set_setting("bi_custom_secondary_color", payload.custom_secondary_color)
+    return {"ok": True, "message": "Preferências de BI salvas com sucesso!"}
+
+
+@router.get("/api/reports/export")
+def export_database_report(
+    scope: str = Query("all", description="all | materials | recipes | products | custom_units | audit"),
+    fmt_type: str = Query("pdf", alias="fmt", description="pdf | xlsx | csv | xml"),
+):
+    valid_scopes = {"all", "materials", "recipes", "products", "custom_units", "audit"}
+    valid_formats = {"pdf", "xlsx", "csv", "xml"}
+    if scope not in valid_scopes:
+        raise HTTPException(status_code=400, detail="Escopo de relatório inválido.")
+    if fmt_type not in valid_formats:
+        raise HTTPException(status_code=400, detail="Formato de exportação inválido.")
+
+    init_db()
+    health = get_database_health()
+    sections = collect_report_sections(scope, health)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = f"nexo_relatorio_{scope}_{stamp}"
+
+    if fmt_type == "pdf":
+        data = build_pdf_report(sections, scope)
+        media_type = "application/pdf"
+        ext = "pdf"
+    elif fmt_type == "xlsx":
+        data = build_xlsx_report(sections)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ext = "xlsx"
+    elif fmt_type == "csv":
+        data, media_type, ext = build_csv_or_zip_report(sections)
+    else:
+        data = build_xml_report(sections, scope)
+        media_type = "application/xml; charset=utf-8"
+        ext = "xml"
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{base_name}.{ext}"'},
+    )
+
+
+@router.post("/api/settings/{key}")
+def update_setting(key: str, payload: SettingPayload):
+    val = payload.value
+    if isinstance(val, (list, dict)):
+        set_setting(key, repr(val))
+    else:
+        set_setting(key, str(val))
+    return {"ok": True, "key": key, "value": val}

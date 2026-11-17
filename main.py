@@ -1,45 +1,168 @@
-"""
-Nexo — Gestão de Custos e Precificação (v1.0.0)
-Ponto de entrada principal da aplicação.
-"""
-try:
-    import ctypes
-    # DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED (-5):
-    # Escala automaticamente a janela para o tamanho proporcional correto em qualquer escala (ex: 4K a 300%),
-    # preservando nitidez de texto e componentes GDI.
-    ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-5))
-except Exception:
-    pass
+import os
+import socket
+import sys
+import threading
+import time
+import urllib.request
+from pathlib import Path
 
-from backend import (
-    paths,
-    BASE_DIR, RESOURCE_DIR, USER_DATA_DIR, DATA_DIR, BACKUPS_DIR,
-    CONFIG_PATH, DEFAULT_DB_PATH, DB_PATH, DOCS_DIR,
-    ICON_PNG, LOGO_PNG, ICON_ICO, UI_ASSETS,
-    load_file_config, save_file_config, get_db_path, set_db_path,
-    get_user_data_dir, ensure_daily_backup,
-    db, now_iso, init_db, next_code, get_setting, set_setting,
-    get_cost_settings, record_edit, list_names,
-    UNITS_MASS, UNITS_VOLUME, UNITS_COUNT, UNITS, BASE_UNITS_DEFAULT,
-    to_float, optional_float, money_to_float, fmt, fmt_num, normalize_text,
-    dimension_of_unit, base_unit, unit_factor_to_default_base,
-    configured_base_unit, unit_factor_to_internal,
-    custom_units_for_material, conversion_to_base, convert_generic, conversion_between,
-    material_cost, recipe_cost, item_cost, operational_cost,
-    product_unit_cost, product_direct_cost, snapshot_costs,
-    save_uploaded_document, latest_document,
-    extract_docx_text, extract_pdf_text, parse_recipe_lines,
-)
-from frontend import (
-    _field_palette, rounded_entry, numeric_entry, masked_money_entry,
-    safe_error, bind_text_capitalization, FlatEmojiButton,
-    Modal, RoundedPanel, PillScrollbar, VerticalPillScrollbar,
-    RoundedActionButton, RoundedEntry, SidebarIcon, NavItem,
-    ReferenceSidebar, RoundedDropdown, CustomHistoryModal, ListDialog,
-    get_work_area, App,
-)
+import uvicorn
+import webview
+
+from backend import ICON_ICO, init_db
+from backend.api import app
 
 
-if __name__ == '__main__':
+def _find_free_port(preferred: int = 8765) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("127.0.0.1", preferred)) != 0:
+            return preferred
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_for_server(url: str, timeout: float = 8.0) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=0.5) as resp:
+                if resp.status == 200:
+                    return True
+        except Exception:
+            time.sleep(0.1)
+    return False
+
+
+def _set_windows_icon(title: str = "Nexo"):
+    """Define o ícone oficial nexo_icon.ico na janela nativa do Windows e na Barra de Tarefas."""
+    if sys.platform != "win32" or not ICON_ICO.exists():
+        return
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x00000010
+        LR_DEFAULTSIZE = 0x00000040
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        GCLP_HICON = -14
+        GCLP_HICONSM = -34
+
+        hicon_small = user32.LoadImageW(None, str(ICON_ICO), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+        hicon_big = user32.LoadImageW(None, str(ICON_ICO), IMAGE_ICON, 48, 48, LR_LOADFROMFILE)
+        if not hicon_big:
+            hicon_big = user32.LoadImageW(None, str(ICON_ICO), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
+        if not hicon_small:
+            hicon_small = hicon_big
+        if not hicon_small and not hicon_big:
+            return
+
+        set_class_long = getattr(user32, "SetClassLongPtrW", user32.SetClassLongW)
+        set_class_long.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+
+        for _ in range(40):
+            hwnd = user32.FindWindowW(None, title)
+            if hwnd:
+                if hicon_small:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+                    set_class_long(hwnd, GCLP_HICONSM, hicon_small)
+                if hicon_big:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+                    set_class_long(hwnd, GCLP_HICON, hicon_big)
+                break
+            time.sleep(0.1)
+    except Exception:
+        pass
+
+
+def main():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("LeonanGarcia.Nexo.v2")
+        except Exception:
+            pass
+
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
     init_db()
-    App().mainloop()
+    port = _find_free_port(8765)
+    base_url = f"http://127.0.0.1:{port}"
+
+    config = uvicorn.Config(
+        app,
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+        log_config=None,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    server_thread.start()
+
+    _wait_for_server(f"{base_url}/api/status")
+
+    # Calcula dimensões ideais centralizadas na área de trabalho útil do Windows (sem cobrir a barra Iniciar)
+    w, h = 1280, 800
+    x, y = None, None
+    min_w, min_h = 920, 560
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class RECT(ctypes.Structure):
+            _fields_ = [
+                ("left", wintypes.LONG),
+                ("top", wintypes.LONG),
+                ("right", wintypes.LONG),
+                ("bottom", wintypes.LONG),
+            ]
+
+        rect = RECT()
+        if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+            sw = max(640, rect.right - rect.left)
+            sh = max(480, rect.bottom - rect.top)
+            w = min(1280, int(sw * 0.94))
+            h = min(800, int(sh * 0.88))
+            x = rect.left + max(0, (sw - w) // 2)
+            y = rect.top + max(0, (sh - h) // 2)
+            min_w = min(920, max(640, sw - 40))
+            min_h = min(560, max(480, sh - 40))
+    except Exception:
+        pass
+
+    window_kwargs = {
+        "width": w,
+        "height": h,
+        "min_size": (min_w, min_h),
+        "background_color": "#F4F7FC",
+        "text_select": False,
+    }
+    if x is not None and y is not None:
+        window_kwargs["x"] = x
+        window_kwargs["y"] = y
+
+    window = webview.create_window(
+        "Nexo",
+        base_url,
+        **window_kwargs,
+    )
+
+    def on_shown():
+        threading.Thread(target=_set_windows_icon, args=("Nexo",), daemon=True).start()
+
+    window.events.shown += on_shown
+    webview.start(gui="edgechromium")
+    server.should_exit = True
+
+
+if __name__ == "__main__":
+    main()

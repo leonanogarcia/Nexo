@@ -25,3 +25,9 @@
 - **Protocolo de Segurança Absoluto:**
   1. Se não houver alterações, ignorar silenciosamente.
   2. Se houver alterações, **MAS** a IA estiver ativamente escrevendo código ou no meio de uma tarefa com o usuário, a IA **É OBRIGADA** a perguntar e pedir permissão antes de fazer o commit. NUNCA suba código incompleto ou potencialmente quebrado sem aprovação explícita.
+
+
+## Regra Obrigatória de Empacotamento (`.exe` / Instalador)
+- **Antes de gerar qualquer executável ou instalador:** É **OBRIGATÓRIO** ler `docs/08_ROADMAP_INSTALLER.md` e garantir:
+  1. **Banco 100% zerado** (nunca empacotar `nexo.db`, `nexo_config.json`, `backups/` ou `documentos/` de teste);
+  2. **Botão `🔄 Recarregar` oculto** no executável (`status.is_packaged === true` via `getattr(sys, "frozen", False)`).
