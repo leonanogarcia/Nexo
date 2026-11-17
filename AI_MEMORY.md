@@ -29,5 +29,7 @@
 
 ## Regra Obrigatória de Empacotamento (`.exe` / Instalador)
 - **Antes de gerar qualquer executável ou instalador:** É **OBRIGATÓRIO** ler `docs/08_ROADMAP_INSTALLER.md` e garantir:
-  1. **Banco 100% zerado** (nunca empacotar `nexo.db`, `nexo_config.json`, `backups/` ou `documentos/` de teste);
-  2. **Botão `🔄 Recarregar` oculto** no executável (`status.is_packaged === true` via `getattr(sys, "frozen", False)`).
+  1. **Banco 100% zerado** (nunca empacotar `nexo.db`, `nexo_config.json`, `nexo_file_config.json`, `backups/`, `documentos/` ou `user_data/` de teste);
+  2. **IA desligada e chave zerada** (`ai_enabled = "0"`, `ai_api_key = ""`, nenhuma chave pessoal ou provedor pré-configurado);
+  3. **Estado limpo para novo usuário** (Canais de Venda desligados por padrão, marca padrão Nexo, zero insumos/receitas/produtos de teste);
+  4. **Botão `🔄 Recarregar` oculto** no executável (`status.is_packaged === true` via `getattr(sys, "frozen", False)`).

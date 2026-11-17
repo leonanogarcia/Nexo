@@ -83,6 +83,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Reflection;
 using System.Security.Principal;
@@ -101,15 +102,113 @@ using Microsoft.Win32;
 
 namespace NexoUninstall
 {
+    public static class NexoDraw
+    {
+        public static GraphicsPath RoundedRect(Rectangle bounds, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int d = Math.Min(radius, Math.Min(bounds.Width, bounds.Height));
+            if (d <= 0) {
+                path.AddRectangle(bounds);
+                return path;
+            }
+            Rectangle arc = new Rectangle(bounds.Location, new Size(d, d));
+            path.AddArc(arc, 180, 90);
+            arc.X = bounds.Right - d;
+            path.AddArc(arc, 270, 90);
+            arc.Y = bounds.Bottom - d;
+            path.AddArc(arc, 0, 90);
+            arc.X = bounds.Left;
+            path.AddArc(arc, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    public class PillButton : Control
+    {
+        public Color BackColorNormal { get; set; }
+        public Color BackColorHover { get; set; }
+        public Color BorderColor { get; set; }
+        private bool isHovered = false;
+
+        public PillButton()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+            this.Cursor = Cursors.Hand;
+            this.BackColorNormal = Color.FromArgb(242, 140, 40);
+            this.BackColorHover = Color.FromArgb(223, 123, 23);
+            this.BorderColor = Color.Transparent;
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { isHovered = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { isHovered = false; Invalidate(); base.OnMouseLeave(e); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
+            Color fill = !this.Enabled ? Color.FromArgb(180, 192, 210) : (isHovered ? BackColorHover : BackColorNormal);
+            using (GraphicsPath path = NexoDraw.RoundedRect(rect, this.Height - 1))
+            using (SolidBrush br = new SolidBrush(fill)) {
+                e.Graphics.FillPath(br, path);
+                if (BorderColor.A > 0) {
+                    using (Pen pen = new Pen(BorderColor, 1.2F)) {
+                        e.Graphics.DrawPath(pen, path);
+                    }
+                }
+            }
+            TextRenderer.DrawText(e.Graphics, this.Text, this.Font, rect, this.Enabled ? this.ForeColor : Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    public class PillProgressBar : Control
+    {
+        private int _val = 0;
+        public int Value
+        {
+            get { return _val; }
+            set { _val = Math.Max(0, Math.Min(100, value)); Invalidate(); }
+        }
+        public ProgressBarStyle Style { get; set; }
+
+        public PillProgressBar()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle track = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
+            using (GraphicsPath path = NexoDraw.RoundedRect(track, this.Height - 1))
+            using (SolidBrush bg = new SolidBrush(Color.FromArgb(226, 234, 245)))
+            using (Pen border = new Pen(Color.FromArgb(207, 218, 235), 1F)) {
+                e.Graphics.FillPath(bg, path);
+                e.Graphics.DrawPath(border, path);
+            }
+            if (_val > 0) {
+                int fillW = Math.Max(this.Height - 2, (int)((this.Width - 3) * (_val / 100.0)));
+                Rectangle fillRect = new Rectangle(1, 1, Math.Min(this.Width - 3, fillW), this.Height - 3);
+                using (GraphicsPath fp = NexoDraw.RoundedRect(fillRect, fillRect.Height))
+                using (SolidBrush fbr = new SolidBrush(Color.FromArgb(242, 140, 40))) {
+                    e.Graphics.FillPath(fbr, fp);
+                }
+            }
+        }
+    }
+
     public class UninstallForm : Form
     {
         private Label titleLabel;
         private Label subLabel;
         private Label statusLabel;
         private CheckBox chkRemoveData;
-        private ProgressBar progressBar;
-        private Button btnUninstall;
-        private Button btnCancel;
+        private PillProgressBar progressBar;
+        private PillButton btnUninstall;
+        private PillButton btnCancel;
 
         private string originInstallDir;
 
@@ -117,7 +216,7 @@ namespace NexoUninstall
         {
             this.originInstallDir = originDir;
             this.Text = "Desinstalar Nexo v__VERSION__";
-            this.Size = new Size(520, 310);
+            this.Size = new Size(520, 315);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -130,14 +229,23 @@ namespace NexoUninstall
 
             Panel header = new Panel();
             header.Dock = DockStyle.Top;
-            header.Height = 78;
+            header.Height = 80;
             header.BackColor = Color.FromArgb(17, 28, 48);
+
+            if (this.Icon != null) {
+                PictureBox pic = new PictureBox();
+                pic.Image = this.Icon.ToBitmap();
+                pic.SizeMode = PictureBoxSizeMode.Zoom;
+                pic.Size = new Size(44, 44);
+                pic.Location = new Point(22, 18);
+                header.Controls.Add(pic);
+            }
 
             titleLabel = new Label();
             titleLabel.Text = "Desinstalar Nexo v__VERSION__";
             titleLabel.ForeColor = Color.White;
-            titleLabel.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            titleLabel.Location = new Point(24, 14);
+            titleLabel.Font = new Font("Segoe UI", 15.5F, FontStyle.Bold);
+            titleLabel.Location = new Point(this.Icon != null ? 76 : 24, 15);
             titleLabel.AutoSize = true;
             header.Controls.Add(titleLabel);
 
@@ -145,7 +253,7 @@ namespace NexoUninstall
             subLabel.Text = "Gestão de Custos, Ficha Técnica e Precificação";
             subLabel.ForeColor = Color.FromArgb(242, 140, 40);
             subLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            subLabel.Location = new Point(26, 46);
+            subLabel.Location = new Point(this.Icon != null ? 78 : 26, 47);
             subLabel.AutoSize = true;
             header.Controls.Add(subLabel);
 
@@ -167,34 +275,31 @@ namespace NexoUninstall
             chkRemoveData.AutoSize = true;
             this.Controls.Add(chkRemoveData);
 
-            progressBar = new ProgressBar();
+            progressBar = new PillProgressBar();
             progressBar.Location = new Point(26, 172);
-            progressBar.Size = new Size(452, 22);
-            progressBar.Style = ProgressBarStyle.Continuous;
+            progressBar.Size = new Size(452, 16);
             this.Controls.Add(progressBar);
 
-            btnUninstall = new Button();
+            btnUninstall = new PillButton();
             btnUninstall.Text = "Desinstalar";
-            btnUninstall.BackColor = Color.FromArgb(217, 75, 61);
+            btnUninstall.BackColorNormal = Color.FromArgb(217, 75, 61);
+            btnUninstall.BackColorHover = Color.FromArgb(192, 57, 43);
             btnUninstall.ForeColor = Color.White;
-            btnUninstall.FlatStyle = FlatStyle.Flat;
-            btnUninstall.FlatAppearance.BorderSize = 0;
-            btnUninstall.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnUninstall.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
             btnUninstall.Location = new Point(338, 214);
             btnUninstall.Size = new Size(140, 36);
-            btnUninstall.Cursor = Cursors.Hand;
             btnUninstall.Click += BtnUninstall_Click;
             this.Controls.Add(btnUninstall);
 
-            btnCancel = new Button();
+            btnCancel = new PillButton();
             btnCancel.Text = "Cancelar";
-            btnCancel.BackColor = Color.FromArgb(226, 232, 240);
+            btnCancel.BackColorNormal = Color.White;
+            btnCancel.BackColorHover = Color.FromArgb(236, 241, 249);
+            btnCancel.BorderColor = Color.FromArgb(213, 222, 236);
             btnCancel.ForeColor = Color.FromArgb(24, 34, 58);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.FlatAppearance.BorderSize = 0;
+            btnCancel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
             btnCancel.Location = new Point(228, 214);
             btnCancel.Size = new Size(100, 36);
-            btnCancel.Cursor = Cursors.Hand;
             btnCancel.Click += (s, e) => this.Close();
             this.Controls.Add(btnCancel);
         }
@@ -429,6 +534,7 @@ CSHARP_INSTALLER_TEMPLATE = r'''
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
@@ -447,22 +553,183 @@ using Microsoft.Win32;
 
 namespace NexoSetup
 {
+    public static class NexoDraw
+    {
+        public static GraphicsPath RoundedRect(Rectangle bounds, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int d = Math.Min(radius, Math.Min(bounds.Width, bounds.Height));
+            if (d <= 0) {
+                path.AddRectangle(bounds);
+                return path;
+            }
+            Rectangle arc = new Rectangle(bounds.Location, new Size(d, d));
+            path.AddArc(arc, 180, 90);
+            arc.X = bounds.Right - d;
+            path.AddArc(arc, 270, 90);
+            arc.Y = bounds.Bottom - d;
+            path.AddArc(arc, 0, 90);
+            arc.X = bounds.Left;
+            path.AddArc(arc, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    public class PillButton : Control
+    {
+        public Color BackColorNormal { get; set; }
+        public Color BackColorHover { get; set; }
+        public Color BorderColor { get; set; }
+        private bool isHovered = false;
+
+        public PillButton()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+            this.Cursor = Cursors.Hand;
+            this.BackColorNormal = Color.FromArgb(242, 140, 40);
+            this.BackColorHover = Color.FromArgb(223, 123, 23);
+            this.BorderColor = Color.Transparent;
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { isHovered = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { isHovered = false; Invalidate(); base.OnMouseLeave(e); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
+            Color fill = !this.Enabled ? Color.FromArgb(180, 192, 210) : (isHovered ? BackColorHover : BackColorNormal);
+            using (GraphicsPath path = NexoDraw.RoundedRect(rect, this.Height - 1))
+            using (SolidBrush br = new SolidBrush(fill)) {
+                e.Graphics.FillPath(br, path);
+                if (BorderColor.A > 0) {
+                    using (Pen pen = new Pen(BorderColor, 1.2F)) {
+                        e.Graphics.DrawPath(pen, path);
+                    }
+                }
+            }
+            TextRenderer.DrawText(e.Graphics, this.Text, this.Font, rect, this.Enabled ? this.ForeColor : Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    public class PillProgressBar : Control
+    {
+        private int _val = 0;
+        public int Value
+        {
+            get { return _val; }
+            set { _val = Math.Max(0, Math.Min(100, value)); Invalidate(); }
+        }
+        public ProgressBarStyle Style { get; set; }
+
+        public PillProgressBar()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle track = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
+            using (GraphicsPath path = NexoDraw.RoundedRect(track, this.Height - 1))
+            using (SolidBrush bg = new SolidBrush(Color.FromArgb(226, 234, 245)))
+            using (Pen border = new Pen(Color.FromArgb(207, 218, 235), 1F)) {
+                e.Graphics.FillPath(bg, path);
+                e.Graphics.DrawPath(border, path);
+            }
+            if (_val > 0) {
+                int fillW = Math.Max(this.Height - 2, (int)((this.Width - 3) * (_val / 100.0)));
+                Rectangle fillRect = new Rectangle(1, 1, Math.Min(this.Width - 3, fillW), this.Height - 3);
+                using (GraphicsPath fp = NexoDraw.RoundedRect(fillRect, fillRect.Height))
+                using (SolidBrush fbr = new SolidBrush(Color.FromArgb(242, 140, 40))) {
+                    e.Graphics.FillPath(fbr, fp);
+                }
+            }
+        }
+    }
+
+    public class PillPanel : Panel
+    {
+        public PillPanel()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
+            using (GraphicsPath path = NexoDraw.RoundedRect(rect, this.Height - 1))
+            using (SolidBrush br = new SolidBrush(Color.White))
+            using (Pen pen = new Pen(Color.FromArgb(213, 222, 236), 1.2F)) {
+                e.Graphics.FillPath(br, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+        }
+    }
+
+    public class HighQualityLogoBox : Control
+    {
+        public Image LogoImage { get; set; }
+
+        public HighQualityLogoBox()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (LogoImage == null) return;
+            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+
+            double ratioX = (double)this.Width / LogoImage.Width;
+            double ratioY = (double)this.Height / LogoImage.Height;
+            double ratio = Math.Min(ratioX, ratioY);
+            int w = (int)(LogoImage.Width * ratio);
+            int h = (int)(LogoImage.Height * ratio);
+            int x = (this.Width - w) / 2;
+            int y = (this.Height - h) / 2;
+            e.Graphics.DrawImage(LogoImage, new Rectangle(x, y, w, h));
+        }
+    }
+
     public class SetupForm : Form
     {
-        private Label titleLabel;
-        private Label subLabel;
-        private Label dirTitleLabel;
+        private int currentStep = 0;
+        private Panel[] stepPanels;
+        private Label stepLabel;
+
+        // Passo 1: Pasta de instalacao
         private TextBox txtInstallDir;
-        private Button btnBrowse;
-        private Label scopeTitleLabel;
+        private PillButton btnBrowse;
+
+        // Passo 2: Local do banco de dados
+        private RadioButton rbDbDefault;
+        private RadioButton rbDbCustom;
+        private TextBox txtDbDir;
+        private PillButton btnDbBrowse;
+
+        // Passo 3: Opcoes de acesso
         private RadioButton rbAllUsers;
         private RadioButton rbCurrentUser;
-        private Label optTitleLabel;
+
+        // Passo 4: Opcoes extras & Instalacao
         private CheckBox chkDesktop;
         private CheckBox chkLaunch;
-        private ProgressBar progressBar;
-        private Button btnInstall;
-        private Button btnCancel;
+        private PillProgressBar progressBar;
+
+        private PillButton btnBack;
+        private PillButton btnNext;
+        private PillButton btnInstall;
+        private PillButton btnCancel;
 
         public static string GetDefaultProgramFilesDir()
         {
@@ -473,148 +740,322 @@ namespace NexoSetup
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Nexo");
         }
 
+        public static string GetDefaultUserDataDir()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Nexo"
+            );
+        }
+
         public SetupForm()
         {
             this.Text = "Instalador do Nexo v__VERSION__ (x64)";
-            this.Size = new Size(540, 420);
+            this.Size = new Size(540, 496);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(244, 247, 252);
-            this.Font = new Font("Segoe UI", 9.5F);
+            this.Font = new Font("Segoe UI", 8.5F);
 
             try {
                 this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             } catch {}
 
-            Panel header = new Panel();
-            header.Dock = DockStyle.Top;
-            header.Height = 80;
-            header.BackColor = Color.FromArgb(17, 28, 48);
+            // Logo completa grande estilo Avast, centralizada e em alta qualidade
+            HighQualityLogoBox logoBox = new HighQualityLogoBox();
+            logoBox.Size = new Size(380, 278);
+            logoBox.Location = new Point((this.ClientSize.Width - logoBox.Width) / 2, 8);
+            try {
+                Assembly asm = Assembly.GetExecutingAssembly();
+                using (Stream imgStream = asm.GetManifestResourceStream("nexo_about_light.png")) {
+                    if (imgStream != null) {
+                        logoBox.LogoImage = Image.FromStream(imgStream);
+                    }
+                }
+            } catch {}
+            this.Controls.Add(logoBox);
 
-            titleLabel = new Label();
-            titleLabel.Text = "Nexo v__VERSION__";
-            titleLabel.ForeColor = Color.White;
-            titleLabel.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-            titleLabel.Location = new Point(24, 12);
-            titleLabel.AutoSize = true;
-            header.Controls.Add(titleLabel);
+            // Indicador sutil de etapa
+            stepLabel = new Label();
+            stepLabel.ForeColor = Color.FromArgb(130, 146, 174);
+            stepLabel.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            stepLabel.TextAlign = ContentAlignment.MiddleCenter;
+            stepLabel.Location = new Point(28, 290);
+            stepLabel.Size = new Size(468, 16);
+            this.Controls.Add(stepLabel);
 
-            subLabel = new Label();
-            subLabel.Text = "Gestão de Custos, Ficha Técnica e Precificação";
-            subLabel.ForeColor = Color.FromArgb(242, 140, 40);
-            subLabel.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            subLabel.Location = new Point(26, 46);
-            subLabel.AutoSize = true;
-            header.Controls.Add(subLabel);
+            stepPanels = new Panel[4];
+            for (int i = 0; i < 4; i++) {
+                Panel p = new Panel();
+                p.Location = new Point(28, 310);
+                p.Size = new Size(468, 102);
+                p.BackColor = Color.Transparent;
+                p.Visible = (i == 0);
+                this.Controls.Add(p);
+                stepPanels[i] = p;
+            }
 
-            this.Controls.Add(header);
+            // === PASSO 1: Pasta de instalacao ===
+            Label lblDir = new Label();
+            lblDir.Text = "Pasta de instalação do Nexo:";
+            lblDir.ForeColor = Color.FromArgb(24, 34, 58);
+            lblDir.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblDir.Location = new Point(0, 6);
+            lblDir.AutoSize = true;
+            stepPanels[0].Controls.Add(lblDir);
 
-            dirTitleLabel = new Label();
-            dirTitleLabel.Text = "Pasta de instalação:";
-            dirTitleLabel.ForeColor = Color.FromArgb(24, 34, 58);
-            dirTitleLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            dirTitleLabel.Location = new Point(26, 96);
-            dirTitleLabel.AutoSize = true;
-            this.Controls.Add(dirTitleLabel);
+            Label lblDirHint = new Label();
+            lblDirHint.Text = "Escolha onde os arquivos do programa serão instalados.";
+            lblDirHint.ForeColor = Color.FromArgb(110, 126, 154);
+            lblDirHint.Font = new Font("Segoe UI", 8F);
+            lblDirHint.Location = new Point(0, 24);
+            lblDirHint.AutoSize = true;
+            stepPanels[0].Controls.Add(lblDirHint);
+
+            PillPanel dirBox = new PillPanel();
+            dirBox.Location = new Point(0, 48);
+            dirBox.Size = new Size(372, 28);
+            stepPanels[0].Controls.Add(dirBox);
 
             txtInstallDir = new TextBox();
             txtInstallDir.Text = GetDefaultProgramFilesDir();
-            txtInstallDir.Location = new Point(26, 118);
-            txtInstallDir.Size = new Size(360, 26);
-            txtInstallDir.Font = new Font("Segoe UI", 9.5F);
-            this.Controls.Add(txtInstallDir);
+            txtInstallDir.BorderStyle = BorderStyle.None;
+            txtInstallDir.BackColor = Color.White;
+            txtInstallDir.ForeColor = Color.FromArgb(24, 34, 58);
+            txtInstallDir.Location = new Point(12, 6);
+            txtInstallDir.Size = new Size(348, 16);
+            txtInstallDir.Font = new Font("Segoe UI", 8.5F);
+            dirBox.Controls.Add(txtInstallDir);
 
-            btnBrowse = new Button();
+            btnBrowse = new PillButton();
             btnBrowse.Text = "Procurar...";
-            btnBrowse.BackColor = Color.FromArgb(226, 232, 240);
+            btnBrowse.BackColorNormal = Color.White;
+            btnBrowse.BackColorHover = Color.FromArgb(236, 241, 249);
+            btnBrowse.BorderColor = Color.FromArgb(213, 222, 236);
             btnBrowse.ForeColor = Color.FromArgb(24, 34, 58);
-            btnBrowse.FlatStyle = FlatStyle.Flat;
-            btnBrowse.FlatAppearance.BorderSize = 0;
-            btnBrowse.Location = new Point(394, 116);
-            btnBrowse.Size = new Size(104, 28);
-            btnBrowse.Cursor = Cursors.Hand;
+            btnBrowse.Font = new Font("Segoe UI", 8.2F, FontStyle.Bold);
+            btnBrowse.Location = new Point(380, 48);
+            btnBrowse.Size = new Size(88, 28);
             btnBrowse.Click += BtnBrowse_Click;
-            this.Controls.Add(btnBrowse);
+            stepPanels[0].Controls.Add(btnBrowse);
 
-            scopeTitleLabel = new Label();
-            scopeTitleLabel.Text = "Opções de acesso:";
-            scopeTitleLabel.ForeColor = Color.FromArgb(24, 34, 58);
-            scopeTitleLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            scopeTitleLabel.Location = new Point(26, 156);
-            scopeTitleLabel.AutoSize = true;
-            this.Controls.Add(scopeTitleLabel);
+            // === PASSO 2: Local do Banco de Dados ===
+            Label lblDb = new Label();
+            lblDb.Text = "Local do Banco de Dados (nexo.db):";
+            lblDb.ForeColor = Color.FromArgb(24, 34, 58);
+            lblDb.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblDb.Location = new Point(0, 2);
+            lblDb.AutoSize = true;
+            stepPanels[1].Controls.Add(lblDb);
+
+            rbDbDefault = new RadioButton();
+            rbDbDefault.Text = "Usar pasta padrão do sistema (Recomendado)";
+            rbDbDefault.Checked = true;
+            rbDbDefault.Font = new Font("Segoe UI", 8.5F);
+            rbDbDefault.ForeColor = Color.FromArgb(24, 34, 58);
+            rbDbDefault.Location = new Point(2, 24);
+            rbDbDefault.AutoSize = true;
+            rbDbDefault.CheckedChanged += (s, e) => UpdateDbDirState();
+            stepPanels[1].Controls.Add(rbDbDefault);
+
+            rbDbCustom = new RadioButton();
+            rbDbCustom.Text = "Escolher outra pasta (ex: outro HD ou nuvem)";
+            rbDbCustom.Checked = false;
+            rbDbCustom.Font = new Font("Segoe UI", 8.5F);
+            rbDbCustom.ForeColor = Color.FromArgb(24, 34, 58);
+            rbDbCustom.Location = new Point(2, 46);
+            rbDbCustom.AutoSize = true;
+            rbDbCustom.CheckedChanged += (s, e) => UpdateDbDirState();
+            stepPanels[1].Controls.Add(rbDbCustom);
+
+            PillPanel dbBox = new PillPanel();
+            dbBox.Location = new Point(0, 70);
+            dbBox.Size = new Size(372, 28);
+            stepPanels[1].Controls.Add(dbBox);
+
+            txtDbDir = new TextBox();
+            txtDbDir.Text = GetDefaultUserDataDir();
+            txtDbDir.BorderStyle = BorderStyle.None;
+            txtDbDir.BackColor = Color.White;
+            txtDbDir.ForeColor = Color.FromArgb(24, 34, 58);
+            txtDbDir.Location = new Point(12, 6);
+            txtDbDir.Size = new Size(348, 16);
+            txtDbDir.Font = new Font("Segoe UI", 8.5F);
+            dbBox.Controls.Add(txtDbDir);
+
+            btnDbBrowse = new PillButton();
+            btnDbBrowse.Text = "Procurar...";
+            btnDbBrowse.BackColorNormal = Color.White;
+            btnDbBrowse.BackColorHover = Color.FromArgb(236, 241, 249);
+            btnDbBrowse.BorderColor = Color.FromArgb(213, 222, 236);
+            btnDbBrowse.ForeColor = Color.FromArgb(24, 34, 58);
+            btnDbBrowse.Font = new Font("Segoe UI", 8.2F, FontStyle.Bold);
+            btnDbBrowse.Location = new Point(380, 70);
+            btnDbBrowse.Size = new Size(88, 28);
+            btnDbBrowse.Click += BtnDbBrowse_Click;
+            stepPanels[1].Controls.Add(btnDbBrowse);
+            UpdateDbDirState();
+
+            // === PASSO 3: Opcoes de acesso ===
+            Label lblScope = new Label();
+            lblScope.Text = "Opções de acesso:";
+            lblScope.ForeColor = Color.FromArgb(24, 34, 58);
+            lblScope.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblScope.Location = new Point(0, 6);
+            lblScope.AutoSize = true;
+            stepPanels[2].Controls.Add(lblScope);
+
+            Label lblScopeHint = new Label();
+            lblScopeHint.Text = "Defina para quais usuários do Windows os atalhos serão criados.";
+            lblScopeHint.ForeColor = Color.FromArgb(110, 126, 154);
+            lblScopeHint.Font = new Font("Segoe UI", 8F);
+            lblScopeHint.Location = new Point(0, 24);
+            lblScopeHint.AutoSize = true;
+            stepPanels[2].Controls.Add(lblScopeHint);
 
             rbAllUsers = new RadioButton();
             rbAllUsers.Text = "Todos os usuários (Padrão)";
             rbAllUsers.Checked = true;
+            rbAllUsers.Font = new Font("Segoe UI", 8.5F);
             rbAllUsers.ForeColor = Color.FromArgb(24, 34, 58);
-            rbAllUsers.Location = new Point(28, 178);
+            rbAllUsers.Location = new Point(2, 48);
             rbAllUsers.AutoSize = true;
-            this.Controls.Add(rbAllUsers);
+            stepPanels[2].Controls.Add(rbAllUsers);
 
             rbCurrentUser = new RadioButton();
             rbCurrentUser.Text = "Apenas para mim";
             rbCurrentUser.Checked = false;
+            rbCurrentUser.Font = new Font("Segoe UI", 8.5F);
             rbCurrentUser.ForeColor = Color.FromArgb(24, 34, 58);
-            rbCurrentUser.Location = new Point(260, 178);
+            rbCurrentUser.Location = new Point(2, 72);
             rbCurrentUser.AutoSize = true;
-            this.Controls.Add(rbCurrentUser);
+            stepPanels[2].Controls.Add(rbCurrentUser);
 
-            optTitleLabel = new Label();
-            optTitleLabel.Text = "Opções extras:";
-            optTitleLabel.ForeColor = Color.FromArgb(24, 34, 58);
-            optTitleLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            optTitleLabel.Location = new Point(26, 212);
-            optTitleLabel.AutoSize = true;
-            this.Controls.Add(optTitleLabel);
+            // === PASSO 4: Opcoes extras & Progresso ===
+            Label lblOpt = new Label();
+            lblOpt.Text = "Opções finais:";
+            lblOpt.ForeColor = Color.FromArgb(24, 34, 58);
+            lblOpt.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblOpt.Location = new Point(0, 4);
+            lblOpt.AutoSize = true;
+            stepPanels[3].Controls.Add(lblOpt);
 
             chkDesktop = new CheckBox();
             chkDesktop.Text = "Criar atalho na Área de Trabalho";
             chkDesktop.Checked = true;
+            chkDesktop.Font = new Font("Segoe UI", 8.5F);
             chkDesktop.ForeColor = Color.FromArgb(24, 34, 58);
-            chkDesktop.Location = new Point(28, 234);
+            chkDesktop.Location = new Point(2, 26);
             chkDesktop.AutoSize = true;
-            this.Controls.Add(chkDesktop);
+            stepPanels[3].Controls.Add(chkDesktop);
 
             chkLaunch = new CheckBox();
             chkLaunch.Text = "Abrir o Nexo ao finalizar";
             chkLaunch.Checked = true;
+            chkLaunch.Font = new Font("Segoe UI", 8.5F);
             chkLaunch.ForeColor = Color.FromArgb(24, 34, 58);
-            chkLaunch.Location = new Point(28, 260);
+            chkLaunch.Location = new Point(2, 48);
             chkLaunch.AutoSize = true;
-            this.Controls.Add(chkLaunch);
+            stepPanels[3].Controls.Add(chkLaunch);
 
-            progressBar = new ProgressBar();
-            progressBar.Location = new Point(26, 294);
-            progressBar.Size = new Size(472, 20);
-            progressBar.Style = ProgressBarStyle.Continuous;
-            this.Controls.Add(progressBar);
+            progressBar = new PillProgressBar();
+            progressBar.Location = new Point(0, 78);
+            progressBar.Size = new Size(468, 14);
+            stepPanels[3].Controls.Add(progressBar);
 
-            btnInstall = new Button();
+            // Linha sutil acima dos botoes
+            Panel divider = new Panel();
+            divider.Location = new Point(28, 414);
+            divider.Size = new Size(468, 1);
+            divider.BackColor = Color.FromArgb(224, 232, 244);
+            this.Controls.Add(divider);
+
+            // Rodape de navegacao compacto
+            btnCancel = new PillButton();
+            btnCancel.Text = "Cancelar";
+            btnCancel.BackColorNormal = Color.White;
+            btnCancel.BackColorHover = Color.FromArgb(236, 241, 249);
+            btnCancel.BorderColor = Color.FromArgb(213, 222, 236);
+            btnCancel.ForeColor = Color.FromArgb(96, 118, 157);
+            btnCancel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnCancel.Location = new Point(28, 425);
+            btnCancel.Size = new Size(86, 30);
+            btnCancel.Click += (s, e) => this.Close();
+            this.Controls.Add(btnCancel);
+
+            btnBack = new PillButton();
+            btnBack.Text = "Voltar";
+            btnBack.BackColorNormal = Color.White;
+            btnBack.BackColorHover = Color.FromArgb(236, 241, 249);
+            btnBack.BorderColor = Color.FromArgb(213, 222, 236);
+            btnBack.ForeColor = Color.FromArgb(24, 34, 58);
+            btnBack.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnBack.Location = new Point(296, 425);
+            btnBack.Size = new Size(82, 30);
+            btnBack.Click += (s, e) => ShowStep(currentStep - 1);
+            this.Controls.Add(btnBack);
+
+            btnNext = new PillButton();
+            btnNext.Text = "Avançar";
+            btnNext.BackColorNormal = Color.FromArgb(242, 140, 40);
+            btnNext.BackColorHover = Color.FromArgb(223, 123, 23);
+            btnNext.ForeColor = Color.White;
+            btnNext.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnNext.Location = new Point(386, 425);
+            btnNext.Size = new Size(110, 30);
+            btnNext.Click += (s, e) => ShowStep(currentStep + 1);
+            this.Controls.Add(btnNext);
+
+            btnInstall = new PillButton();
             btnInstall.Text = "Instalar";
-            btnInstall.BackColor = Color.FromArgb(242, 140, 40);
+            btnInstall.BackColorNormal = Color.FromArgb(242, 140, 40);
+            btnInstall.BackColorHover = Color.FromArgb(223, 123, 23);
             btnInstall.ForeColor = Color.White;
-            btnInstall.FlatStyle = FlatStyle.Flat;
-            btnInstall.FlatAppearance.BorderSize = 0;
-            btnInstall.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnInstall.Location = new Point(358, 328);
-            btnInstall.Size = new Size(140, 36);
-            btnInstall.Cursor = Cursors.Hand;
+            btnInstall.Font = new Font("Segoe UI", 8.8F, FontStyle.Bold);
+            btnInstall.Location = new Point(386, 425);
+            btnInstall.Size = new Size(110, 30);
             btnInstall.Click += BtnInstall_Click;
             this.Controls.Add(btnInstall);
 
-            btnCancel = new Button();
-            btnCancel.Text = "Cancelar";
-            btnCancel.BackColor = Color.FromArgb(226, 232, 240);
-            btnCancel.ForeColor = Color.FromArgb(24, 34, 58);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.FlatAppearance.BorderSize = 0;
-            btnCancel.Location = new Point(248, 328);
-            btnCancel.Size = new Size(100, 36);
-            btnCancel.Cursor = Cursors.Hand;
-            btnCancel.Click += (s, e) => this.Close();
-            this.Controls.Add(btnCancel);
+            ShowStep(0);
+        }
+
+        private void ShowStep(int step)
+        {
+            currentStep = Math.Max(0, Math.Min(3, step));
+            for (int i = 0; i < stepPanels.Length; i++) {
+                stepPanels[i].Visible = (i == currentStep);
+            }
+            string[] names = new string[] {
+                "Passo 1 de 4  •  Local de Instalação",
+                "Passo 2 de 4  •  Banco de Dados",
+                "Passo 3 de 4  •  Opções de Acesso",
+                "Passo 4 de 4  •  Finalizar Instalação"
+            };
+            stepLabel.Text = names[currentStep];
+            btnBack.Visible = (currentStep > 0);
+            btnNext.Visible = (currentStep < 3);
+            btnInstall.Visible = (currentStep == 3);
+        }
+
+        private void UpdateDbDirState()
+        {
+            bool custom = rbDbCustom.Checked;
+            txtDbDir.Enabled = custom;
+            btnDbBrowse.Enabled = custom;
+            txtDbDir.ForeColor = custom ? Color.FromArgb(24, 34, 58) : Color.FromArgb(140, 155, 181);
+        }
+
+        private void BtnDbBrowse_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog fbd = new FolderBrowserDialog()) {
+                fbd.Description = "Selecione a pasta onde o banco de dados (nexo.db) será salvo:";
+                fbd.SelectedPath = txtDbDir.Text;
+                if (fbd.ShowDialog(this) == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath)) {
+                    txtDbDir.Text = fbd.SelectedPath.Trim().TrimEnd('\\');
+                }
+            }
         }
 
         private void BtnBrowse_Click(object sender, EventArgs e)
@@ -664,9 +1105,15 @@ namespace NexoSetup
             }
 
             btnInstall.Enabled = false;
+            btnBack.Enabled = false;
+            btnNext.Enabled = false;
             btnCancel.Enabled = false;
             btnBrowse.Enabled = false;
             txtInstallDir.Enabled = false;
+            rbDbDefault.Enabled = false;
+            rbDbCustom.Enabled = false;
+            txtDbDir.Enabled = false;
+            btnDbBrowse.Enabled = false;
             rbAllUsers.Enabled = false;
             rbCurrentUser.Enabled = false;
             chkDesktop.Enabled = false;
@@ -674,6 +1121,8 @@ namespace NexoSetup
             progressBar.Value = 20;
 
             bool allUsers = rbAllUsers.Checked;
+            bool useCustomDb = rbDbCustom.Checked && !string.IsNullOrWhiteSpace(txtDbDir.Text);
+            string customDbDir = useCustomDb ? Path.GetFullPath(txtDbDir.Text.Trim()).TrimEnd('\\') : "";
 
             try {
                 await Task.Run(() => {
@@ -685,13 +1134,20 @@ namespace NexoSetup
                     }
                     Directory.CreateDirectory(installDir);
 
-                    string userDataDir = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "Nexo"
-                    );
+                    string userDataDir = GetDefaultUserDataDir();
                     Directory.CreateDirectory(userDataDir);
                     Directory.CreateDirectory(Path.Combine(userDataDir, "backups"));
                     Directory.CreateDirectory(Path.Combine(userDataDir, "documentos"));
+
+                    string fileCfgPath = Path.Combine(userDataDir, "nexo_file_config.json");
+                    if (useCustomDb) {
+                        Directory.CreateDirectory(customDbDir);
+                        Directory.CreateDirectory(Path.Combine(customDbDir, "backups"));
+                        string dbFull = Path.Combine(customDbDir, "nexo.db").Replace("\\", "\\\\");
+                        File.WriteAllText(fileCfgPath, "{\n  \"sqlite_path\": \"" + dbFull + "\"\n}");
+                    } else if (File.Exists(fileCfgPath)) {
+                        try { File.Delete(fileCfgPath); } catch {}
+                    }
 
                     Assembly asm = Assembly.GetExecutingAssembly();
                     using (Stream s = asm.GetManifestResourceStream("payload.zip")) {
@@ -885,6 +1341,22 @@ def main():
         if src.exists():
             shutil.copy2(src, app_bundle_dir / extra)
 
+    # Trava de segurança: garante pacote 100% limpo para novo usuário (sem BD, chaves ou pastas pessoais)
+    forbidden_names = {
+        'nexo.db', 'nexo_config.json', 'nexo_file_config.json', '.env',
+        'backups', 'documentos', 'documents', 'user_data',
+    }
+    leaks = [
+        str(p.relative_to(app_bundle_dir))
+        for p in app_bundle_dir.rglob('*')
+        if p.name.lower() in forbidden_names or p.suffix.lower() in {'.db', '.sqlite', '.sqlite3'}
+    ]
+    if leaks:
+        raise RuntimeError(
+            'Build abortado! Arquivos pessoais/de desenvolvimento encontrados no bundle: '
+            + ', '.join(leaks)
+        )
+
     csc_candidates = list(Path(r'C:\Windows\Microsoft.NET\Framework64').glob('v4*/csc.exe'))
     if not csc_candidates:
         csc_candidates = list(Path(r'C:\Windows\Microsoft.NET\Framework').glob('v4*/csc.exe'))
@@ -941,6 +1413,7 @@ def main():
         f'/win32icon:{ROOT_DIR / "nexo_icon.ico"}',
         f'/win32manifest:{manifest_file}',
         f'/resource:{payload_zip},payload.zip',
+        f'/resource:{ROOT_DIR / "ui_assets" / "nexo_about_light.png"},nexo_about_light.png',
         '/reference:System.dll',
         '/reference:System.Drawing.dll',
         '/reference:System.Windows.Forms.dll',

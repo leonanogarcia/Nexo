@@ -400,7 +400,7 @@ def _validate_quality_text(value: str, field_label: str, is_brand: bool = False,
 
 
 def _base_packaging(qty: float, unit: str) -> tuple[str, float]:
-    from .units import dimension_of_unit, to_base
+    from ..units import dimension_of_unit, to_base
     dim = dimension_of_unit(unit) or f"unit:{unit}"
     try:
         base_q = float(to_base(float(qty), unit))

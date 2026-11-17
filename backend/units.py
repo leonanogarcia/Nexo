@@ -91,6 +91,12 @@ def unit_factor_to_default_base(unit):
     return factors.get(unit)
 
 
+def to_base(qty, unit):
+    """Converte uma quantidade na unidade padrão para a unidade base fixa (mg, ml ou un)."""
+    factor = unit_factor_to_default_base(unit)
+    return float(qty) * (factor if factor is not None else 1.0)
+
+
 def configured_base_unit(dimension):
     return get_setting({'mass': 'mass_base_unit', 'volume': 'volume_base_unit', 'count': 'count_base_unit'}.get(dimension), BASE_UNITS_DEFAULT[dimension])
 

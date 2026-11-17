@@ -1116,18 +1116,41 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [marginFmt, setMarginFmt] = useState(editItem ? editItem.profit_margin_fmt : '0.0%');
   const [markupVal, setMarkupVal] = useState(editItem ? editItem.markup : 0);
 
+  const [salesChannelsEnabled, setSalesChannelsEnabled] = useState(false);
+  const [salesChannels, setSalesChannels] = useState<
+    { id: string; name: string; fee_pct: number; fixed_fee: number }[]
+  >([]);
+  const [selectedChannelId, setSelectedChannelId] = useState<string>('');
+  const [targetMarginPct, setTargetMarginPct] = useState<string>('30');
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quickCreateTarget, setQuickCreateTarget] = useState<{ idx: number; name: string; unit: string } | null>(null);
 
-  // Fetch composition options
+  // Fetch composition options & sales channels settings
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/products/composition-options');
-        if (res.ok) {
-          const data = await res.json();
+        const [optRes, setRes] = await Promise.all([
+          fetch('/api/products/composition-options'),
+          fetch('/api/settings'),
+        ]);
+        if (optRes.ok) {
+          const data = await optRes.json();
           setOptions(data);
+        }
+        if (setRes.ok) {
+          const sdata = await setRes.json();
+          if (sdata.bi?.target_margin_pct !== undefined) {
+            setTargetMarginPct(String(sdata.bi.target_margin_pct).replace('.', ','));
+          }
+          if (sdata.sales_channels?.enabled && Array.isArray(sdata.sales_channels.channels)) {
+            setSalesChannelsEnabled(true);
+            setSalesChannels(sdata.sales_channels.channels);
+            if (sdata.sales_channels.channels.length > 0) {
+              setSelectedChannelId(sdata.sales_channels.channels[0].id);
+            }
+          }
         }
       } catch (e) {
         console.error(e);
@@ -1764,6 +1787,115 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Simulador de Canal de Venda & Sugestor de Preço pela Margem Alvo */}
+            {salesChannelsEnabled && salesChannels.length > 0 && (() => {
+              const parseBrl = (v: string) => {
+                const n = parseFloat(
+                  String(v || '0').replace(/R\$\s*/gi, '').replace(/\./g, '').replace(',', '.').trim()
+                );
+                return Number.isFinite(n) ? n : 0;
+              };
+              const fmtBrl = (n: number) =>
+                `R$ ${n.toFixed(2).replace('.', ',')}`;
+              const prodCostNum = parseBrl(productionCostFmt);
+              const salePriceNum = parseBrl(salePrice);
+              const ch = salesChannels.find((c) => c.id === selectedChannelId) || salesChannels[0];
+              const feePct = Number(ch.fee_pct || 0) / 100;
+              const fixedFee = Number(ch.fixed_fee || 0);
+              const channelFeeTotal = salePriceNum * feePct + fixedFee;
+              const netReceived = Math.max(0, salePriceNum - channelFeeTotal);
+              const netProfit = netReceived - prodCostNum;
+              const netMarginPct = salePriceNum > 0 ? (netProfit / salePriceNum) * 100 : 0;
+
+              const targetM = Math.max(0, Math.min(95, parseBrl(targetMarginPct))) / 100;
+              const denom = 1 - (feePct + targetM);
+              const suggestedPrice = denom > 0.01 ? (prodCostNum + fixedFee) / denom : null;
+
+              return (
+                <div className="pt-3 border-t border-[#F28C28]/20 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11.5px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Simulador de Canal & Margem Alvo:
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {salesChannels.map((item) => {
+                        const active = item.id === ch.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSelectedChannelId(item.id)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-[#F28C28] text-white shadow-xs'
+                                : 'bg-white dark:bg-[#162340] border border-[#E2EAF5] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6] hover:border-[#F28C28]'
+                            }`}
+                          >
+                            {item.name} ({Number(item.fee_pct || 0).toFixed(1).replace('.', ',')}%
+                            {Number(item.fixed_fee || 0) > 0
+                              ? ` + ${fmtBrl(Number(item.fixed_fee))}`
+                              : ''}
+                            )
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-center bg-white/80 dark:bg-[#101C36] border border-[#E2EAF5] dark:border-[#24385E] rounded-[14px] p-3">
+                    <div className="flex flex-wrap items-center gap-4 text-[11.5px]">
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold text-[#8C9BB5]">Taxa do Canal</span>
+                        <span className="font-bold text-[#DC2626] dark:text-[#F87171]">-{fmtBrl(channelFeeTotal)}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold text-[#8C9BB5]">Receita Líquida</span>
+                        <span className="font-bold text-[#18223A] dark:text-[#F4F7FF]">{fmtBrl(netReceived)}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold text-[#8C9BB5]">Lucro Real ({ch.name})</span>
+                        <span
+                          className={`font-bold ${
+                            netProfit >= 0
+                              ? 'text-[#16A34A] dark:text-[#4ADE80]'
+                              : 'text-[#DC2626] dark:text-[#F87171]'
+                          }`}
+                        >
+                          {fmtBrl(netProfit)} ({netMarginPct.toFixed(1).replace('.', ',')}%)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="text-[11px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
+                        Margem alvo (%):
+                      </span>
+                      <input
+                        type="text"
+                        value={targetMarginPct}
+                        onChange={(e) => setTargetMarginPct(e.target.value)}
+                        className="w-[58px] h-[30px] px-2 rounded-full text-center text-[12px] font-bold bg-[#F8FAFD] dark:bg-[#162340] border border-[#DFE6F0] dark:border-[#24375C] text-[#18223A] dark:text-[#F4F7FF] focus:outline-none focus:border-[#F28C28]"
+                      />
+                      {suggestedPrice !== null ? (
+                        <button
+                          type="button"
+                          onClick={() => setSalePrice(fmtBrl(suggestedPrice))}
+                          title="Aplicar preço sugerido ao Preço de Venda"
+                          className="px-3 py-1.5 rounded-full text-[11.5px] font-bold bg-[#18223A] dark:bg-[#F28C28] text-white hover:opacity-90 transition-opacity cursor-pointer"
+                        >
+                          Sugerir {fmtBrl(suggestedPrice)} • Aplicar
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-[#DC2626]">
+                          Taxa + margem ≥ 100%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

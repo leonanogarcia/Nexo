@@ -92,7 +92,7 @@ def _extract_document_text(path: Path) -> str:
         return _extract_docx_text_builtin(path)
     if ext == ".pdf":
         try:
-            from .document_importer import extract_pdf_text
+            from ..document_importer import extract_pdf_text
             return extract_pdf_text(str(path))
         except Exception:
             return ""
@@ -298,7 +298,7 @@ def download_document_file(doc_id: int, fmt: str = "original"):
     text_content = ""
     if is_image and req_fmt in ("pdf", "docx"):
         try:
-            from .ai_vision import transcribe_image_to_text
+            from ..ai_vision import transcribe_image_to_text
             mime, _ = mimetypes.guess_type(str(fp))
             text_content = transcribe_image_to_text(fp.read_bytes(), mime or "image/jpeg")
         except Exception:
@@ -423,7 +423,7 @@ class AiParseRecipePayload(BaseModel):
 @router.post("/api/ai/parse-receipt")
 def api_ai_parse_receipt(payload: AiImagePayload):
     import base64
-    from .ai_vision import parse_receipt_with_ai
+    from ..ai_vision import parse_receipt_with_ai
 
     raw_b64 = payload.data_base64.split(",", 1)[-1]
     try:
@@ -531,7 +531,7 @@ def api_ai_apply_receipt(payload: AiApplyReceiptPayload):
 @router.post("/api/ai/parse-recipe")
 def api_ai_parse_recipe(payload: AiParseRecipePayload):
     import base64
-    from .ai_vision import parse_recipe_or_product_with_ai
+    from ..ai_vision import parse_recipe_or_product_with_ai
 
     raw_b64 = payload.data_base64.split(",", 1)[-1]
     try:

@@ -620,9 +620,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [backingUp, setBackingUp] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [lastBackup, setLastBackup] = useState<{ name: string; time: string; size: string } | null>(null);
+  const [backupsList, setBackupsList] = useState<{ name: string; size_fmt: string; modified_at: string }[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState<string>('');
+  const [restoringBackup, setRestoringBackup] = useState(false);
   const [reportScope, setReportScope] = useState('Geral (Banco Completo)');
   const [reportFormat, setReportFormat] = useState('PDF');
   const [exportingReport, setExportingReport] = useState(false);
+
+  // Canais de Venda & Taxas (Cartão / Delivery)
+  const [salesChannelsEnabled, setSalesChannelsEnabled] = useState(false);
+  const [salesChannels, setSalesChannels] = useState<
+    { id: string; name: string; fee_pct: string; fixed_fee: string }[]
+  >([
+    { id: 'balcao', name: 'Balcão / Pix', fee_pct: '0', fixed_fee: '0,00' },
+    { id: 'debito', name: 'Cartão Débito', fee_pct: '1.9', fixed_fee: '0,00' },
+    { id: 'credito', name: 'Cartão Crédito', fee_pct: '4.5', fixed_fee: '0,00' },
+    { id: 'ifood', name: 'iFood', fee_pct: '23', fixed_fee: '0,00' },
+  ]);
+  const [savingSalesChannels, setSavingSalesChannels] = useState(false);
 
   // Preferências de BI & Indicadores
   const [biPeriod, setBiPeriod] = useState('Últimos 12 meses');
@@ -646,7 +663,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '1.9.1',
+    version: '1.9.2',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -725,6 +742,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         setAiModel(data.ai.model || '');
       }
 
+      if (data.sales_channels) {
+        setSalesChannelsEnabled(!!data.sales_channels.enabled);
+        if (Array.isArray(data.sales_channels.channels) && data.sales_channels.channels.length > 0) {
+          setSalesChannels(
+            data.sales_channels.channels.map((ch: any, idx: number) => ({
+              id: String(ch.id || `ch_${idx + 1}`),
+              name: String(ch.name || ''),
+              fee_pct: String(ch.fee_pct ?? 0).replace('.', ','),
+              fixed_fee: Number(ch.fixed_fee ?? 0).toFixed(2).replace('.', ','),
+            }))
+          );
+        }
+      }
+
       // Banco de dados
       if (data.database) {
         setDbPath(data.database.path || 'nexo.db');
@@ -787,7 +818,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '1.9.1',
+          version: data.about.version || '1.9.2',
           release_date: data.about.release_date || '16/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
@@ -969,6 +1000,69 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       return;
     }
     setAiEnabled(true);
+  };
+
+  // --- Handlers: Canais de Venda & Taxas ---
+  const parseBrNum = (val: string) => {
+    const cleaned = String(val || '0').replace(/\./g, '').replace(',', '.').trim();
+    const num = parseFloat(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const persistSalesChannels = async (
+    enabledState: boolean,
+    listState: { id: string; name: string; fee_pct: string; fixed_fee: string }[]
+  ) => {
+    setSavingSalesChannels(true);
+    try {
+      const payload = {
+        enabled: enabledState,
+        channels: listState.map((c) => ({
+          id: c.id,
+          name: c.name.trim(),
+          fee_pct: parseBrNum(c.fee_pct),
+          fixed_fee: parseBrNum(c.fixed_fee),
+        })),
+      };
+      const res = await fetch('/api/settings/sales-channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Erro ao salvar canais de venda.');
+      onNotify(data.message || 'Canais de venda atualizados!', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao salvar canais de venda.', 'error');
+    } finally {
+      setSavingSalesChannels(false);
+    }
+  };
+
+  const handleToggleSalesChannels = async (checked: boolean) => {
+    setSalesChannelsEnabled(checked);
+    await persistSalesChannels(checked, salesChannels);
+  };
+
+  const handleAddSalesChannel = () => {
+    const uid = `ch_${Date.now()}`;
+    setSalesChannels((prev) => [...prev, { id: uid, name: '', fee_pct: '0', fixed_fee: '0,00' }]);
+  };
+
+  const handleUpdateSalesChannel = (
+    idx: number,
+    field: 'name' | 'fee_pct' | 'fixed_fee',
+    value: string
+  ) => {
+    setSalesChannels((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
+  };
+
+  const handleRemoveSalesChannel = (idx: number) => {
+    if (salesChannels.length <= 1) {
+      onNotify('Mantenha pelo menos um canal na lista.', 'error');
+      return;
+    }
+    setSalesChannels((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSaveAi = async () => {
@@ -1347,6 +1441,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       onNotify(e.message || 'Erro ao realizar backup do banco.', 'error');
     } finally {
       setBackingUp(false);
+    }
+  };
+
+  const handleOpenRestoreModal = async () => {
+    setShowRestoreModal(true);
+    setLoadingBackups(true);
+    try {
+      const res = await fetch('/api/settings/database/backups');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Não foi possível listar os backups.');
+      const list = Array.isArray(data.backups) ? data.backups : [];
+      setBackupsList(list);
+      setSelectedBackup(list.length > 0 ? list[0].name : '');
+    } catch (e: any) {
+      setBackupsList([]);
+      setSelectedBackup('');
+      onNotify(e.message || 'Erro ao carregar backups disponíveis.', 'error');
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!selectedBackup) return;
+    setRestoringBackup(true);
+    try {
+      const res = await fetch('/api/settings/database/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: selectedBackup }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Não foi possível restaurar o backup selecionado.');
+      setShowRestoreModal(false);
+      onNotify(data.message || 'Backup restaurado com sucesso!', 'success');
+      await fetchSettings();
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao restaurar backup.', 'error');
+    } finally {
+      setRestoringBackup(false);
     }
   };
 
@@ -2663,6 +2797,97 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Card: Canais de Venda & Taxas (Cartão / Delivery) */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
+                <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Canais de Venda & Taxas (Cartão / Apps de Delivery)
+                    </h3>
+                    <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                      Simule margem líquida real e sugira preços de venda descontando taxas de maquininhas ou apps como iFood, Rappi e 99Food.
+                    </p>
+                  </div>
+                  <NexoToggleSwitch
+                    checked={salesChannelsEnabled}
+                    onChange={handleToggleSalesChannels}
+                    tooltip={
+                      salesChannelsEnabled
+                        ? 'Simulador de canais ativado (Clique para desativar)'
+                        : 'Clique para ativar o simulador de canais e taxas'
+                    }
+                  />
+                </div>
+
+                <div className={`space-y-2.5 transition-opacity ${!salesChannelsEnabled ? 'opacity-55' : ''}`}>
+                  <div className="grid grid-cols-12 gap-2 px-1 text-[11px] font-bold text-[#60769D] dark:text-[#93A4C6]">
+                    <div className="col-span-5">Canal / Empresa</div>
+                    <div className="col-span-3">Taxa (%)</div>
+                    <div className="col-span-3">Taxa fixa (R$)</div>
+                    <div className="col-span-1 text-center">Ação</div>
+                  </div>
+
+                  {salesChannels.map((ch, idx) => (
+                    <div key={ch.id} className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-5">
+                        <CapsuleInput
+                          value={ch.name}
+                          onChange={(v) => handleUpdateSalesChannel(idx, 'name', v)}
+                          placeholder="Ex: iFood, Rappi, Crédito"
+                          disabled={!salesChannelsEnabled}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <CapsuleInput
+                          value={ch.fee_pct}
+                          onChange={(v) => handleUpdateSalesChannel(idx, 'fee_pct', v)}
+                          placeholder="0,0"
+                          disabled={!salesChannelsEnabled}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <CapsuleInput
+                          value={ch.fixed_fee}
+                          onChange={(v) => handleUpdateSalesChannel(idx, 'fixed_fee', v)}
+                          placeholder="0,00"
+                          disabled={!salesChannelsEnabled}
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        <button
+                          type="button"
+                          disabled={!salesChannelsEnabled || salesChannels.length <= 1}
+                          onClick={() => handleRemoveSalesChannel(idx)}
+                          title="Remover canal"
+                          className="px-2 py-1 rounded-full text-[11.5px] font-bold text-[#DC2626] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1518] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
+                  <button
+                    type="button"
+                    disabled={!salesChannelsEnabled}
+                    onClick={handleAddSalesChannel}
+                    className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold border border-[#DFE6F0] dark:border-[#24375C] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#1B2B4C] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    + Adicionar Canal
+                  </button>
+
+                  <RoundedActionButton
+                    label={savingSalesChannels ? 'Salvando...' : 'Salvar Canais'}
+                    onClick={() => persistSalesChannels(salesChannelsEnabled, salesChannels)}
+                    variant="primary"
+                    height={36}
+                    disabled={!salesChannelsEnabled || savingSalesChannels}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -2859,6 +3084,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       label={backingUp ? 'Gerando Backup...' : 'Fazer Backup'}
                       onClick={handleBackup}
                       variant="primary"
+                      height={34}
+                    />
+                    <RoundedActionButton
+                      label="Restaurar Backup"
+                      onClick={handleOpenRestoreModal}
+                      variant="secondary"
                       height={34}
                     />
                     <RoundedActionButton
@@ -4891,6 +5122,95 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 variant="primary"
                 height={36}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRestoreModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-full max-w-[520px] rounded-[24px] bg-white dark:bg-[#13203A] border border-[#DFE6F0] dark:border-[#24375C] shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Restaurar Backup do Banco
+                </h3>
+                <p className="text-[12px] text-[#60769D] dark:text-[#93A4C6] mt-0.5">
+                  Escolha um arquivo salvo na pasta <span className="font-semibold">backups/</span> para restaurar.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={restoringBackup}
+                onClick={() => setShowRestoreModal(false)}
+                className="px-2.5 py-1 rounded-full text-[12px] font-semibold text-[#60769D] dark:text-[#93A4C6] hover:bg-[#F0F4FA] dark:hover:bg-[#1C2C4E] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="p-3 rounded-[14px] bg-[#FFFBEB] dark:bg-[#38280E] border border-[#FDE68A] dark:border-[#78350F] text-[12px] text-[#B45309] dark:text-[#FCD34D]">
+              Antes de substituir o banco atual, o Nexo cria automaticamente uma cópia de segurança (<span className="font-semibold">nexo_pre_restore_*.db</span>) para você nunca perder dados por engano.
+            </div>
+
+            {loadingBackups ? (
+              <div className="py-8 text-center text-[13px] text-[#60769D] dark:text-[#93A4C6]">
+                Buscando arquivos de backup...
+              </div>
+            ) : backupsList.length === 0 ? (
+              <div className="py-8 text-center text-[13px] text-[#60769D] dark:text-[#93A4C6] border border-dashed border-[#DFE6F0] dark:border-[#24375C] rounded-[16px]">
+                Nenhum arquivo <span className="font-semibold">.db</span> encontrado na pasta de backups.
+              </div>
+            ) : (
+              <div className="max-h-[260px] overflow-y-auto space-y-2 pr-1">
+                {backupsList.map((b) => {
+                  const active = selectedBackup === b.name;
+                  return (
+                    <button
+                      key={b.name}
+                      type="button"
+                      disabled={restoringBackup}
+                      onClick={() => setSelectedBackup(b.name)}
+                      className={`w-full text-left p-3 rounded-[14px] border transition-colors cursor-pointer flex items-center justify-between gap-3 ${
+                        active
+                          ? 'bg-[#FFF8EE] dark:bg-[#1F170D] border-[#F28C28] text-[#18223A] dark:text-[#F4F7FF]'
+                          : 'bg-[#F8FAFD] dark:bg-[#101B33] border-[#E4EBF5] dark:border-[#24375C] text-[#18223A] dark:text-[#F4F7FF] hover:border-[#C7D4E6] dark:hover:border-[#344C7A]'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-bold truncate" title={b.name}>
+                          {b.name}
+                        </div>
+                        <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] mt-0.5">
+                          {b.modified_at}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full bg-white dark:bg-[#162340] border border-[#E4EBF5] dark:border-[#24375C] text-[#60769D] dark:text-[#93A4C6]">
+                        {b.size_fmt}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
+              <button
+                type="button"
+                disabled={restoringBackup}
+                onClick={() => setShowRestoreModal(false)}
+                className="px-4 py-2 rounded-full text-[12.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] hover:bg-[#F0F4FA] dark:hover:bg-[#1C2C4E] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={restoringBackup || loadingBackups || !selectedBackup}
+                onClick={handleConfirmRestore}
+                className="px-4 py-2 rounded-full text-[12.5px] font-bold bg-[#F28C28] hover:bg-[#DF7B17] text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {restoringBackup ? 'Restaurando...' : 'Restaurar Selecionado'}
+              </button>
             </div>
           </div>
         </div>

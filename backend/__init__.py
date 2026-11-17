@@ -25,8 +25,5 @@ from .calculator import (
     product_unit_cost, product_direct_cost, product_operational_cost,
     product_operational_breakdown, snapshot_costs,
 )
-from .document_importer import (
-    save_uploaded_document, latest_document,
-    extract_docx_text, extract_pdf_text, parse_recipe_lines,
-)
+from .document_importer import extract_pdf_text
 

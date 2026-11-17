@@ -5,6 +5,7 @@ import json
 import math
 import platform
 import shutil
+import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -61,6 +62,43 @@ from .common import *
 router = APIRouter()
 
 
+DEFAULT_SALES_CHANNELS = [
+    {"id": "balcao", "name": "Balcão / Pix", "fee_pct": 0.0, "fixed_fee": 0.0},
+    {"id": "debito", "name": "Cartão Débito", "fee_pct": 1.9, "fixed_fee": 0.0},
+    {"id": "credito", "name": "Cartão Crédito", "fee_pct": 4.5, "fixed_fee": 0.0},
+    {"id": "ifood", "name": "iFood", "fee_pct": 23.0, "fixed_fee": 0.0},
+]
+
+
+def _load_sales_channels() -> List[Dict[str, Any]]:
+    raw = get_setting("sales_channels_json", "")
+    if not raw:
+        return [dict(c) for c in DEFAULT_SALES_CHANNELS]
+    try:
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list):
+            return [dict(c) for c in DEFAULT_SALES_CHANNELS]
+        cleaned: List[Dict[str, Any]] = []
+        for idx, item in enumerate(parsed):
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            fee_pct = max(0.0, min(98.9, float(item.get("fee_pct") or 0.0)))
+            fixed_fee = max(0.0, float(item.get("fixed_fee") or 0.0))
+            cid = str(item.get("id") or f"ch_{idx + 1}").strip() or f"ch_{idx + 1}"
+            cleaned.append({
+                "id": cid,
+                "name": name,
+                "fee_pct": round(fee_pct, 2),
+                "fixed_fee": round(fixed_fee, 2),
+            })
+        return cleaned if cleaned else [dict(c) for c in DEFAULT_SALES_CHANNELS]
+    except Exception:
+        return [dict(c) for c in DEFAULT_SALES_CHANNELS]
+
+
 @router.get("/api/status")
 def get_system_status():
     init_db()
@@ -101,7 +139,7 @@ def get_system_status():
         "prod_hidden_cols": prod_hidden_cols,
         "ai_enabled": get_setting("ai_enabled", "0") in ("1", "true", "True"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v1.9.1",
+        "version": "v1.9.2",
     }
 
 
@@ -232,9 +270,13 @@ def get_all_settings():
                 "model": "",
             }
         ),
+        "sales_channels": {
+            "enabled": get_setting("sales_channels_enabled", "0") in ("1", "true", "True"),
+            "channels": _load_sales_channels(),
+        },
         "about": {
             "app_name": "Nexo",
-            "version": "1.9.1",
+            "version": "1.9.2",
             "release_date": "16/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
@@ -276,7 +318,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/1.9.1"}
+    base_headers = {"User-Agent": "Nexo/1.9.2"}
 
     if provider == "Google Gemini":
         if not api_key:
@@ -453,6 +495,109 @@ def create_database_backup():
     }
 
 
+def _backup_dirs(db_file: Path) -> List[Path]:
+    dirs = [db_file.parent / "backups"]
+    if hasattr(paths, "BACKUPS_DIR") and paths.BACKUPS_DIR not in dirs:
+        dirs.append(paths.BACKUPS_DIR)
+    return dirs
+
+
+def _format_size(size_bytes: int) -> str:
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+@router.get("/api/settings/database/backups")
+def list_database_backups():
+    db_file = paths.get_db_path()
+    seen: set[str] = set()
+    items: List[Dict[str, Any]] = []
+    for folder in _backup_dirs(db_file):
+        if not folder.exists() or not folder.is_dir():
+            continue
+        for p in folder.glob("*.db"):
+            if not p.is_file() or p.name in seen:
+                continue
+            seen.add(p.name)
+            st = p.stat()
+            items.append({
+                "name": p.name,
+                "size_bytes": st.st_size,
+                "size_fmt": _format_size(st.st_size),
+                "modified_ts": st.st_mtime,
+                "modified_at": datetime.fromtimestamp(st.st_mtime).strftime("%d/%m/%Y às %H:%M:%S"),
+            })
+    items.sort(key=lambda x: x["modified_ts"], reverse=True)
+    for item in items:
+        item.pop("modified_ts", None)
+    return {"ok": True, "backups": items}
+
+
+class DatabaseRestorePayload(BaseModel):
+    filename: str
+
+
+@router.post("/api/settings/database/restore")
+def restore_database_backup(payload: DatabaseRestorePayload):
+    safe_name = Path(payload.filename or "").name
+    if not safe_name or safe_name != (payload.filename or "") or not safe_name.lower().endswith(".db"):
+        raise HTTPException(status_code=400, detail="Nome de arquivo de backup inválido.")
+
+    db_file = paths.get_db_path()
+    backup_file: Optional[Path] = None
+    for folder in _backup_dirs(db_file):
+        candidate = (folder / safe_name).resolve()
+        try:
+            candidate.relative_to(folder.resolve())
+        except ValueError:
+            continue
+        if candidate.exists() and candidate.is_file():
+            backup_file = candidate
+            break
+
+    if backup_file is None:
+        raise HTTPException(status_code=404, detail="Arquivo de backup não encontrado.")
+
+    try:
+        conn = sqlite3.connect(str(backup_file))
+        try:
+            row = conn.execute("PRAGMA integrity_check").fetchone()
+            if not row or str(row[0]).lower() != "ok":
+                raise HTTPException(status_code=400, detail="O arquivo de backup falhou na verificação de integridade SQLite.")
+        finally:
+            conn.close()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Arquivo de backup inválido ou corrompido: {exc}")
+
+    backup_dir = db_file.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pre_restore_file = backup_dir / f"nexo_pre_restore_{timestamp}.db"
+    if db_file.exists():
+        shutil.copy2(db_file, pre_restore_file)
+
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(f"{db_file}{suffix}")
+        if sidecar.exists():
+            try:
+                sidecar.unlink()
+            except OSError:
+                pass
+
+    shutil.copy2(backup_file, db_file)
+    init_db()
+
+    return {
+        "ok": True,
+        "restored_from": backup_file.name,
+        "pre_restore_backup": pre_restore_file.name if pre_restore_file.exists() else None,
+        "message": f"Backup '{backup_file.name}' restaurado com sucesso! Cópia de segurança salva em '{pre_restore_file.name}'.",
+    }
+
+
 class DatabaseLimitPayload(BaseModel):
     max_size_kb: Optional[int] = None
     max_size_mb: Optional[int] = None
@@ -536,6 +681,56 @@ def update_bi_settings(payload: BiSettingsPayload):
     if payload.custom_secondary_color.startswith("#") and len(payload.custom_secondary_color) == 7:
         set_setting("bi_custom_secondary_color", payload.custom_secondary_color)
     return {"ok": True, "message": "Preferências de BI salvas com sucesso!"}
+
+
+class SalesChannelItemPayload(BaseModel):
+    id: Optional[str] = None
+    name: str
+    fee_pct: float = 0.0
+    fixed_fee: float = 0.0
+
+
+class SalesChannelsPayload(BaseModel):
+    enabled: bool = False
+    channels: List[SalesChannelItemPayload] = []
+
+
+@router.post("/api/settings/sales-channels")
+def update_sales_channels(payload: SalesChannelsPayload):
+    cleaned: List[Dict[str, Any]] = []
+    for idx, ch in enumerate(payload.channels or []):
+        name = str(ch.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Todo canal de venda precisa ter um nome.")
+        fee_pct = float(ch.fee_pct or 0.0)
+        fixed_fee = float(ch.fixed_fee or 0.0)
+        if fee_pct < 0 or fee_pct >= 99:
+            raise HTTPException(status_code=400, detail=f"A taxa (%) do canal '{name}' deve ficar entre 0% e 98,9%.")
+        if fixed_fee < 0:
+            raise HTTPException(status_code=400, detail=f"A taxa fixa do canal '{name}' não pode ser negativa.")
+        cid = str(ch.id or f"ch_{idx + 1}").strip() or f"ch_{idx + 1}"
+        cleaned.append({
+            "id": cid,
+            "name": name,
+            "fee_pct": round(fee_pct, 2),
+            "fixed_fee": round(fixed_fee, 2),
+        })
+
+    if not cleaned:
+        cleaned = [dict(c) for c in DEFAULT_SALES_CHANNELS]
+
+    set_setting("sales_channels_enabled", "1" if payload.enabled else "0")
+    set_setting("sales_channels_json", json.dumps(cleaned, ensure_ascii=False))
+    return {
+        "ok": True,
+        "enabled": payload.enabled,
+        "channels": cleaned,
+        "message": (
+            "Canais de Venda & Taxas ativados e salvos com sucesso!"
+            if payload.enabled
+            else "Canais de Venda & Taxas desativados."
+        ),
+    }
 
 
 @router.get("/api/reports/export")

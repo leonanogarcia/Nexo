@@ -14,10 +14,13 @@ Este documento registra as obrigações arquiteturais que devem ser cumpridas AN
 > **REGRA INQUEBRÁVEL:** Antes de compilar qualquer executável ou instalador do Nexo 2.0, a IA **É OBRIGADA** a ler este arquivo e conferir todos os itens abaixo:
 
 1. **Banco de Dados 100% Zerado (Proibido Dados de Teste):**
-   - **Jamais** incluir `nexo.db`, `nexo_config.json`, `backups/` ou `documentos/` pessoais/de desenvolvimento dentro do `.exe` ou do instalador Inno Setup.
+   - **Jamais** incluir `nexo.db`, `nexo_config.json`, `nexo_file_config.json`, `backups/`, `documentos/` ou `user_data/` pessoais/de desenvolvimento dentro do `.exe` ou do instalador.
    - Na primeira execução no computador do cliente, o `init_db()` deve criar um `nexo.db` limpo do zero dentro de `%LOCALAPPDATA%\Nexo`.
-2. **Botão `🔄 Recarregar` Oculto em Produção:**
+2. **IA Desligada, Chave Zerada e Estado Limpo para Novo Usuário:**
+   - Garantir que o ambiente empacotado inicie com **IA desligada** (`ai_enabled = "0"`), **`ai_api_key` vazia**, **Canais de Venda & Taxas desligados** por padrão, marca padrão Nexo e zero cadastros de teste.
+   - O `installer/build_setup.py` deve validar automaticamente o bundle antes de gerar o instalador e abortar caso qualquer `.db`, pasta `backups`/`documentos` ou arquivo de configuração pessoal apareça no pacote.
+3. **Botão `🔄 Recarregar` Oculto em Produção:**
    - O botão `🔄 Recarregar` do cabeçalho (`App.tsx`) é ferramenta exclusiva de desenvolvimento (`!status.is_packaged`).
    - Quando empacotado (`getattr(sys, "frozen", False)`), `/api/status` retorna `is_packaged: True` e o botão deve ficar **oculto automaticamente** na interface.
-3. **Entrypoint e Build Atualizados:**
+4. **Entrypoint e Build Atualizados:**
    - O empacotamento da v2.0 deve usar **`main.py`**, garantindo que `frontend/dist` (gerado por `npm --prefix frontend run build`) esteja atualizado e incluído no bundle junto com `ui_assets/`, `nexo_icon.ico`, `nexo_icon.png`, `nexo_logo.png` e `backend/`.

@@ -270,15 +270,79 @@ def next_code(table, prefix):
         return f'{prefix}_{highest + 1:04d}'
 
 
+_SECRET_KEYS = {'ai_api_key'}
+
+
+def _protect_secret(raw: str) -> str:
+    text = str(raw or '')
+    if not text:
+        return ''
+    if text.startswith('dpapi:'):
+        return text
+    try:
+        import base64
+        import ctypes
+        from ctypes import wintypes
+
+        class DATA_BLOB(ctypes.Structure):
+            _fields_ = [('cbData', wintypes.DWORD), ('pbData', ctypes.POINTER(ctypes.c_char))]
+
+        data = text.encode('utf-8')
+        buf = ctypes.create_string_buffer(data, len(data))
+        in_blob = DATA_BLOB(len(data), buf)
+        out_blob = DATA_BLOB()
+        if ctypes.windll.crypt32.CryptProtectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+            try:
+                protected = ctypes.string_at(out_blob.pbData, out_blob.cbData)
+                return 'dpapi:' + base64.b64encode(protected).decode('ascii')
+            finally:
+                ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+    except Exception:
+        pass
+    return text
+
+
+def _unprotect_secret(stored: str) -> str:
+    val = str(stored or '')
+    if not val.startswith('dpapi:'):
+        return val
+    try:
+        import base64
+        import ctypes
+        from ctypes import wintypes
+
+        class DATA_BLOB(ctypes.Structure):
+            _fields_ = [('cbData', wintypes.DWORD), ('pbData', ctypes.POINTER(ctypes.c_char))]
+
+        raw = base64.b64decode(val[6:])
+        buf = ctypes.create_string_buffer(raw, len(raw))
+        in_blob = DATA_BLOB(len(raw), buf)
+        out_blob = DATA_BLOB()
+        if ctypes.windll.crypt32.CryptUnprotectData(ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)):
+            try:
+                return ctypes.string_at(out_blob.pbData, out_blob.cbData).decode('utf-8')
+            finally:
+                ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+    except Exception:
+        return ''
+    return ''
+
+
 def get_setting(key, default=''):
     with db() as c:
         r = c.execute('SELECT value FROM system_settings WHERE key=?', (key,)).fetchone()
-    return r['value'] if r else default
+    if not r:
+        return default
+    val = r['value']
+    if key in _SECRET_KEYS:
+        return _unprotect_secret(val)
+    return val
 
 
 def set_setting(key, value):
+    stored = _protect_secret(str(value)) if key in _SECRET_KEYS else str(value)
     with db() as c:
-        c.execute('INSERT INTO system_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, str(value)))
+        c.execute('INSERT INTO system_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, stored))
         c.commit()
 
 
