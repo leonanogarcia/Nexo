@@ -7,7 +7,7 @@ from . import UI_ASSETS, paths
 from .routes.common import get_database_health
 from .routes import documents_ai, home_bi, materials, products, recipes, settings
 
-app = FastAPI(title="Nexo API", version="1.9.2")
+app = FastAPI(title="Nexo API", version="1.9.3")
 
 app.add_middleware(
     CORSMiddleware,

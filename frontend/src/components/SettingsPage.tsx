@@ -220,14 +220,33 @@ export const KitchenUtensilsIcon: React.FC<{ className?: string; size?: number; 
 
 
 export const TrendingCostsIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-    <polyline points="17 6 23 6 23 12" />
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+    {/* Eixos L com marcações de escala */}
+    <path d="M5.5 4v21.5a1.5 1.5 0 0 0 1.5 1.5h21" />
+    <line x1="4" y1="7" x2="5.5" y2="7" />
+    <line x1="4" y1="12" x2="5.5" y2="12" />
+    <line x1="4" y1="17" x2="5.5" y2="17" />
+    <line x1="4" y1="22" x2="5.5" y2="22" />
+    <line x1="9" y1="27" x2="9" y2="28.5" />
+    <line x1="14.5" y1="27" x2="14.5" y2="28.5" />
+    <line x1="20" y1="27" x2="20" y2="28.5" />
+    <line x1="25.5" y1="27" x2="25.5" y2="28.5" />
+    {/* Símbolo $ no canto superior esquerdo */}
+    <path d="M11.6 6.2c-1.4-.4-2.6.2-2.6 1.3 0 1.3 2.8 1.2 2.8 2.6 0 1.1-1.3 1.7-2.8 1.3" />
+    <line x1="10.4" y1="5" x2="10.4" y2="12.6" />
+    {/* Seta curva crescente */}
+    <path d="M8.5 15.2c5.5-.8 10.5-3.2 15-7.4" />
+    <polyline points="21 7.3 23.7 7.6 23.4 10.3" />
+    {/* 3 barras arredondadas crescentes */}
+    <rect x="8.2" y="18.2" width="3.8" height="6" rx="1" />
+    <rect x="14.6" y="15.2" width="3.8" height="9" rx="1" />
+    <rect x="21" y="12.2" width="3.8" height="12" rx="1" />
+    <line x1="23.4" y1="18.5" x2="23.4" y2="21.5" />
   </svg>
 );
 
 export const RulerUnitsIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21.3 8.7 8.7 21.3c-1 1-2.5 1-3.4 0l-2.6-2.6c-1-1-1-2.5 0-3.4L15.3 2.7c1-1 2.5-1 3.4 0l2.6 2.6c1 1 1 2.5 0 3.4Z" />
     <path d="m14.5 3.5 2 2" />
     <path d="m11.5 6.5 3 3" />
@@ -239,7 +258,7 @@ export const RulerUnitsIcon: React.FC<{ className?: string }> = ({ className = '
 export const ScalesUnitsIcon = RulerUnitsIcon;
 
 export const DatabaseBiIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -288,28 +307,343 @@ export const BiIndicatorsIcon: React.FC<{ className?: string }> = ({ className =
 );
 
 export const BuildingCompanyIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
-    <line x1="9" y1="22" x2="9" y2="18" />
-    <line x1="15" y1="22" x2="15" y2="18" />
-    <line x1="9" y1="6" x2="9" y2="6.01" />
-    <line x1="15" y1="6" x2="15" y2="6.01" />
-    <line x1="9" y1="10" x2="9" y2="10.01" />
-    <line x1="15" y1="10" x2="15" y2="10.01" />
-    <line x1="9" y1="14" x2="9" y2="14.01" />
-    <line x1="15" y1="14" x2="15" y2="14.01" />
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round">
+    {/* Base / chão */}
+    <line x1="2.2" y1="24.5" x2="26.5" y2="24.5" />
+    {/* Prédio esquerdo inclinado */}
+    <path d="M4.2 24.5V12.5L9.5 10V24.5" />
+    <line x1="6.3" y1="14.6" x2="6.3" y2="22" />
+    <line x1="7.9" y1="13.8" x2="7.9" y2="22" />
+    {/* Antena e topo do prédio central */}
+    <line x1="13.5" y1="2.6" x2="13.5" y2="5" />
+    <path d="M11 7.2V5h5v2.2" />
+    <path d="M9.5 24.5V7.2h8v17.3" />
+    {/* Portinha no centro da base */}
+    <rect x="12.2" y="20.6" width="2.6" height="3.9" />
+    {/* 3 fileiras de janelinhas finas */}
+    <line x1="12" y1="9.6" x2="12" y2="10.8" />
+    <line x1="15" y1="9.6" x2="15" y2="10.8" />
+    <line x1="12" y1="12.7" x2="12" y2="13.9" />
+    <line x1="15" y1="12.7" x2="15" y2="13.9" />
+    <line x1="12" y1="15.8" x2="12" y2="17" />
+    <line x1="15" y1="15.8" x2="15" y2="17" />
+    {/* Prédio direito */}
+    <path d="M17.5 9.8L22.5 11.8V24.5" />
+    {/* Pena tinteiro simétrica a 45° com recorte limpo atrás */}
+    <g transform="translate(21.4, 17.6) rotate(45)">
+      <path d="M0 7.6L-4.2 1.8L-2.6 -2H2.6L4.2 1.8Z" className="fill-white dark:fill-[#111F3B]" stroke="none" />
+      <rect x="-2.4" y="-11.5" width="4.8" height="10" className="fill-white dark:fill-[#111F3B]" stroke="none" />
+      {/* Bico largo de pena */}
+      <path d="M0 7.3L-3.5 1.8L-1.9 -1.5H1.9L3.5 1.8Z" />
+      <line x1="0" y1="7.3" x2="0" y2="1.2" />
+      <circle cx="0" cy="0.6" r="0.8" />
+      {/* Colarinho divisor */}
+      <rect x="-2.2" y="-3.2" width="4.4" height="1.7" />
+      {/* Cabo aberto */}
+      <path d="M-1.8 -3.2V-10.5M1.8 -3.2V-10.5" />
+    </g>
+    {/* Nós e curva vetorial na base */}
+    <circle cx="6.5" cy="28.3" r="1.25" />
+    <circle cx="10.8" cy="28.3" r="1.25" />
+    <rect x="14.1" y="27.05" width="2.5" height="2.5" />
+    <path d="M16.6 28.3Q22.8 28.3 25.2 24.7" />
+    <rect x="24.5" y="23.5" width="2" height="2" />
   </svg>
 );
 
 export const PaletteAppearanceIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.03-.23-.29-.38-.64-.38-1.02 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.5-4.5-9.95-10-9.95z" />
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="6" strokeWidth="1.8" />
+    <path d="M10.2 8.2a4.2 4.2 0 1 0 5.6 5.6 5.8 5.8 0 0 1-5.6-5.6z" fill="currentColor" stroke="none" />
+    <line x1="12" y1="1.5" x2="12" y2="3.6" />
+    <line x1="12" y1="20.4" x2="12" y2="22.5" />
+    <line x1="1.5" y1="12" x2="3.6" y2="12" />
+    <line x1="20.4" y1="12" x2="22.5" y2="12" />
+    <line x1="4.6" y1="4.6" x2="6.1" y2="6.1" />
+    <line x1="19.4" y1="4.6" x2="17.9" y2="6.1" />
+    <line x1="4.6" y1="19.4" x2="6.1" y2="17.9" />
+    <line x1="19.4" y1="19.4" x2="17.9" y2="17.9" />
   </svg>
 );
+
+const THEME_ORDER: Array<'light' | 'system' | 'dark'> = ['light', 'system', 'dark'];
+
+const ThemeTriSwitch: React.FC<{
+  value: 'light' | 'dark' | 'system';
+  onChange: (mode: 'light' | 'dark' | 'system') => void;
+}> = ({ value, onChange }) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragLeft, setDragLeft] = useState<number | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const pointerState = useRef<{ active: boolean; startX: number; startLeft: number; moved: boolean }>({
+    active: false,
+    startX: 0,
+    startLeft: 4,
+    moved: false,
+  });
+
+  const leftForMode = (m: 'light' | 'dark' | 'system') =>
+    m === 'light' ? 4 : m === 'system' ? 40 : 76;
+
+  const modeForLeft = (px: number): 'light' | 'system' | 'dark' =>
+    px < 22 ? 'light' : px <= 58 ? 'system' : 'dark';
+
+  const currentLeft = dragging && dragLeft !== null ? dragLeft : leftForMode(value);
+  const visualMode = dragging && dragLeft !== null ? modeForLeft(dragLeft) : value;
+
+  const tooltipLabel =
+    visualMode === 'light'
+      ? 'Claro'
+      : visualMode === 'system'
+      ? 'Sistema (Windows)'
+      : 'Escuro';
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const startLeft = leftForMode(value);
+    pointerState.current = { active: true, startX: e.clientX, startLeft, moved: false };
+    setDragLeft(startLeft);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerState.current.active) return;
+    const dx = e.clientX - pointerState.current.startX;
+    if (Math.abs(dx) >= 5) {
+      pointerState.current.moved = true;
+      setDragging(true);
+    }
+    if (pointerState.current.moved) {
+      const clamped = Math.max(4, Math.min(76, pointerState.current.startLeft + dx));
+      setDragLeft(clamped);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerState.current.active) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    const wasMoved = pointerState.current.moved;
+    const finalLeft = dragLeft ?? leftForMode(value);
+    pointerState.current.active = false;
+    setDragging(false);
+    setDragLeft(null);
+
+    if (wasMoved) {
+      const target = modeForLeft(finalLeft);
+      if (target !== value) onChange(target);
+    } else {
+      const idx = THEME_ORDER.indexOf(value);
+      const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+      onChange(next);
+    }
+  };
+
+  const trackStyle: React.CSSProperties =
+    visualMode === 'light'
+      ? { background: '#EBF1F8', borderColor: '#D5E0EE' }
+      : visualMode === 'system'
+      ? {
+          background: 'linear-gradient(90deg, #EBF1F8 0%, #7C8FA9 48%, #111F3B 100%)',
+          borderColor: '#8CA0BC',
+        }
+      : { background: '#111F3B', borderColor: '#24385E' };
+
+  return (
+    <div
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {hovered && (
+        <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-[#18223A] dark:bg-[#0B1426] text-white text-[11px] font-semibold shadow-md border border-white/10 z-20">
+          {tooltipLabel}
+        </div>
+      )}
+
+      <div
+        ref={trackRef}
+        role="button"
+        tabIndex={0}
+        aria-label={tooltipLabel}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const idx = THEME_ORDER.indexOf(value);
+            onChange(THEME_ORDER[(idx + 1) % THEME_ORDER.length]);
+          }
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={trackStyle}
+        className="relative w-[116px] h-[44px] rounded-full border shadow-inner select-none touch-none cursor-pointer transition-colors duration-300 overflow-hidden"
+      >
+        {/* Estrelinhas sutis no modo escuro */}
+        <span
+          className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${
+            visualMode === 'dark' ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <span className="absolute left-[16px] top-[11px] w-1 h-1 rounded-full bg-white/80" />
+          <span className="absolute left-[30px] top-[19px] w-1.5 h-1.5 rounded-full bg-[#F28C28]/85" />
+          <span className="absolute left-[20px] top-[28px] w-1 h-1 rounded-full bg-white/60" />
+          <span className="absolute left-[46px] top-[12px] w-1 h-1 rounded-full bg-white/70" />
+          <span className="absolute left-[54px] top-[27px] w-1 h-1 rounded-full bg-white/50" />
+        </span>
+
+        {/* Bolinha deslizante */}
+        <span
+          style={{ left: `${currentLeft}px` }}
+          className={`absolute top-[3px] w-[36px] h-[36px] rounded-full bg-white shadow-md flex items-center justify-center ${
+            dragging ? '' : 'transition-all duration-300 ease-out'
+          }`}
+        >
+          {visualMode === 'light' && (
+            <svg className="w-5 h-5 text-[#F28C28]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none" />
+              <line x1="12" y1="2" x2="12" y2="4.2" />
+              <line x1="12" y1="19.8" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="4.2" y2="12" />
+              <line x1="19.8" y1="12" x2="22" y2="12" />
+              <line x1="4.9" y1="4.9" x2="6.5" y2="6.5" />
+              <line x1="19.1" y1="4.9" x2="17.5" y2="6.5" />
+              <line x1="4.9" y1="19.1" x2="6.5" y2="17.5" />
+              <line x1="19.1" y1="19.1" x2="17.5" y2="17.5" />
+            </svg>
+          )}
+          {visualMode === 'system' && (
+            <svg className="w-5 h-5 text-[#18223A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="4" width="19" height="12.5" rx="2" />
+              <line x1="8" y1="20" x2="16" y2="20" />
+              <line x1="12" y1="16.5" x2="12" y2="20" />
+            </svg>
+          )}
+          {visualMode === 'dark' && (
+            <svg className="w-5 h-5 text-[#111F3B]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.8 14.3A7.5 7.5 0 0 1 9.7 4.2a7.5 7.5 0 1 0 10.1 10.1z" />
+              <circle cx="17.2" cy="6.8" r="1.1" fill="#F28C28" />
+              <circle cx="19.6" cy="9.6" r="0.8" fill="#F28C28" />
+            </svg>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const LogoShapeSwitch: React.FC<{
+  value: 'round' | 'rect';
+  onChange: (shape: 'round' | 'rect') => void;
+}> = ({ value, onChange }) => {
+  const [dragging, setDragging] = useState(false);
+  const [dragLeft, setDragLeft] = useState<number | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const pointerState = useRef<{ active: boolean; startX: number; startLeft: number; moved: boolean }>({
+    active: false,
+    startX: 0,
+    startLeft: 2,
+    moved: false,
+  });
+
+  const leftForShape = (s: 'round' | 'rect') => (s === 'round' ? 2 : 34);
+  const shapeForLeft = (px: number): 'round' | 'rect' => (px < 18 ? 'round' : 'rect');
+
+  const currentLeft = dragging && dragLeft !== null ? dragLeft : leftForShape(value);
+  const visualShape = dragging && dragLeft !== null ? shapeForLeft(dragLeft) : value;
+  const tooltipLabel = visualShape === 'round' ? 'Redonda / Circular' : 'Livre / Retangular';
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const startLeft = leftForShape(value);
+    pointerState.current = { active: true, startX: e.clientX, startLeft, moved: false };
+    setDragLeft(startLeft);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerState.current.active) return;
+    const dx = e.clientX - pointerState.current.startX;
+    if (Math.abs(dx) >= 4) {
+      pointerState.current.moved = true;
+      setDragging(true);
+    }
+    if (pointerState.current.moved) {
+      setDragLeft(Math.max(2, Math.min(34, pointerState.current.startLeft + dx)));
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerState.current.active) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    const wasMoved = pointerState.current.moved;
+    const finalLeft = dragLeft ?? leftForShape(value);
+    pointerState.current.active = false;
+    setDragging(false);
+    setDragLeft(null);
+
+    if (wasMoved) {
+      const target = shapeForLeft(finalLeft);
+      if (target !== value) onChange(target);
+    } else {
+      onChange(value === 'round' ? 'rect' : 'round');
+    }
+  };
+
+  return (
+    <div
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {hovered && (
+        <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-[#18223A] dark:bg-[#0B1426] text-white text-[11px] font-semibold shadow-md border border-white/10 z-20">
+          {tooltipLabel}
+        </div>
+      )}
+
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={tooltipLabel}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onChange(value === 'round' ? 'rect' : 'round');
+          }
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={{ background: 'linear-gradient(90deg, #F28C28 0%, #111F3B 100%)' }}
+        className="relative w-[64px] h-[32px] rounded-full border border-[#D5E0EE] dark:border-[#24385E] shadow-inner select-none touch-none cursor-pointer overflow-hidden"
+      >
+        <span
+          style={{ left: `${currentLeft}px` }}
+          className={`absolute top-[2px] w-[26px] h-[26px] rounded-full bg-white shadow-md flex items-center justify-center ${
+            dragging ? '' : 'transition-all duration-300 ease-out'
+          }`}
+        >
+          {visualShape === 'round' ? (
+            <svg className="w-3.5 h-3.5 text-[#F28C28]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <circle cx="12" cy="12" r="7" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5 text-[#111F3B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4.5" y="4.5" width="15" height="15" rx="3" />
+            </svg>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 export const GlobeLanguageIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -663,7 +997,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '1.9.2',
+    version: '1.9.3',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -818,7 +1152,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '1.9.2',
+          version: data.about.version || '1.9.3',
           release_date: data.about.release_date || '16/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
@@ -1796,8 +2130,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Painel: Empresa e Identidade da Marca */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <BuildingCompanyIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <div className="flex items-center gap-2.5">
+                    <BuildingCompanyIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                       Empresa & Identidade Visual
                     </h3>
@@ -1889,32 +2223,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
 
                     {/* Seletor de Formato da Logo: Redonda vs Livre/Retangular */}
-                    <div className="flex items-center gap-2 pl-1 pt-0.5">
+                    <div className="flex items-center gap-2.5 pl-1 pt-0.5">
                       <span className="text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
                         Formato:
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setLogoShape('round')}
-                        className={`h-[28px] px-3 rounded-full text-[11.5px] font-bold border transition-all cursor-pointer ${
-                          logoShape === 'round'
-                            ? 'bg-[#FFF8EE] dark:bg-[#1C2C4E] border-[#F28C28] text-[#F28C28]'
-                            : 'bg-white dark:bg-[#111F3B] border-[#DDE5F2] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6]'
-                        }`}
-                      >
-                        ⭕ Redonda / Circular
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLogoShape('rect')}
-                        className={`h-[28px] px-3 rounded-full text-[11.5px] font-bold border transition-all cursor-pointer ${
-                          logoShape === 'rect'
-                            ? 'bg-[#FFF8EE] dark:bg-[#1C2C4E] border-[#F28C28] text-[#F28C28]'
-                            : 'bg-white dark:bg-[#111F3B] border-[#DDE5F2] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6]'
-                        }`}
-                      >
-                        ⬜ Livre / Retangular
-                      </button>
+                      <LogoShapeSwitch value={logoShape} onChange={setLogoShape} />
                     </div>
                   </div>
                 </div>
@@ -2034,7 +2347,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Painel: Aparência */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <PaletteAppearanceIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <PaletteAppearanceIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Aparência
                   </h3>
@@ -2044,48 +2357,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <span className="text-[12.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
                     Tema:
                   </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTheme('light')}
-                      className={`h-[34px] px-4 rounded-full text-[12.5px] font-semibold border transition-all cursor-pointer ${
-                        themeMode === 'light'
-                          ? 'bg-[#FFF8EE] border-[#F28C28] text-[#F28C28]'
-                          : 'bg-[#F9FBFC] dark:bg-[#142340] border-[#E2EAF5] dark:border-[#24385E] text-[#687796] dark:text-[#AFC0E2]'
-                      }`}
-                    >
-                      ☀️ Claro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTheme('dark')}
-                      className={`h-[34px] px-4 rounded-full text-[12.5px] font-semibold border transition-all cursor-pointer ${
-                        themeMode === 'dark'
-                          ? 'bg-[#1C2C4E] border-[#F28C28] text-[#F28C28]'
-                          : 'bg-[#F9FBFC] dark:bg-[#142340] border-[#E2EAF5] dark:border-[#24385E] text-[#687796] dark:text-[#AFC0E2]'
-                      }`}
-                    >
-                      🌙 Escuro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTheme('system')}
-                      className={`h-[34px] px-4 rounded-full text-[12.5px] font-semibold border transition-all cursor-pointer ${
-                        themeMode === 'system'
-                          ? 'bg-[#FFF8EE] border-[#F28C28] text-[#F28C28]'
-                          : 'bg-[#F9FBFC] dark:bg-[#142340] border-[#E2EAF5] dark:border-[#24385E] text-[#687796] dark:text-[#AFC0E2]'
-                      }`}
-                    >
-                      💻 Sistema
-                    </button>
-                  </div>
+                  <ThemeTriSwitch value={themeMode} onChange={handleSelectTheme} />
                 </div>
               </div>
 
               {/* Painel: Idioma */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <GlobeLanguageIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <GlobeLanguageIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Idioma
                   </h3>
@@ -2120,7 +2399,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Topo: Título à esquerda e Chavinha Redondinha com Tooltip à direita */}
               <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                  <AiChipIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Sincronismo de IA
                   </h3>
@@ -2289,7 +2568,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
                   <div className="flex items-center gap-2">
-                    <WorkShiftClockIcon className="w-[26px] h-[26px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <WorkShiftClockIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
@@ -2493,7 +2772,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
                   <div className="flex items-center gap-2">
-                    <KitchenUtilitiesCostIcon className="w-[26px] h-[26px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <KitchenUtilitiesCostIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
@@ -2899,7 +3178,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Unidades internas */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <ScalesUnitsIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <ScalesUnitsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Unidades internas
                   </h3>
@@ -2968,7 +3247,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
                   <div className="flex items-center gap-2.5">
-                    <KitchenUtensilsIcon className="w-[22px] h-[22px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <KitchenUtensilsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
@@ -3027,7 +3306,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
                   <div className="flex items-center gap-2">
-                    <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <DatabaseBiIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                       Banco de Dados
                     </h3>
@@ -3216,7 +3495,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Preferências de BI & Indicadores */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <BiIndicatorsIcon className="w-[22px] h-[22px] text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <BiIndicatorsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Preferências de BI & Indicadores
                   </h3>
@@ -3389,7 +3668,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Auditoria & Relatórios */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3.5 transition-colors">
                 <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <AuditReportIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                  <AuditReportIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                   <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Auditoria & Relatórios
                   </h3>
@@ -3501,7 +3780,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {aboutInfo.highlights.length > 0 && (
                 <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3 transition-colors">
                   <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                    <AboutInfoIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <AboutInfoIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                     <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                       Destaques da versão {aboutInfo.version}
                     </h3>
@@ -3536,7 +3815,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-2.5">
-              <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+              <DatabaseBiIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
               <h3 className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                 Confirmar teto fora do padrão
               </h3>
@@ -4217,7 +4496,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                <AiChipIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Para que serve o Sincronismo de IA?
@@ -4323,7 +4602,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                <AiChipIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Para que serve o campo Modelo (Opcional)?
@@ -4465,7 +4744,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Cabeçalho do Modal */}
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <AiChipIcon className="w-6 h-6 text-[#BA5200] dark:text-[#F28C28]" />
+                <AiChipIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Como obter e configurar sua Chave de IA

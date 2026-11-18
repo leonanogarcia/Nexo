@@ -80,7 +80,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.9.2',
+    version: 'v1.9.3',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -335,7 +335,7 @@ export const App: React.FC = () => {
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>Nexo · Gestão de Custos e Precificação · v1.9.2</span>
+          <span>Nexo · Gestão de Custos e Precificação · v1.9.3</span>
         </footer>
       </main>
     </div>

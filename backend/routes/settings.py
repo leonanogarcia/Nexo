@@ -139,7 +139,7 @@ def get_system_status():
         "prod_hidden_cols": prod_hidden_cols,
         "ai_enabled": get_setting("ai_enabled", "0") in ("1", "true", "True"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v1.9.2",
+        "version": "v1.9.3",
     }
 
 
@@ -276,7 +276,7 @@ def get_all_settings():
         },
         "about": {
             "app_name": "Nexo",
-            "version": "1.9.2",
+            "version": "1.9.3",
             "release_date": "16/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
@@ -318,7 +318,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/1.9.2"}
+    base_headers = {"User-Agent": "Nexo/1.9.3"}
 
     if provider == "Google Gemini":
         if not api_key:
