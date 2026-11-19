@@ -18,6 +18,7 @@
 - **UI Checkboxes:** Substituído checkboxes textuais em nativo por imagens renderizadas PIL (resolvendo problemas de highlight e rendering feio do Windows).
 - **Sidebar & Responsividade:** O minsize da janela foi reduzido para (1000x600). A Sidebar ganhou matemática de re-ancoragem (Efeito Sanfona) garantindo que botões (como a Engrenagem de Configurações) jamais vazem os limites, independente do monitor.
 - **Engrenagem de Colunas:** Implementado `_show_generic_col_menu` compartilhado globalmente. A engrenagem da tela Cadastro, Receitas e Produtos agora funcionam de forma autônoma para ocultar/mostrar colunas e persistem via banco.
+- **Padrão de Ícones & Switches (v1.9.3):** Proibido emojis coloridos na UI; todos os ícones são SVG vetoriais (`currentColor`, traço fino `1.45` em `24×24` / `1.15–1.35` em `32×32`, `w-7 h-7` nos cards e modais de Configurações, com halo/recorte na cor do card quando sobrepostos). Ver `docs/02_DESIGN_SYSTEM.md` (seção 5).
 
 ## Regras de Backup e Versionamento (Auto-Commit)
 - **12h00 (Backup Diário):** A IA aciona uma verificação de `git status`.
@@ -33,3 +34,11 @@
   2. **IA desligada e chave zerada** (`ai_enabled = "0"`, `ai_api_key = ""`, nenhuma chave pessoal ou provedor pré-configurado);
   3. **Estado limpo para novo usuário** (Canais de Venda desligados por padrão, marca padrão Nexo, zero insumos/receitas/produtos de teste);
   4. **Botão `🔄 Recarregar` oculto** no executável (`status.is_packaged === true` via `getattr(sys, "frozen", False)`).
+
+
+## Roadmap Planejado para a v2.1 (Lembrete de Continuação)
+Quando o usuário pedir para retomar a **v2.1**, lembrar e desenvolver estas **2 frentes grandes** combinadas:
+1. **Conectores de Banco de Dados Remoto / Servidor (Empresa, AWS, PostgreSQL, MySQL, Banco Online):**
+   - Permitir configurar conexão com servidor da empresa, AWS RDS ou banco online na aba **Configurações → Banco de Dados** (host, porta, banco, usuário, senha protegida, SSL), adaptando a camada SQL do backend, suportando migração do SQLite atual e atualizando os botões **`(i)`** com o passo a passo de configuração.
+2. **Sistema Completo de Idiomas (i18n — Português, Inglês e Espanhol):**
+   - Fazer o campo **Idioma do Nexo** funcionar de verdade com `Português (Brasil)`, `English` e `Español`, traduzindo toda a interface (menus, cards, tabelas, modais, gráficos, ajudas `(i)` e mensagens do backend) sem alterar os dados cadastrados pelo usuário.

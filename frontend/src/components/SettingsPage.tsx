@@ -62,6 +62,7 @@ import {
   GearPolygonIcon,
   ColumnResizeHandle,
   useNexoColumnWidths,
+  LockShieldIcon,
 } from './DesignSystem';
 import { CompanyBrandSettings } from '../types';
 
@@ -646,33 +647,58 @@ const LogoShapeSwitch: React.FC<{
 };
 
 export const GlobeLanguageIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="2" y1="12" x2="22" y2="12" />
-    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round">
+    {/* Globo com 2 paralelos e 1 elipse + eixo central (fiel à referência) */}
+    <circle cx="16" cy="16" r="10.8" />
+    <ellipse cx="16" cy="16" rx="5.2" ry="10.8" />
+    <line x1="16" y1="5.2" x2="16" y2="26.8" />
+    <line x1="6.4" y1="12.6" x2="25.6" y2="12.6" />
+    <line x1="6.4" y1="19.4" x2="25.6" y2="19.4" />
+    {/* Halo branco externo + balão esquerdo ("A") */}
+    <path
+      d="M2.6 4.2h9.2a1.4 1.4 0 0 1 1.4 1.4v6.2a1.4 1.4 0 0 1-1.4 1.4H7.6l-2.6 2.3v-2.3H2.6a1.4 1.4 0 0 1-1.4-1.4V5.6a1.4 1.4 0 0 1 1.4-1.4Z"
+      className="fill-white dark:fill-[#111F3B] stroke-white dark:stroke-[#111F3B]"
+      strokeWidth="3.6"
+    />
+    <path
+      d="M2.6 4.2h9.2a1.4 1.4 0 0 1 1.4 1.4v6.2a1.4 1.4 0 0 1-1.4 1.4H7.6l-2.6 2.3v-2.3H2.6a1.4 1.4 0 0 1-1.4-1.4V5.6a1.4 1.4 0 0 1 1.4-1.4Z"
+      className="fill-white dark:fill-[#111F3B]"
+    />
+    <path d="M5.2 10.9 7.2 6.2l2 4.7M5.9 9.5h2.6" />
+    {/* Halo branco externo + balão direito ("文") */}
+    <path
+      d="M20.2 17.6h9.2a1.4 1.4 0 0 1 1.4 1.4v6.2a1.4 1.4 0 0 1-1.4 1.4H27v2.3l-2.6-2.3h-4.2a1.4 1.4 0 0 1-1.4-1.4V19a1.4 1.4 0 0 1 1.4-1.4Z"
+      className="fill-white dark:fill-[#111F3B] stroke-white dark:stroke-[#111F3B]"
+      strokeWidth="3.6"
+    />
+    <path
+      d="M20.2 17.6h9.2a1.4 1.4 0 0 1 1.4 1.4v6.2a1.4 1.4 0 0 1-1.4 1.4H27v2.3l-2.6-2.3h-4.2a1.4 1.4 0 0 1-1.4-1.4V19a1.4 1.4 0 0 1 1.4-1.4Z"
+      className="fill-white dark:fill-[#111F3B]"
+    />
+    <path d="M22.2 20.3h5.2M24.8 19.1v1.2M22.9 20.3c.35 1.85 1.55 3.3 3.7 4.2M26.6 20.3c-.35 1.85-1.55 3.3-3.7 4.2" />
   </svg>
 );
 
 export const FlameIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
   </svg>
 );
 
 export const ZapEnergyIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
   </svg>
 );
 
 export const DropletWaterIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
   </svg>
 );
 
 export const CalculatorIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <rect x="4" y="2" width="16" height="20" rx="2" />
     <line x1="8" y1="6" x2="16" y2="6" />
     <line x1="16" y1="14" x2="16" y2="18" />
@@ -687,10 +713,40 @@ export const CalculatorIcon: React.FC<{ className?: string }> = ({ className = '
 );
 
 export const AboutInfoIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
     <path d="M12 16v-4" />
     <path d="M12 8h.01" />
+  </svg>
+);
+
+export const SalesChannelsIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+    {/* Alça da sacola */}
+    <path d="M10.5 9V6.8a4 4 0 0 1 8 0V9" />
+    {/* Corpo da sacola com dobras laterais */}
+    <path d="M7 9h15l1.5 17h-18L7 9Z" />
+    <path d="M7 9l1.8 14-3.3 3" />
+    <path d="M22 9l-1.8 14 3.3 3" />
+    {/* Símbolo % no centro */}
+    <circle cx="12.2" cy="14.2" r="1.35" />
+    <circle cx="16.4" cy="19.6" r="1.35" />
+    <line x1="16.8" y1="13.5" x2="11.8" y2="20.3" />
+    {/* Máscara de recorte atrás da maquininha/calculadora */}
+    <rect x="17.8" y="13.8" width="11.4" height="15.4" rx="2.2" className="fill-white dark:fill-[#111F3B]" stroke="none" />
+    {/* Maquininha / Calculadora sobreposta */}
+    <rect x="18.6" y="14.6" width="9.8" height="13.8" rx="1.6" />
+    <rect x="20.4" y="16.4" width="6.2" height="2.8" rx="0.5" />
+    {/* Teclado 3x3 */}
+    <circle cx="21.1" cy="21.3" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="23.5" cy="21.3" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="25.9" cy="21.3" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="21.1" cy="23.6" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="23.5" cy="23.6" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="25.9" cy="23.6" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="21.1" cy="25.9" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="23.5" cy="25.9" r="0.65" fill="currentColor" stroke="none" />
+    <circle cx="25.9" cy="25.9" r="0.65" fill="currentColor" stroke="none" />
   </svg>
 );
 
@@ -747,6 +803,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [showBrandHelpModal, setShowBrandHelpModal] = useState(false);
   const [showAiOverviewModal, setShowAiOverviewModal] = useState(false);
   const [showMetricsHelpModal, setShowMetricsHelpModal] = useState(false);
+  const [showSalesChannelsHelpModal, setShowSalesChannelsHelpModal] = useState(false);
   const [showUnitsHelpModal, setShowUnitsHelpModal] = useState(false);
   const [showDbBiHelpModal, setShowDbBiHelpModal] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
@@ -958,6 +1015,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<string>('');
+  const [externalBackupFile, setExternalBackupFile] = useState<File | null>(null);
+  const externalBackupInputRef = useRef<HTMLInputElement>(null);
   const [restoringBackup, setRestoringBackup] = useState(false);
   const [reportScope, setReportScope] = useState('Geral (Banco Completo)');
   const [reportFormat, setReportFormat] = useState('PDF');
@@ -997,7 +1056,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '1.9.3',
+    version: '2.0.0',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -1152,7 +1211,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '1.9.3',
+          version: data.about.version || '2.0.0',
           release_date: data.about.release_date || '16/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
@@ -1780,6 +1839,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   const handleOpenRestoreModal = async () => {
     setShowRestoreModal(true);
+    setExternalBackupFile(null);
     setLoadingBackups(true);
     try {
       const res = await fetch('/api/settings/database/backups');
@@ -1798,17 +1858,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   const handleConfirmRestore = async () => {
-    if (!selectedBackup) return;
+    if (!selectedBackup && !externalBackupFile) return;
     setRestoringBackup(true);
     try {
-      const res = await fetch('/api/settings/database/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: selectedBackup }),
-      });
+      let res: Response;
+      if (externalBackupFile) {
+        res = await fetch('/api/settings/database/restore-upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Backup-Filename': encodeURIComponent(externalBackupFile.name),
+          },
+          body: externalBackupFile,
+        });
+      } else {
+        res = await fetch('/api/settings/database/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: selectedBackup }),
+        });
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Não foi possível restaurar o backup selecionado.');
       setShowRestoreModal(false);
+      setExternalBackupFile(null);
       onNotify(data.message || 'Backup restaurado com sucesso!', 'success');
       await fetchSettings();
     } catch (e: any) {
@@ -2383,9 +2456,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       height={34}
                     />
                   </div>
-                  <span className="text-[11.5px] text-[#8C9BB5] dark:text-[#64748B]">
-                    Outros idiomas serão adicionados na camada de tradução sem alterar os dados.
-                  </span>
                 </div>
               </div>
             </>
@@ -3080,13 +3150,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               {/* Card: Canais de Venda & Taxas (Cartão / Delivery) */}
               <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
                 <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <div>
-                    <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                      Canais de Venda & Taxas (Cartão / Apps de Delivery)
-                    </h3>
-                    <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
-                      Simule margem líquida real e sugira preços de venda descontando taxas de maquininhas ou apps como iFood, Rappi e 99Food.
-                    </p>
+                  <div className="flex items-center gap-2.5">
+                    <SalesChannelsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                          Canais de Venda & Taxas (Cartão / Apps de Delivery)
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowSalesChannelsHelpModal(true)}
+                          className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                          title="Como funcionam os Canais de Venda & Taxas"
+                        >
+                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                        </button>
+                      </div>
+                      <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                        Simule margem líquida real e sugira preços de venda descontando taxas de maquininhas ou apps como iFood, Rappi e 99Food.
+                      </p>
+                    </div>
                   </div>
                   <NexoToggleSwitch
                     checked={salesChannelsEnabled}
@@ -3867,7 +3950,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Header */}
             <div className="flex items-start justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <CalculatorIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+                <CalculatorIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Calculadora de Custo Operacional
@@ -4292,7 +4375,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <ScalesUnitsIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <ScalesUnitsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Como funcionam as Unidades de Medida
@@ -4367,7 +4450,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <DatabaseBiIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <DatabaseBiIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Como funciona Banco de Dados & BI
@@ -4390,11 +4473,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <div className="space-y-3 text-[12.5px] text-[#334155] dark:text-[#CBD5E1] leading-relaxed">
               <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
                 <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                  1. Banco de Dados, Saúde & Manutenção
+                  1. Banco de Dados, Backups & Migração
                 </p>
                 <p>
-                  Todos os seus dados ficam salvos localmente em SQLite com indicador de saúde (<strong>Verde</strong>, <strong>Amarelo</strong> ou <strong>Vermelho</strong>) conforme o tamanho atual frente ao <strong>Teto máximo</strong> configurado. Use <strong>Fazer Backup Agora</strong> para salvar uma cópia segura, <strong>Compactar (VACUUM)</strong> para limpar apenas espaço morto de registros excluídos (sem apagar histórico ativo) e ajuste o <strong>Limite de retenção</strong> em meses se quiser arquivar logs antigos.
+                  Seus dados ficam salvos em <strong>SQLite</strong> (localmente ou em uma pasta de rede/nuvem da sua empresa configurada na instalação — usando um computador por vez) com indicador de saúde (<strong>Verde</strong>, <strong>Amarelo</strong> ou <strong>Vermelho</strong>) frente ao <strong>Teto máximo</strong>.
                 </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    <strong>Fazer Backup:</strong> salva uma cópia completa na pasta <span className="font-semibold">backups/</span>.
+                  </li>
+                  <li>
+                    <strong>Restaurar Backup:</strong> permite restaurar um backup salvo ou importar um <strong>arquivo externo (.db)</strong> de outro notebook/computador — sempre validando integridade, assinatura SQLite e estrutura do Nexo antes de aplicar, além de criar automaticamente uma cópia <span className="font-semibold">nexo_pre_restore_*.db</span>.
+                  </li>
+                  <li>
+                    <strong>Compactar (VACUUM) & Retenção:</strong> remove apenas espaço morto de itens já excluídos e arquiva logs antigos conforme os meses configurados.
+                  </li>
+                  <li>
+                    <strong>Servidores remotos / nuvem:</strong> conectores dedicados para PostgreSQL, MySQL ou AWS/banco online ainda não estão disponíveis nesta versão (previstos para uma futura atualização).
+                  </li>
+                </ul>
               </div>
 
               <div className="p-3.5 rounded-[14px] bg-[#F8FAFD] dark:bg-[#0D182D] border border-[#E2EAF5] dark:border-[#24385E] space-y-1.5">
@@ -4439,7 +4536,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <TrendingCostsIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <TrendingCostsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Como entender e usar as Métricas de Custo
@@ -4476,12 +4573,69 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <strong className="text-[#18223A] dark:text-[#F4F7FF]">4. Calculadora Auxiliar:</strong><br />
                 Não sabe qual percentual colocar? Use o botão <strong>Calculadora Auxiliar</strong> no card de custos indiretos para descobrir automaticamente a porcentagem equivalente às suas contas mensais.
               </div>
+              <div className="p-3.5 rounded-[16px] bg-[#FFF8F1] dark:bg-[#23180F] border border-[#F6DEC8] dark:border-[#4A301B]">
+                <strong className="text-[#BA5200] dark:text-[#F28C28]">5. Canais de Venda & Taxas (Opcional):</strong><br />
+                Ative a chavinha do card <strong>Canais de Venda & Taxas</strong> para cadastrar taxas de maquininha (Débito/Crédito) ou apps de delivery (iFood, Rappi, 99Food, etc.). Quando ativo, o cadastro de <strong>Produtos</strong> passa a exibir o simulador de lucro real no canal e o botão de sugerir preço pela margem alvo.
+              </div>
             </div>
 
             <div className="flex justify-end pt-1">
               <RoundedActionButton
                 label="Entendi"
                 onClick={() => setShowMetricsHelpModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuda: Canais de Venda & Taxas */}
+      {showSalesChannelsHelpModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <div className="flex items-center gap-2.5">
+                <SalesChannelsIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                    Como funcionam os Canais de Venda & Taxas
+                  </h3>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                    Proteja sua margem real ao vender no cartão ou em aplicativos de delivery
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSalesChannelsHelpModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-[#18223A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] cursor-pointer"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-[12px] text-[#475978] dark:text-[#AFC0E2]">
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">1. Recurso opcional (Ativar / Desativar):</strong><br />
+                Use a chavinha no canto superior direito do card. Enquanto estiver desativada, o cadastro de Produtos continua exatamente como antes. Ao ativar, o simulador aparece automaticamente dentro do formulário de Produtos.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#F8FAFD] dark:bg-[#0D182E] border border-[#E2EAF5] dark:border-[#203357]">
+                <strong className="text-[#18223A] dark:text-[#F4F7FF]">2. Taxa (%) e Taxa Fixa (R$):</strong><br />
+                Cadastre cada canal onde você vende (ex.: Balcão/Pix 0%, Débito 1,9%, Crédito 4,5%, iFood 23%, Rappi, 99Food). Se algum aplicativo cobrar também um valor fixo por pedido, preencha o campo <strong>Taxa fixa (R$)</strong>.
+              </div>
+              <div className="p-3.5 rounded-[16px] bg-[#FFF8F1] dark:bg-[#23180F] border border-[#F6DEC8] dark:border-[#4A301B]">
+                <strong className="text-[#BA5200] dark:text-[#F28C28]">3. Simulador & Sugerir Preço pela Margem Alvo:</strong><br />
+                No modal do Produto, escolha o canal para ver quanto é descontado de taxa e qual é o seu <strong>lucro líquido real</strong>. Se quiser garantir uma margem (ex.: 30%), informe a <strong>Margem alvo (%)</strong> e clique em <strong>Sugerir • Aplicar</strong> para o Nexo calcular o preço ideal já cobrindo o custo e a taxa do canal.
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowSalesChannelsHelpModal(false)}
                 variant="primary"
                 height={34}
               />
@@ -4549,7 +4703,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           <div className="w-full max-w-xl rounded-[26px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
               <div className="flex items-center gap-2.5">
-                <BuildingCompanyIcon className="w-5 h-5 text-[#BA5200] dark:text-[#F28C28]" />
+                <BuildingCompanyIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28]" />
                 <div>
                   <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Como funciona a Identidade Visual
@@ -4840,7 +4994,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             {/* Aviso de Segurança e Trava Diária */}
             <div className="p-3 rounded-[16px] bg-[#FFF8EE] dark:bg-[#1A140B] border border-[#F28C28]/30 space-y-1.5 text-[11.5px] text-[#60769D] dark:text-[#C5B39A]">
               <div className="flex items-center gap-2 text-[#BA5200] dark:text-[#F28C28] font-bold">
-                <span>🔒</span>
+                <LockShieldIcon className="w-4 h-4 shrink-0" />
                 <span>Segurança e Privacidade Garantidas</span>
               </div>
               <p>
@@ -5449,7 +5603,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       key={b.name}
                       type="button"
                       disabled={restoringBackup}
-                      onClick={() => setSelectedBackup(b.name)}
+                      onClick={() => {
+                        setExternalBackupFile(null);
+                        setSelectedBackup(b.name);
+                      }}
                       className={`w-full text-left p-3 rounded-[14px] border transition-colors cursor-pointer flex items-center justify-between gap-3 ${
                         active
                           ? 'bg-[#FFF8EE] dark:bg-[#1F170D] border-[#F28C28] text-[#18223A] dark:text-[#F4F7FF]'
@@ -5473,6 +5630,60 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               </div>
             )}
 
+            {/* Opção de arquivo externo (.db) */}
+            <div className="pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156] space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[12px] font-semibold text-[#60769D] dark:text-[#93A4C6]">
+                  Ou restaure de um arquivo externo (.db):
+                </span>
+                <input
+                  ref={externalBackupInputRef}
+                  type="file"
+                  accept=".db"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (file) {
+                      setExternalBackupFile(file);
+                      setSelectedBackup('');
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={restoringBackup}
+                  onClick={() => externalBackupInputRef.current?.click()}
+                  className="px-3.5 py-1.5 rounded-full text-[12px] font-bold border border-[#DFE6F0] dark:border-[#24375C] text-[#18223A] dark:text-[#F4F7FF] hover:border-[#F28C28] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Escolher arquivo externo...
+                </button>
+              </div>
+
+              {externalBackupFile && (
+                <div className="p-2.5 rounded-[14px] bg-[#FFF8EE] dark:bg-[#1F170D] border border-[#F28C28] flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] truncate" title={externalBackupFile.name}>
+                      {externalBackupFile.name}
+                    </div>
+                    <div className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
+                      {(externalBackupFile.size / 1024 < 1024
+                        ? `${(externalBackupFile.size / 1024).toFixed(1)} KB`
+                        : `${(externalBackupFile.size / (1024 * 1024)).toFixed(2)} MB`)} • Validado antes de restaurar
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={restoringBackup}
+                    onClick={() => setExternalBackupFile(null)}
+                    className="px-2 py-0.5 rounded-full text-[11px] font-semibold text-[#60769D] hover:text-[#DC2626] cursor-pointer"
+                  >
+                    Remover
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
               <button
                 type="button"
@@ -5484,7 +5695,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               </button>
               <button
                 type="button"
-                disabled={restoringBackup || loadingBackups || !selectedBackup}
+                disabled={restoringBackup || (loadingBackups && !externalBackupFile) || (!selectedBackup && !externalBackupFile)}
                 onClick={handleConfirmRestore}
                 className="px-4 py-2 rounded-full text-[12.5px] font-bold bg-[#F28C28] hover:bg-[#DF7B17] text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >

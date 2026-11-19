@@ -730,6 +730,8 @@ namespace NexoSetup
         private PillButton btnNext;
         private PillButton btnInstall;
         private PillButton btnCancel;
+        private bool cleanInstallDir = false;
+        private bool resetExistingDb = false;
 
         public static string GetDefaultProgramFilesDir()
         {
@@ -1004,7 +1006,7 @@ namespace NexoSetup
             btnNext.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             btnNext.Location = new Point(386, 425);
             btnNext.Size = new Size(110, 30);
-            btnNext.Click += (s, e) => ShowStep(currentStep + 1);
+            btnNext.Click += (s, e) => HandleNextClick();
             this.Controls.Add(btnNext);
 
             btnInstall = new PillButton();
@@ -1073,6 +1075,70 @@ namespace NexoSetup
             }
         }
 
+        private void HandleNextClick()
+        {
+            if (currentStep == 0) {
+                string rawDir = txtInstallDir.Text.Trim();
+                if (string.IsNullOrEmpty(rawDir)) {
+                    MessageBox.Show("Informe uma pasta válida para a instalação.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                string installDir = Path.GetFullPath(rawDir).TrimEnd('\\');
+                if (!installDir.EndsWith("\\Nexo", StringComparison.OrdinalIgnoreCase) && !string.Equals(Path.GetFileName(installDir), "Nexo", StringComparison.OrdinalIgnoreCase)) {
+                    installDir = Path.Combine(installDir, "Nexo");
+                    txtInstallDir.Text = installDir;
+                }
+                if (File.Exists(Path.Combine(installDir, "main.py"))) {
+                    MessageBox.Show("A pasta selecionada contém o código-fonte do projeto. Escolha outra pasta para instalar o aplicativo.", "Pasta Inválida", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                cleanInstallDir = false;
+                if (Directory.Exists(installDir) && (Directory.GetFiles(installDir).Length > 0 || Directory.GetDirectories(installDir).Length > 0)) {
+                    DialogResult res = MessageBox.Show(
+                        "A pasta de instalação selecionada já existe e contém arquivos:\n\n" + installDir +
+                        "\n\nDeseja LIMPAR toda a pasta e recriar do zero?\n\n" +
+                        "• Sim = Limpar a pasta e recriar tudo\n" +
+                        "• Não = Reutilizar a pasta (atualizar os arquivos do Nexo)\n" +
+                        "• Cancelar = Escolher outra pasta",
+                        "Pasta Já Existente",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Question
+                    );
+                    if (res == DialogResult.Cancel) return;
+                    cleanInstallDir = (res == DialogResult.Yes);
+                }
+            } else if (currentStep == 1) {
+                string targetDbDir = GetDefaultUserDataDir();
+                if (rbDbCustom.Checked) {
+                    string rawDb = txtDbDir.Text.Trim();
+                    if (string.IsNullOrEmpty(rawDb)) {
+                        MessageBox.Show("Informe uma pasta válida para o banco de dados.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    targetDbDir = Path.GetFullPath(rawDb).TrimEnd('\\');
+                }
+                resetExistingDb = false;
+                bool hasOldDb = File.Exists(Path.Combine(targetDbDir, "nexo.db"))
+                    || Directory.Exists(Path.Combine(targetDbDir, "backups"))
+                    || Directory.Exists(Path.Combine(targetDbDir, "documentos"));
+                if (hasOldDb) {
+                    DialogResult res = MessageBox.Show(
+                        "Já existem dados ou banco de dados (nexo.db) nesta pasta:\n\n" + targetDbDir +
+                        "\n\nDeseja APAGAR os dados antigos e começar do zero (padrão de fábrica)?\n\n" +
+                        "• Sim = Apagar banco, backups e configurações antigas\n" +
+                        "• Não = Reutilizar os dados existentes (Recomendado)\n" +
+                        "• Cancelar = Escolher outra pasta",
+                        "Banco de Dados Já Existente",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Question
+                    );
+                    if (res == DialogResult.Cancel) return;
+                    resetExistingDb = (res == DialogResult.Yes);
+                }
+            }
+            ShowStep(currentStep + 1);
+        }
+
         public static bool IsAdmin()
         {
             try {
@@ -1123,18 +1189,36 @@ namespace NexoSetup
             bool allUsers = rbAllUsers.Checked;
             bool useCustomDb = rbDbCustom.Checked && !string.IsNullOrWhiteSpace(txtDbDir.Text);
             string customDbDir = useCustomDb ? Path.GetFullPath(txtDbDir.Text.Trim()).TrimEnd('\\') : "";
+            bool doCleanInstall = cleanInstallDir;
+            bool doResetDb = resetExistingDb;
 
             try {
                 await Task.Run(() => {
                     foreach (Process proc in Process.GetProcessesByName("Nexo")) {
                         try { proc.Kill(); proc.WaitForExit(2000); } catch {}
                     }
-                    if (Directory.Exists(installDir)) {
+                    if (doCleanInstall && Directory.Exists(installDir)) {
                         try { Directory.Delete(installDir, true); } catch {}
                     }
                     Directory.CreateDirectory(installDir);
 
                     string userDataDir = GetDefaultUserDataDir();
+                    string targetDbDir = useCustomDb ? customDbDir : userDataDir;
+                    if (doResetDb) {
+                        string[] dbFiles = new string[] {
+                            "nexo.db", "nexo.db-wal", "nexo.db-shm",
+                            "nexo_config.json", "nexo_file_config.json"
+                        };
+                        foreach (string f in dbFiles) {
+                            string p = Path.Combine(targetDbDir, f);
+                            if (File.Exists(p)) { try { File.Delete(p); } catch {} }
+                        }
+                        foreach (string sub in new string[] { "backups", "documentos" }) {
+                            string sp = Path.Combine(targetDbDir, sub);
+                            if (Directory.Exists(sp)) { try { Directory.Delete(sp, true); } catch {} }
+                        }
+                    }
+
                     Directory.CreateDirectory(userDataDir);
                     Directory.CreateDirectory(Path.Combine(userDataDir, "backups"));
                     Directory.CreateDirectory(Path.Combine(userDataDir, "documentos"));
@@ -1143,6 +1227,7 @@ namespace NexoSetup
                     if (useCustomDb) {
                         Directory.CreateDirectory(customDbDir);
                         Directory.CreateDirectory(Path.Combine(customDbDir, "backups"));
+                        Directory.CreateDirectory(Path.Combine(customDbDir, "documentos"));
                         string dbFull = Path.Combine(customDbDir, "nexo.db").Replace("\\", "\\\\");
                         File.WriteAllText(fileCfgPath, "{\n  \"sqlite_path\": \"" + dbFull + "\"\n}");
                     } else if (File.Exists(fileCfgPath)) {
@@ -1155,7 +1240,18 @@ namespace NexoSetup
                         using (FileStream fs = new FileStream(tempZip, FileMode.Create, FileAccess.Write)) {
                             s.CopyTo(fs);
                         }
-                        ZipFile.ExtractToDirectory(tempZip, installDir);
+                        using (ZipArchive archive = ZipFile.OpenRead(tempZip)) {
+                            foreach (ZipArchiveEntry entry in archive.Entries) {
+                                string destPath = Path.GetFullPath(Path.Combine(installDir, entry.FullName));
+                                if (!destPath.StartsWith(installDir, StringComparison.OrdinalIgnoreCase)) continue;
+                                if (string.IsNullOrEmpty(entry.Name)) {
+                                    Directory.CreateDirectory(destPath);
+                                } else {
+                                    Directory.CreateDirectory(Path.GetDirectoryName(destPath));
+                                    entry.ExtractToFile(destPath, true);
+                                }
+                            }
+                        }
                         try { File.Delete(tempZip); } catch {}
                     }
                 });

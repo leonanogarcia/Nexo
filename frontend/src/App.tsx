@@ -17,7 +17,9 @@ import {
   AnimatedSuccessModal,
   FeedbackType,
   ReferenceSidebar,
+  RefreshSyncIcon,
   RoundedActionButton,
+  SparklesIcon,
 } from './components/DesignSystem';
 import { NavKey, SystemStatus, CompanyBrandSettings } from './types';
 
@@ -80,7 +82,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v1.9.3',
+    version: 'v2.0.0',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -209,7 +211,8 @@ export const App: React.FC = () => {
                 title="Recarregar tela (F5)"
                 className="h-[34px] px-3.5 rounded-full bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] text-[12.5px] font-bold text-[#687796] dark:text-[#93A4C6] hover:text-[#BA5200] hover:border-[#F28C28] flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
               >
-                <span>🔄 Recarregar</span>
+                <RefreshSyncIcon className="w-3.5 h-3.5" />
+                <span>Recarregar</span>
               </button>
             </div>
           )}
@@ -290,8 +293,8 @@ export const App: React.FC = () => {
 
           {loaded && activePage !== 'Geral' && activePage !== 'Cadastro' && activePage !== 'Receitas' && activePage !== 'Produtos' && activePage !== 'Configurações' && (
             <div className="flex-1 rounded-[22px] bg-white dark:bg-[#111F3B] p-8 flex flex-col items-center justify-center text-center shadow-sm">
-              <div className="w-14 h-14 rounded-full bg-[#FFF0D8] dark:bg-[#5A3518] text-[#F28C28] flex items-center justify-center text-2xl font-bold mb-4">
-                ✨
+              <div className="w-14 h-14 rounded-full bg-[#FFF0D8] dark:bg-[#5A3518] text-[#F28C28] flex items-center justify-center font-bold mb-4">
+                <SparklesIcon className="w-6 h-6" />
               </div>
               <h2 className="text-[20px] font-bold text-[#18223A] dark:text-[#F4F7FF] mb-2">
                 {headerInfo.cardTitle || `${headerInfo.title} — Em breve no cronograma`}
@@ -322,20 +325,19 @@ export const App: React.FC = () => {
             className="flex items-center gap-1.5 hover:text-[#18223A] dark:hover:text-[#F4F7FF] transition-colors cursor-pointer"
           >
             <span
-              className={`w-[7px] h-[7px] rounded-full shrink-0 ${
-                !status.connected || status.db_health?.health_status === 'red'
+              className={`w-[7px] h-[7px] rounded-full shrink-0 ${!status.connected || status.db_health?.health_status === 'red'
                   ? 'bg-[#DC2626]'
                   : status.db_health?.health_status === 'yellow'
-                  ? 'bg-[#F59E0B]'
-                  : 'bg-[#16A34A]'
-              }`}
+                    ? 'bg-[#F59E0B]'
+                    : 'bg-[#16A34A]'
+                }`}
             />
             <span>
               Banco de dados: {status.connected ? 'Conectado' : 'Desconectado'} · {status.db_name}
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>Nexo · Gestão de Custos e Precificação · v1.9.3</span>
+          <span>Nexo · Gestão de Custos e Precificação · v2.0.0</span>
         </footer>
       </main>
     </div>

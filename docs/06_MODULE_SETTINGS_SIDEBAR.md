@@ -42,16 +42,17 @@
 
 ## Atualizações da Sidebar, Ajuda `ⓘ` e OpenRouter Gratuito (v1.9.0)
 
-### 1. Sidebar Responsiva
-- A cápsula vertical da sidebar usa `height: min(500px, calc(100vh - 140px))` com espaçamento e ícones proporcionais via `clamp(...)`, evitando cortes verticais em notebooks menores com escala DPI 125%/150%.
+### 1. Sidebar Responsiva (v1.9.3)
+- A cápsula vertical da sidebar usa `width: 58px`, `height: min(500px, calc(100vh - 140px))`, botões `42px` e ícones `clamp(28px, 4.4vh, 34px)`, com *tooltip* compacto (`h-[26px] px-3 text-[11.5px]`) em `left-[60px]`, evitando cortes verticais em notebooks menores com escala DPI 125%/150% e mantendo bom aproveitamento horizontal.
 
 ### 2. Botões de Ajuda Contextual (`ⓘ`) em Configurações
 - Todas as categorias relevantes de Configurações possuem botões `ⓘ` (`InfoCircleIcon`) com modais explicativos claros em português ("como funciona, para que serve e como usar"):
   - Identidade da Marca;
   - Visão Geral de IA, Chave API e Seleção de Modelos;
   - Métricas de Custo & Jornada da Cozinha;
+  - Canais de Venda & Taxas (Cartão / Apps de Delivery) — chavinha opcional + simulador de lucro líquido e sugestão de preço pela margem alvo em Produtos;
   - Unidades de Medida (internas e configuráveis por insumo);
-  - Banco de Dados & BI (saúde, VACUUM, backup, preferências e auditoria/exportação).
+  - Banco de Dados & BI (saúde, VACUUM, backup, restauração local ou de arquivo externo `.db` validado, preferências e auditoria/exportação).
 
 ### 3. Política de Modelos OpenRouter (Gratuito Automático vs Pago)
 - **Modo Automático Gratuito:** Quando o provedor é `OpenRouter` e o campo **Modelo** está vazio ou configurado como `openrouter/free` / `free` / `auto` / `auto-free`, o Nexo consulta `https://openrouter.ai/api/v1/models` (cache de 10 min), filtra exclusivamente modelos `:free` (e com modalidade `"image"` quando há foto) e faz fallback automático em até 6 candidatos em caso de erro HTTP ou queda de conexão (`URLError`/`WinError 10054`/`TimeoutError`).

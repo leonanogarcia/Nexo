@@ -6,11 +6,13 @@ import math
 import platform
 import shutil
 import sqlite3
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -139,7 +141,7 @@ def get_system_status():
         "prod_hidden_cols": prod_hidden_cols,
         "ai_enabled": get_setting("ai_enabled", "0") in ("1", "true", "True"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v1.9.3",
+        "version": "v2.0.0",
     }
 
 
@@ -276,7 +278,7 @@ def get_all_settings():
         },
         "about": {
             "app_name": "Nexo",
-            "version": "1.9.3",
+            "version": "2.0.0",
             "release_date": "16/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
@@ -318,7 +320,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/1.9.3"}
+    base_headers = {"User-Agent": "Nexo/2.0.0"}
 
     if provider == "Google Gemini":
         if not api_key:
@@ -538,6 +540,73 @@ class DatabaseRestorePayload(BaseModel):
     filename: str
 
 
+_MAX_RESTORE_BYTES = 500 * 1024 * 1024
+_REQUIRED_NEXO_TABLES = {"materials", "base_recipes", "products", "system_settings"}
+
+
+def _validate_and_restore_db_file(source_file: Path, display_name: str) -> Dict[str, Any]:
+    if not source_file.exists() or not source_file.is_file():
+        raise HTTPException(status_code=404, detail="Arquivo de backup não encontrado.")
+
+    size_bytes = source_file.stat().st_size
+    if size_bytes <= 16 or size_bytes > _MAX_RESTORE_BYTES:
+        raise HTTPException(status_code=400, detail="Tamanho de arquivo inválido para restauração (máx. 500 MB).")
+
+    with source_file.open("rb") as fh:
+        header = fh.read(16)
+    if header != b"SQLite format 3\x00":
+        raise HTTPException(status_code=400, detail="O arquivo selecionado não é um banco SQLite válido.")
+
+    try:
+        conn = sqlite3.connect(str(source_file))
+        try:
+            row = conn.execute("PRAGMA integrity_check").fetchone()
+            if not row or str(row[0]).lower() != "ok":
+                raise HTTPException(status_code=400, detail="O arquivo de backup falhou na verificação de integridade SQLite.")
+            tables = {
+                str(r[0])
+                for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            }
+            missing = _REQUIRED_NEXO_TABLES - tables
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Este arquivo SQLite não pertence ao Nexo (estrutura de tabelas incompatível).",
+                )
+        finally:
+            conn.close()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Arquivo de backup inválido ou corrompido: {exc}")
+
+    db_file = paths.get_db_path()
+    backup_dir = db_file.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pre_restore_file = backup_dir / f"nexo_pre_restore_{timestamp}.db"
+    if db_file.exists():
+        shutil.copy2(db_file, pre_restore_file)
+
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(f"{db_file}{suffix}")
+        if sidecar.exists():
+            try:
+                sidecar.unlink()
+            except OSError:
+                pass
+
+    shutil.copy2(source_file, db_file)
+    init_db()
+
+    return {
+        "ok": True,
+        "restored_from": display_name,
+        "pre_restore_backup": pre_restore_file.name if pre_restore_file.exists() else None,
+        "message": f"Backup '{display_name}' restaurado com sucesso! Cópia de segurança salva em '{pre_restore_file.name}'.",
+    }
+
+
 @router.post("/api/settings/database/restore")
 def restore_database_backup(payload: DatabaseRestorePayload):
     safe_name = Path(payload.filename or "").name
@@ -559,43 +628,35 @@ def restore_database_backup(payload: DatabaseRestorePayload):
     if backup_file is None:
         raise HTTPException(status_code=404, detail="Arquivo de backup não encontrado.")
 
+    return _validate_and_restore_db_file(backup_file, backup_file.name)
+
+
+@router.post("/api/settings/database/restore-upload")
+async def restore_database_backup_upload(request: Request):
+    raw_name = unquote(request.headers.get("X-Backup-Filename") or "backup_externo.db")
+    safe_name = Path(raw_name).name
+    if not safe_name or not safe_name.lower().endswith(".db"):
+        raise HTTPException(status_code=400, detail="Envie um arquivo de backup válido com extensão .db.")
+
+    tmp_path: Optional[Path] = None
     try:
-        conn = sqlite3.connect(str(backup_file))
-        try:
-            row = conn.execute("PRAGMA integrity_check").fetchone()
-            if not row or str(row[0]).lower() != "ok":
-                raise HTTPException(status_code=400, detail="O arquivo de backup falhou na verificação de integridade SQLite.")
-        finally:
-            conn.close()
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Arquivo de backup inválido ou corrompido: {exc}")
-
-    backup_dir = db_file.parent / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    pre_restore_file = backup_dir / f"nexo_pre_restore_{timestamp}.db"
-    if db_file.exists():
-        shutil.copy2(db_file, pre_restore_file)
-
-    for suffix in ("-wal", "-shm"):
-        sidecar = Path(f"{db_file}{suffix}")
-        if sidecar.exists():
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
+            tmp_path = Path(tmp.name)
+            total = 0
+            async for chunk in request.stream():
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > _MAX_RESTORE_BYTES:
+                    raise HTTPException(status_code=400, detail="O arquivo excede o limite máximo permitido (500 MB).")
+                tmp.write(chunk)
+        return _validate_and_restore_db_file(tmp_path, safe_name)
+    finally:
+        if tmp_path and tmp_path.exists():
             try:
-                sidecar.unlink()
+                tmp_path.unlink()
             except OSError:
                 pass
-
-    shutil.copy2(backup_file, db_file)
-    init_db()
-
-    return {
-        "ok": True,
-        "restored_from": backup_file.name,
-        "pre_restore_backup": pre_restore_file.name if pre_restore_file.exists() else None,
-        "message": f"Backup '{backup_file.name}' restaurado com sucesso! Cópia de segurança salva em '{pre_restore_file.name}'.",
-    }
 
 
 class DatabaseLimitPayload(BaseModel):

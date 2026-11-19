@@ -5,18 +5,23 @@ import {
   MaterialItem,
 } from '../types';
 import {
+  AlertTriangleIcon,
   CapsuleInput,
+  CartPurchaseIcon,
   ClockIcon,
   ColumnResizeHandle,
   DuplicateIcon,
+  EditPenIcon,
   GearPolygonIcon,
   NexoCheckbox,
   NexoEmptyTableWatermark,
   NexoToolbarOverflowMenu,
+  NoteTextIcon,
   PlusIcon,
   RoundedActionButton,
   RoundedDropdown,
   RoundedEntry,
+  TagBadgeIcon,
   TrashIcon,
   useNexoColumnWidths,
   useToolbarOverflow,
@@ -1295,8 +1300,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             {editDecisionModal.type === 'brand_change' ? (
               <>
                 <div className="text-center mb-4">
-                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2 text-[18px]">
-                    🏷️
+                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2">
+                    <TagBadgeIcon className="w-5 h-5" />
                   </span>
                   <h3 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     {editDecisionModal.priceDiff
@@ -1378,7 +1383,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[13.5px] font-bold text-[#F28C28] flex items-center gap-2">
-                        ➕ Cadastrar como Novo Insumo
+                        <PlusIcon size={16} color="currentColor" />
+                        <span>Cadastrar como Novo Insumo</span>
                         <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-[#F28C28] text-white">
                           Recomendado
                         </span>
@@ -1406,9 +1412,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] flex items-center gap-2">
-                        {editDecisionModal.priceDiff
-                          ? '✏️ Manter no Mesmo Insumo'
-                          : '✏️ Apenas Corrigir o Nome da Marca'}
+                        <EditPenIcon className="w-4 h-4 shrink-0 text-[#60769D] dark:text-[#93A4C6]" />
+                        <span>
+                          {editDecisionModal.priceDiff
+                            ? 'Manter no Mesmo Insumo'
+                            : 'Apenas Corrigir o Nome da Marca'}
+                        </span>
                       </span>
                       <span className="text-[#687796] dark:text-[#93A4C6] group-hover:translate-x-1 transition-transform font-bold">➔</span>
                     </div>
@@ -1438,8 +1447,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             ) : editDecisionModal.step === 'choice' ? (
               <>
                 <div className="text-center mb-4">
-                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2 text-[18px]">
-                    🛒
+                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2">
+                    <CartPurchaseIcon className="w-5 h-5" />
                   </span>
                   <h3 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Alteração de Preço / Embalagem
@@ -1506,7 +1515,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[13.5px] font-bold text-[#F28C28] flex items-center gap-2">
-                        🛒 Nova Compra / Reajuste
+                        <CartPurchaseIcon className="w-4 h-4 shrink-0" />
+                        <span>Nova Compra / Reajuste</span>
                         <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-[#F28C28] text-white">
                           Histórico + BI
                         </span>
@@ -1526,7 +1536,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] flex items-center gap-2">
-                        ✏️ Erro de Digitação
+                        <EditPenIcon className="w-4 h-4 shrink-0 text-[#60769D] dark:text-[#93A4C6]" />
+                        <span>Erro de Digitação</span>
                       </span>
                       <span className="text-[#687796] dark:text-[#93A4C6] group-hover:translate-x-1 transition-transform font-bold">➔</span>
                     </div>
@@ -1548,8 +1559,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             ) : (
               <>
                 <div className="text-center mb-4">
-                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2 text-[18px]">
-                    📝
+                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2">
+                    <NoteTextIcon className="w-5 h-5" />
                   </span>
                   <h3 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
                     Justificativa da Nova Compra
@@ -1659,9 +1670,11 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   </p>
                   {deleteModal.check.linked.length > 0 && (
                     <div className="p-3 rounded-[14px] bg-[#FFFAF0] dark:bg-[#3D2610] border border-[#FBD38D] dark:border-[#C05621] text-[#C05621] dark:text-[#F6A45A]">
-                      <div className="font-bold text-[12.5px] mb-1">
-                        ⚠️ {deleteModal.check.linked.length} itens possuem vínculos e serão apenas
-                        INATIVADOS:
+                      <div className="font-bold text-[12.5px] mb-1 flex items-center gap-1.5">
+                        <AlertTriangleIcon className="w-4 h-4 shrink-0" />
+                        <span>
+                          {deleteModal.check.linked.length} itens possuem vínculos e serão apenas INATIVADOS:
+                        </span>
                       </div>
                       <div className="text-[12px] max-h-24 overflow-y-auto space-y-0.5 pl-2">
                         {deleteModal.check.linked.map((i) => (
@@ -1672,9 +1685,11 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   )}
                   {deleteModal.check.unlinked.length > 0 && (
                     <div className="p-3 rounded-[14px] bg-[#FFF5F5] dark:bg-[#3B1822] border border-[#FEB2B2] dark:border-[#9B2C2C] text-[#C53030] dark:text-[#FF8A9B]">
-                      <div className="font-bold text-[12.5px] mb-1">
-                        🔴 {deleteModal.check.unlinked.length} itens livres serão EXCLUÍDOS
-                        permanentemente:
+                      <div className="font-bold text-[12.5px] mb-1 flex items-center gap-1.5">
+                        <TrashIcon className="w-4 h-4 shrink-0" />
+                        <span>
+                          {deleteModal.check.unlinked.length} itens livres serão EXCLUÍDOS permanentemente:
+                        </span>
                       </div>
                       <div className="text-[12px] max-h-24 overflow-y-auto space-y-0.5 pl-2">
                         {deleteModal.check.unlinked.map((i) => (

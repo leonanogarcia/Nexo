@@ -24,3 +24,6 @@ Este documento registra as obrigações arquiteturais que devem ser cumpridas AN
    - Quando empacotado (`getattr(sys, "frozen", False)`), `/api/status` retorna `is_packaged: True` e o botão deve ficar **oculto automaticamente** na interface.
 4. **Entrypoint e Build Atualizados:**
    - O empacotamento da v2.0 deve usar **`main.py`**, garantindo que `frontend/dist` (gerado por `npm --prefix frontend run build`) esteja atualizado e incluído no bundle junto com `ui_assets/`, `nexo_icon.ico`, `nexo_icon.png`, `nexo_logo.png` e `backend/`.
+5. **Fluxo do Instalador em 4 Etapas (`installer/build_setup.py`):**
+   - Visual limpo no padrão Nexo (logo completa `nexo_about_light.png` centralizada no topo, `PillButton` e `PillProgressBar`).
+   - **Passo 1 (Pasta de Instalação) e Passo 2 (Banco de Dados):** permitem escolher pasta personalizada (`nexo_file_config.json`) e, se já existirem arquivos ou `nexo.db` no destino, perguntam ao usuário se deseja **Reutilizar** ou **Limpar/Zerar** antes de prosseguir.

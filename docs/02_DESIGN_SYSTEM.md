@@ -94,7 +94,7 @@ Qualquer histórico transacional (Insumos, Receitas, Produtos) DEVE utilizar a c
 
 ### 1. Janela Principal & Responsividade (`main.py` + React)
 - **Posicionamento seguro no Windows (`main.py`):** A janela sempre consulta `SystemParametersInfoW(0x0030)` (`SPI_GETWORKAREA`), que já desconta a barra de tarefas (menu Iniciar), calcula `w = min(1280, int(sw * 0.94))`, `h = min(800, int(sh * 0.88))` e centraliza via `x = rect.left + max(0, (sw - w) // 2)` e `y = rect.top + max(0, (sh - h) // 2)`. `min_size` é limitado dinamicamente a `(min(920, max(640, sw - 40)), min(560, max(480, sh - 40)))`.
-- **Sidebar (`ReferenceSidebar`):** A cápsula vertical usa `height: min(500px, calc(100vh - 140px))`, padding `py-[clamp(12px,2.8vh,26px)]`, botões com `height: clamp(42px, 7.2vh, 60px)` e ícones `w-[clamp(26px,4.2vh,34px)] h-[clamp(26px,4.2vh,34px)]` — garantindo que nunca corte em notebooks 1366×768 com escala 125% nem estique em monitores grandes.
+- **Sidebar (`ReferenceSidebar`):** A cápsula vertical usa `width: 58px`, `height: min(500px, calc(100vh - 140px))`, padding `py-[clamp(12px,2.8vh,26px)]`, botões com `width: 42px` e `height: clamp(42px, 7.2vh, 56px)`, ícones `w-[clamp(28px,4.4vh,34px)] h-[clamp(28px,4.4vh,34px)]` e *tooltip* compacto (`h-[26px] px-3 text-[11.5px]`) em `left-[60px]` — garantindo legibilidade e evitando cortes em notebooks 1366×768 com escala 125% ou monitores grandes.
 
 ### 2. Barras de Ferramentas & Menu `⋮`
 - Todas as toolbars principais (`MaterialsPage`, `RecipesPage`, `ProductsPage`) usam `min-h-[64px] py-2 flex-wrap gap-2.5`.
@@ -112,3 +112,11 @@ Qualquer histórico transacional (Insumos, Receitas, Produtos) DEVE utilizar a c
 - **Trava de duplo clique:** Todos os botões de salvar/aplicar em modais devem controlar `saving`/`applying` e passar `disabled={saving}`.
 - **Padrão Universal `truncate` + `title`:** Todo elemento no Nexo que usar a classe `truncate` **é obrigado** a definir `title={textoCompleto}` para exibir o conteúdo integral em tooltip ao passar o mouse.
 - **Alertas Centrais (`AnimatedFeedbackModal`):** Sempre em `z-[100]` (acima de todos os modais `z-50`/`z-60`). Todo bloqueio ou erro em `handleSave` deve disparar `onNotify(msg, 'warning' | 'error')` além do banner interno no topo do modal.
+
+
+### 5. Ícones SVG, Switches Deslizantes e Proibição de Emojis Coloridos (v1.9.3)
+- **Zero emojis coloridos:** É proibido usar emojis coloridos do sistema (`☀️`, `🌙`, `💻`, `🏷️`, `⚠️`, `🔒`, etc.) na interface. Todos os ícones de ação, alerta e título devem ser **SVG vetoriais limpos** com `currentColor` (`DesignSystem.tsx` / `SettingsPage.tsx`).
+- **Títulos e modais em Configurações:** Todos os ícones de cabeçalho de cards e modais `(i)` usam tamanho uniforme `w-7 h-7` (`28px`), cor padrão `text-[#BA5200] dark:text-[#F28C28]`, e traço fino padronizado (`strokeWidth="1.45"` em `24×24`, ou `~1.15–1.35` em `32×32`, `strokeLinecap="round"`, `strokeLinejoin="round"`). Quando houver elementos sobrepostos (ex.: balões de idioma, pena sobre prédio, maquininha sobre sacola), usar máscara/halo externo na cor do card (`fill-white dark:fill-[#111F3B] stroke-white dark:stroke-[#111F3B]`) para manter separação limpa.
+- **Switches deslizantes sem texto interno:**
+  - `ThemeTriSwitch` (`116×44px`): 3 estados (**Claro → Sistema → Escuro**), com clique para avançar, arrastar na trilha e *tooltip* exibindo apenas o nome do modo.
+  - `LogoShapeSwitch` (`64×32px`): 2 estados (**Redonda / Circular ↔ Livre / Retangular**), fundo em degradê Nexo (`#F28C28 → #111F3B`), clique + arrastar + *tooltip*.

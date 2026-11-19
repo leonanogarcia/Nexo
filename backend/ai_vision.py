@@ -125,7 +125,7 @@ def _get_openrouter_free_models(needs_vision: bool) -> List[str]:
     try:
         req = urllib.request.Request(
             "https://openrouter.ai/api/v1/models",
-            headers={"User-Agent": "Nexo/1.9.3"},
+            headers={"User-Agent": "Nexo/2.0.0"},
             method="GET",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -235,7 +235,7 @@ def _call_ai_vision(
         }
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Nexo/1.9.3",
+            "User-Agent": "Nexo/2.0.0",
         }
         req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
         try:
@@ -257,7 +257,7 @@ def _call_ai_vision(
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "Nexo/1.9.3",
+            "User-Agent": "Nexo/2.0.0",
         }
     elif provider == "OpenRouter":
         url = "https://openrouter.ai/api/v1/chat/completions"
@@ -267,7 +267,7 @@ def _call_ai_vision(
             "Authorization": f"Bearer {api_key}",
             "HTTP-Referer": "https://nexo.local",
             "X-Title": "Nexo",
-            "User-Agent": "Nexo/1.9.3",
+            "User-Agent": "Nexo/2.0.0",
         }
     else:
         if not cfg["base_url"]:
@@ -276,7 +276,7 @@ def _call_ai_vision(
         model = cfg["model"] or "gpt-4o-mini"
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Nexo/1.9.3",
+            "User-Agent": "Nexo/2.0.0",
         }
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"

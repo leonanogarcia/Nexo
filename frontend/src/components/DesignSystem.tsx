@@ -991,11 +991,11 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
         )}
       </div>
 
-      {/* Vertical Capsule Rail (width=68px, responsive height so it never clips on smaller laptops) */}
+      {/* Vertical Capsule Rail (width=58px, responsive height so it never clips on smaller laptops) */}
       <div className="flex-1 w-full flex items-center justify-center pb-4 min-h-0">
         <div
           style={{
-            width: '68px',
+            width: '58px',
             height: 'min(500px, calc(100vh - 140px))',
             backgroundColor: (brandSettings?.brand_theme_enabled && brandSettings?.apply_brand_to_sidebar && brandSettings?.brand_color)
               ? brandSettings.brand_color
@@ -1020,9 +1020,9 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                   onMouseEnter={() => setHovered(item.key)}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    width: '44px',
-                    height: 'clamp(42px, 7.2vh, 60px)',
-                    borderRadius: '20px',
+                    width: '42px',
+                    height: 'clamp(42px, 7.2vh, 56px)',
+                    borderRadius: '18px',
                     backgroundColor: isActive
                       ? dark
                         ? '#111C30' // Regra doc 06 e CONTEXTO_V2: azul-marinho #111C30 sobre o laranja no modo escuro
@@ -1038,7 +1038,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                   <img
                     src={item.icon}
                     alt={item.label}
-                    className="w-[clamp(26px,4.2vh,34px)] h-[clamp(26px,4.2vh,34px)] object-contain pointer-events-none"
+                    className="w-[clamp(28px,4.4vh,34px)] h-[clamp(28px,4.4vh,34px)] object-contain pointer-events-none"
                   />
                 </button>
 
@@ -1048,7 +1048,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                     style={{
                       backgroundColor: dark ? '#2A3B5C' : '#101A33',
                     }}
-                    className="absolute left-[74px] top-1/2 -translate-y-1/2 h-[32px] px-4 rounded-full text-white font-bold text-[12px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in"
+                    className="absolute left-[60px] top-1/2 -translate-y-1/2 h-[26px] px-3 rounded-full text-white font-semibold text-[11.5px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in"
                   >
                     {item.label}
                   </div>
@@ -1538,3 +1538,65 @@ export const NexoToolbarOverflowMenu: React.FC<{
     </div>
   );
 };
+
+export const AlertTriangleIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+export const LockShieldIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="11" width="16" height="10" rx="2.5" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+export const TagBadgeIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" />
+    <circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const CartPurchaseIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="20" r="1.5" />
+    <circle cx="18" cy="20" r="1.5" />
+    <path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h9.4a1.5 1.5 0 0 0 1.45-1.15L21 7H6" />
+  </svg>
+);
+
+export const EditPenIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
+export const NoteTextIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="8" y1="13" x2="16" y2="13" />
+    <line x1="8" y1="17" x2="13" y2="17" />
+  </svg>
+);
+
+export const RefreshSyncIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" />
+    <polyline points="3 3 3 8 8 8" />
+    <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" />
+    <polyline points="21 21 21 16 16 16" />
+  </svg>
+);
+
+export const SparklesIcon: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z" />
+    <path d="M19 3v3M20.5 4.5h-3M5 18v2M6 19H4" />
+  </svg>
+);

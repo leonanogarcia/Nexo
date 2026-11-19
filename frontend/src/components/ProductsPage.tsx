@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangleIcon,
   CapsuleInput,
   CapsuleQuantityUnit,
   ClockIcon,
@@ -669,9 +670,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                                   {prod.has_broken_items && (
                                     <span
                                       title="Este produto possui componente inativo ou arquivado"
-                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#B45309] dark:text-[#FBBF24] border border-[#F59E0B]/40 shrink-0"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#B45309] dark:text-[#FBBF24] border border-[#F59E0B]/40 shrink-0"
                                     >
-                                      ⚠ Item quebrado
+                                      <AlertTriangleIcon className="w-3 h-3 shrink-0" />
+                                      <span>Item quebrado</span>
                                     </span>
                                   )}
                                 </div>
@@ -992,8 +994,9 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             <div className="text-[13px] text-[#18223A] dark:text-[#F4F7FF] space-y-3 mb-5">
               {deleteModal.check.linked.length > 0 && (
                 <div className="p-3.5 rounded-[14px] bg-[#FFF8EE] dark:bg-[#2A1E14] border border-[#F28C28]/40">
-                  <span className="block font-bold text-[#F28C28] mb-1">
-                    ⚠️ Atenção: Produto em uso em outros Produtos
+                  <span className="flex items-center gap-1.5 font-bold text-[#F28C28] mb-1">
+                    <AlertTriangleIcon className="w-4 h-4 shrink-0" />
+                    <span>Atenção: Produto em uso em outros Produtos</span>
                   </span>
                   <p className="text-[12.5px] text-[#687796] dark:text-[#CBD5E1] leading-relaxed">
                     {deleteModal.check.linked.length === 1
@@ -1560,13 +1563,15 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     >
                       {isBroken && (
                         <div className="flex items-center justify-between gap-2 px-1">
-                          <span className="text-[11px] font-bold text-[#B45309] dark:text-[#FBBF24]">
-                            ⚠{' '}
-                            {row.broken_reason
-                              ? row.broken_reason
-                              : row.unresolved_name
-                              ? `Não encontrado pela IA: "${row.unresolved_name}" — vincule abaixo ou crie agora`
-                              : 'Componente sem vínculo — vincule abaixo ou crie agora'}
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#B45309] dark:text-[#FBBF24]">
+                            <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                              {row.broken_reason
+                                ? row.broken_reason
+                                : row.unresolved_name
+                                ? `Não encontrado pela IA: "${row.unresolved_name}" — vincule abaixo ou crie agora`
+                                : 'Componente sem vínculo — vincule abaixo ou crie agora'}
+                            </span>
                           </span>
                           {!row.broken_reason && (
                             <button

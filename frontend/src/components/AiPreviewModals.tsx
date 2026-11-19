@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AlertTriangleIcon,
   CapsuleInput,
   FeedbackType,
   NexoCheckbox,
@@ -461,13 +462,20 @@ export const AiReceiptPreviewModal: React.FC<AiReceiptPreviewModalProps> = ({
                     ) : (
                       <div className="md:col-span-6 flex items-center justify-end">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
                             hasIssues
                               ? 'bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#B45309] dark:text-[#FBBF24]'
                               : 'bg-[#EBFBF0] dark:bg-[#133020] text-[#16A34A] dark:text-[#4ADE80]'
                           }`}
                         >
-                          {hasIssues ? `⚠ ${issues[0]}` : '✓ Pronto para criar novo insumo'}
+                          {hasIssues ? (
+                            <>
+                              <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                              <span>{issues[0]}</span>
+                            </>
+                          ) : (
+                            '✓ Pronto para criar novo insumo'
+                          )}
                         </span>
                       </div>
                     )}
