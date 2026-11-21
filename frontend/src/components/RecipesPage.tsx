@@ -15,6 +15,7 @@ import {
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
+  NexoEmptyStateIcon,
   NexoEmptyTableWatermark,
   NexoToolbarOverflowMenu,
   PaperclipIcon,
@@ -580,30 +581,32 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                     <div className="px-3.5 pb-1.5 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
                       Exibir Colunas
                     </div>
-                    {REC_COLUMNS.filter((c) => c.hideable).map((col) => {
-                      const isVis = !hiddenCols.includes(col.key);
-                      return (
-                        <div
-                          key={col.key}
-                          onClick={() => toggleColumnVisibility(col.key)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
-                        >
-                          <NexoCheckbox
-                            checked={isVis}
-                            onChange={() => toggleColumnVisibility(col.key)}
-                          />
-                          <span
-                            className={`text-[12.5px] ${
-                              isVis
-                                ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
-                                : 'text-[#687796] dark:text-[#93A4C6]'
-                            }`}
+                    <div className="max-h-[min(320px,48vh)] overflow-y-auto">
+                      {REC_COLUMNS.filter((c) => c.hideable).map((col) => {
+                        const isVis = !hiddenCols.includes(col.key);
+                        return (
+                          <div
+                            key={col.key}
+                            onClick={() => toggleColumnVisibility(col.key)}
+                            className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
                           >
-                            {col.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <NexoCheckbox
+                              checked={isVis}
+                              onChange={() => toggleColumnVisibility(col.key)}
+                            />
+                            <span
+                              className={`text-[12.5px] ${
+                                isVis
+                                  ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
+                                  : 'text-[#687796] dark:text-[#93A4C6]'
+                              }`}
+                            >
+                              {col.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -994,7 +997,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
               <RoundedActionButton
                 label="Cancelar"
                 onClick={() => setDeleteModal(null)}
-                variant="ghost"
+                variant="secondary"
                 height={38}
               />
               <RoundedActionButton
@@ -1002,7 +1005,6 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
                 onClick={executeDelete}
                 variant="danger"
                 height={38}
-                width={170}
               />
             </div>
           </div>
@@ -1489,11 +1491,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
 
             {ingredients.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center text-center select-none">
-                <img
-                  src="/ui_assets/empty_state_reference_exact.png"
-                  alt="Nenhum ingrediente"
-                  className="max-h-[80px] object-contain mb-2 pointer-events-none opacity-80"
-                />
+                <NexoEmptyStateIcon className="w-[115px] h-[58px] mb-2 opacity-80" />
                 <p className="text-[13px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-0.5">
                   Nenhum ingrediente adicionado à receita.
                 </p>
@@ -1642,23 +1640,35 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                 <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
                   Equipamento Utilizado
                 </label>
-                <select
-                  value={cookingAppliance}
-                  onChange={(e) => {
-                    const newApp = e.target.value;
-                    setCookingAppliance(newApp);
-                    recalculatePreview(ingredients, yieldQty, yieldUnit, newApp, cookingTime);
-                  }}
-                  className="w-full h-[34px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 focus:outline-none focus:ring-2 focus:ring-[#F28C28] cursor-pointer"
-                >
-                  <option value="none">Sem cocção ativa (Mistura fria / Sem forno ou fogão)</option>
-                  <option value="gas_oven">Forno a Gás (Fogo médio - bolos, tortas, assados)</option>
-                  <option value="gas_stove_burner">Boca de Fogão / Panela (Chama média - brigadeiros, caldas)</option>
-                  <option value="electric_oven">Forno Elétrico Convector</option>
-                  <option value="mixer_planetary">Batedeira Planetária (Massa pesada / Claras)</option>
-                  <option value="induction_cooktop">Cooktop de Indução</option>
-                  <option value="microwave">Micro-ondas</option>
-                </select>
+                {(() => {
+                  const applianceOptions: { key: string; label: string }[] = [
+                    { key: 'none', label: 'Sem cocção ativa (Mistura fria / Sem forno ou fogão)' },
+                    { key: 'gas_oven', label: 'Forno a Gás (Fogo médio - bolos, tortas, assados)' },
+                    { key: 'gas_stove_burner', label: 'Boca de Fogão / Panela (Chama média - brigadeiros, caldas)' },
+                    { key: 'electric_oven', label: 'Forno Elétrico Convector' },
+                    { key: 'mixer_planetary', label: 'Batedeira Planetária (Massa pesada / Claras)' },
+                    { key: 'induction_cooktop', label: 'Cooktop de Indução' },
+                    { key: 'microwave', label: 'Micro-ondas' },
+                  ];
+                  const currentLabel =
+                    applianceOptions.find((o) => o.key === cookingAppliance)?.label ||
+                    applianceOptions[0].label;
+                  return (
+                    <RoundedDropdown
+                      value={currentLabel}
+                      onChange={(lbl) => {
+                        const found = applianceOptions.find((o) => o.label === lbl);
+                        const newApp = found ? found.key : 'none';
+                        setCookingAppliance(newApp);
+                        recalculatePreview(ingredients, yieldQty, yieldUnit, newApp, cookingTime);
+                      }}
+                      options={applianceOptions.map((o) => o.label)}
+                      width="100%"
+                      height={34}
+                      align="left"
+                    />
+                  );
+                })()}
               </div>
 
               {/* Tempo em minutos */}
@@ -1783,7 +1793,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           <RoundedActionButton
             label="Cancelar"
             onClick={onClose}
-            variant="ghost"
+            variant="secondary"
             height={36}
           />
           <RoundedActionButton
@@ -1792,7 +1802,6 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
             disabled={saving}
             variant="primary"
             height={36}
-            width={160}
           />
         </div>
       </div>
@@ -1957,7 +1966,7 @@ const RecipeHistoryModal: React.FC<RecipeHistoryModalProps> = ({
           <RoundedActionButton
             label="Fechar"
             onClick={onClose}
-            variant="ghost"
+            variant="secondary"
             height={36}
           />
           <RoundedActionButton
@@ -1972,7 +1981,6 @@ const RecipeHistoryModal: React.FC<RecipeHistoryModalProps> = ({
               </svg>
             }
             height={36}
-            width={160}
           />
         </div>
       </div>

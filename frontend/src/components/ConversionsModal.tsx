@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MaterialOption, ConversionItem } from '../types';
-import { RoundedDropdown, RoundedEntry, RoundedActionButton } from './DesignSystem';
+import { NexoEmptyStateIcon, RoundedDropdown, RoundedEntry, RoundedActionButton } from './DesignSystem';
 
 // ---------- ConversionsModal (Regra doc 04.3) ----------
 
@@ -331,7 +331,6 @@ export const ConversionsModal: React.FC<{
                   onClick={handleSaveConversion}
                   variant="primary"
                   height={34}
-                  width={85}
                 />
               </div>
             </div>
@@ -399,22 +398,14 @@ export const ConversionsModal: React.FC<{
             <div className="flex-1 overflow-y-auto divide-y divide-[#F0F4FA] dark:divide-[#17294A] mt-1">
               {!selectedMaterialId ? (
                 <div className="h-full min-h-[160px] flex flex-col items-center justify-center py-6 select-none">
-                  <img
-                    src="/ui_assets/empty_state_reference_exact.png"
-                    alt="Selecione um insumo"
-                    className="max-h-[90px] object-contain mb-2.5 pointer-events-none"
-                  />
+                  <NexoEmptyStateIcon className="w-[115px] h-[58px] mb-2.5" />
                   <p className="text-[13px] font-medium text-[#687796] dark:text-[#93A4C6]">
                     Selecione um insumo acima para visualizar ou cadastrar conversões.
                   </p>
                 </div>
               ) : displayedConversions.length === 0 ? (
                 <div className="h-full min-h-[160px] flex flex-col items-center justify-center py-6 select-none">
-                  <img
-                    src="/ui_assets/empty_state_reference_exact.png"
-                    alt="Sem conversões"
-                    className="max-h-[90px] object-contain mb-2.5 pointer-events-none"
-                  />
+                  <NexoEmptyStateIcon className="w-[115px] h-[58px] mb-2.5" />
                   <p className="text-[13px] font-bold text-[#687796] dark:text-[#93A4C6] mb-0.5">
                     Nenhuma conversão cadastrada para este insumo.
                   </p>

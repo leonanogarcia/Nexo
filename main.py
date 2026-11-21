@@ -78,7 +78,62 @@ def _set_windows_icon(title: str = "Nexo"):
         pass
 
 
+def _focus_existing_window(title: str = "Nexo") -> None:
+    """Restaura e traz para frente a janela do Nexo já em execução."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        hwnd = user32.FindWindowW(None, title)
+        if hwnd:
+            SW_SHOW = 5
+            SW_RESTORE = 9
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, SW_RESTORE)
+            else:
+                user32.ShowWindow(hwnd, SW_SHOW)
+            user32.SetForegroundWindow(hwnd)
+    except Exception:
+        pass
+
+
+def _acquire_single_instance_mutex(name: str = "Local\\LeonanGarcia.Nexo.v2.SingleInstance"):
+    """Garante instância única no Windows via Mutex nomeado.
+
+    Retorna o handle do mutex se esta for a primeira instância, ou None se já existir outra.
+    """
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        ERROR_ALREADY_EXISTS = 183
+        handle = kernel32.CreateMutexW(None, False, name)
+        if not handle:
+            return True
+        if ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+            kernel32.CloseHandle(handle)
+            return None
+        return (kernel32, handle)
+    except Exception:
+        return True
+
+
 def main():
+    _instance_mutex = _acquire_single_instance_mutex()
+    if _instance_mutex is None:
+        _focus_existing_window("Nexo")
+        return
+
     if sys.platform == "win32":
         try:
             import ctypes
@@ -162,6 +217,12 @@ def main():
     window.events.shown += on_shown
     webview.start(gui="edgechromium")
     server.should_exit = True
+    if isinstance(_instance_mutex, tuple):
+        try:
+            kernel32, handle = _instance_mutex
+            kernel32.CloseHandle(handle)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

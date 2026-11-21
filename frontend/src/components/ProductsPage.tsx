@@ -8,6 +8,7 @@ import {
   DuplicateIcon,
   GearPolygonIcon,
   NexoCheckbox,
+  NexoEmptyStateIcon,
   NexoEmptyTableWatermark,
   NexoToolbarOverflowMenu,
   PaperclipIcon,
@@ -575,30 +576,32 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     <div className="px-3.5 pb-2 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
                       Exibir Colunas
                     </div>
-                    {PROD_COLUMNS.filter((c) => c.hideable).map((col) => {
-                      const isVis = !hiddenCols.includes(col.key);
-                      return (
-                        <div
-                          key={col.key}
-                          onClick={() => toggleColumnVisibility(col.key)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
-                        >
-                          <NexoCheckbox
-                            checked={isVis}
-                            onChange={() => toggleColumnVisibility(col.key)}
-                          />
-                          <span
-                            className={`text-[12.5px] ${
-                              isVis
-                                ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
-                                : 'text-[#687796] dark:text-[#93A4C6]'
-                            }`}
+                    <div className="max-h-[min(320px,48vh)] overflow-y-auto">
+                      {PROD_COLUMNS.filter((c) => c.hideable).map((col) => {
+                        const isVis = !hiddenCols.includes(col.key);
+                        return (
+                          <div
+                            key={col.key}
+                            onClick={() => toggleColumnVisibility(col.key)}
+                            className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
                           >
-                            {col.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <NexoCheckbox
+                              checked={isVis}
+                              onChange={() => toggleColumnVisibility(col.key)}
+                            />
+                            <span
+                              className={`text-[12.5px] ${
+                                isVis
+                                  ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
+                                  : 'text-[#687796] dark:text-[#93A4C6]'
+                              }`}
+                            >
+                              {col.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1019,7 +1022,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
               <RoundedActionButton
                 label="Cancelar"
                 onClick={() => setDeleteModal(null)}
-                variant="ghost"
+                variant="secondary"
                 height={36}
               />
               <RoundedActionButton
@@ -1515,11 +1518,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
             {items.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center text-center select-none">
-                <img
-                  src="/ui_assets/empty_state_reference_exact.png"
-                  alt="Nenhum componente"
-                  className="max-h-[80px] object-contain mb-2 pointer-events-none opacity-80"
-                />
+                <NexoEmptyStateIcon className="w-[115px] h-[58px] mb-2 opacity-80" />
                 <p className="text-[13px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-0.5">
                   Nenhum componente adicionado à composição.
                 </p>
@@ -1909,7 +1908,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           <RoundedActionButton
             label="Cancelar"
             onClick={onClose}
-            variant="ghost"
+            variant="secondary"
             height={36}
           />
           <RoundedActionButton
@@ -1918,7 +1917,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
             disabled={saving}
             variant="primary"
             height={36}
-            width={160}
           />
         </div>
       </div>
@@ -2077,7 +2075,7 @@ const ProductHistoryModal: React.FC<ProductHistoryModalProps> = ({
           <RoundedActionButton
             label="Fechar"
             onClick={onClose}
-            variant="ghost"
+            variant="secondary"
             height={36}
           />
           <RoundedActionButton

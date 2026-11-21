@@ -1413,7 +1413,7 @@ def main():
     print(f'=== 1. Empacotando Nexo v{version} (x64) com PyInstaller (banco zerado, sem dados de teste) ===')
     cmd = [
         sys.executable, '-m', 'PyInstaller',
-        '--noconfirm', '--onedir', '--windowed',
+        '--noconfirm', '--onedir', '--windowed', '--noupx',
         '--name', 'Nexo',
         '--icon', str(ROOT_DIR / 'nexo_icon.ico'),
         '--version-file', str(version_info_file),

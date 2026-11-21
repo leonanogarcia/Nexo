@@ -652,7 +652,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {[
           { label: 'Produtos', suffix: 'cadastrados', value: dashboard?.kpis.products ?? 0, target: 'Produtos' as NavKey },
-          { label: 'Receitas base', suffix: 'cadastradas', value: dashboard?.kpis.recipes ?? 0, target: 'Receitas' as NavKey },
+          { label: 'Receitas', suffix: 'cadastradas', value: dashboard?.kpis.recipes ?? 0, target: 'Receitas' as NavKey },
           { label: 'Insumos', suffix: 'cadastrados', value: dashboard?.kpis.materials ?? 0, target: 'Cadastro' as NavKey },
         ].map((card) => (
           <button

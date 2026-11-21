@@ -46,8 +46,8 @@ interface ColumnSpec {
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'code', label: 'Código', width: 105, align: 'left', hideable: true },
-  { key: 'barcode', label: 'Cód. Barras', width: 135, align: 'left', hideable: false },
-  { key: 'name', label: 'Item', width: 230, align: 'left', hideable: true },
+  { key: 'barcode', label: 'Cód. Barras', width: 135, align: 'left', hideable: true },
+  { key: 'name', label: 'Item', width: 230, align: 'left', hideable: false },
   { key: 'brand', label: 'Marca', width: 155, align: 'left', hideable: true },
   { key: 'qty', label: 'Quantidade', width: 115, align: 'center', hideable: true },
   { key: 'unit', label: 'Un.', width: 70, align: 'center', hideable: true },
@@ -837,29 +837,31 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     <div className="px-3.5 pb-1.5 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
                       Exibir Colunas
                     </div>
-                    {COLUMNS.filter((c) => c.hideable).map((col) => {
-                      const isVis = !hiddenCols.includes(col.key);
-                      return (
-                        <div
-                          key={col.key}
-                          onClick={() => toggleColumnVisibility(col.key)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
-                        >
-                          <NexoCheckbox
-                            checked={isVis}
-                            onChange={() => toggleColumnVisibility(col.key)}
-                          />
-                          <span
-                            className={`text-[12.5px] ${isVis
-                                ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
-                                : 'text-[#687796] dark:text-[#93A4C6]'
-                              }`}
+                    <div className="max-h-[min(320px,48vh)] overflow-y-auto">
+                      {COLUMNS.filter((c) => c.hideable).map((col) => {
+                        const isVis = !hiddenCols.includes(col.key);
+                        return (
+                          <div
+                            key={col.key}
+                            onClick={() => toggleColumnVisibility(col.key)}
+                            className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
                           >
-                            {col.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <NexoCheckbox
+                              checked={isVis}
+                              onChange={() => toggleColumnVisibility(col.key)}
+                            />
+                            <span
+                              className={`text-[12.5px] ${isVis
+                                  ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
+                                  : 'text-[#687796] dark:text-[#93A4C6]'
+                                }`}
+                            >
+                              {col.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1439,7 +1441,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   <RoundedActionButton
                     label="Cancelar e Voltar"
                     onClick={() => setEditDecisionModal(null)}
-                    variant="ghost"
+                    variant="secondary"
                     height={36}
                   />
                 </div>
@@ -1551,7 +1553,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   <RoundedActionButton
                     label="Cancelar e Voltar"
                     onClick={() => setEditDecisionModal(null)}
-                    variant="ghost"
+                    variant="secondary"
                     height={36}
                   />
                 </div>
@@ -1598,14 +1600,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                     }
                     variant="soft"
                     height={38}
-                    width={100}
                   />
                   <RoundedActionButton
                     label="Salvar Nova Compra"
                     onClick={() => executeEditSave('update', editDecisionModal.reasonText)}
                     variant="primary"
                     height={38}
-                    width={180}
                   />
                 </div>
               </>
@@ -1706,9 +1706,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
               <RoundedActionButton
                 label="Cancelar"
                 onClick={() => setDeleteModal(null)}
-                variant="soft"
+                variant="secondary"
                 height={40}
-                width={125}
               />
               <button
                 type="button"
@@ -1717,7 +1716,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   backgroundColor:
                     deleteModal.check.unlinked.length > 0 ? '#C53030' : '#DD6B20',
                 }}
-                className="h-[40px] px-6 rounded-full text-white font-bold text-[13.5px] hover:opacity-90 transition-opacity cursor-pointer"
+                className="h-[40px] px-5 rounded-full text-white font-bold text-[13.5px] leading-none inline-flex items-center justify-center text-center hover:opacity-90 transition-opacity cursor-pointer"
               >
                 {deleteModal.check.total === 1
                   ? deleteModal.check.unlinked.length === 1
@@ -1900,7 +1899,7 @@ const HistoryModalComponent: React.FC<{
           <RoundedActionButton
             label="Fechar"
             onClick={onClose}
-            variant="ghost"
+            variant="secondary"
             height={36}
           />
           <RoundedActionButton
@@ -1924,7 +1923,6 @@ const HistoryModalComponent: React.FC<{
             onClick={handleExportCsv}
             variant="green"
             height={36}
-            width={170}
           />
         </div>
       </div>

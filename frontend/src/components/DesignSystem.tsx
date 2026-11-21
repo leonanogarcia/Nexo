@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { NavKey, CompanyBrandSettings } from '../types';
 
@@ -38,11 +39,11 @@ export const NexoToggleSwitch: React.FC<NexoToggleSwitchProps> = ({
         style={{
           backgroundColor: checked ? 'var(--nexo-brand-primary, #F28C28)' : undefined,
         }}
-        className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 ease-in-out cursor-pointer focus:outline-none shrink-0 relative px-[2px] m-0 border-0 flex items-center select-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''
+        className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 ease-in-out cursor-pointer focus:outline-none shrink-0 relative m-0 border-0 select-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''
           } ${!checked ? 'bg-[#CBD5E1] dark:bg-[#334155]' : ''}`}
       >
         <span
-          className={`block w-[20px] h-[20px] rounded-full transition-transform duration-200 ease-in-out shadow-sm pointer-events-none shrink-0 bg-white ${checked ? 'translate-x-[20px]' : 'translate-x-0'
+          className={`block absolute top-1/2 -translate-y-1/2 w-[20px] h-[20px] rounded-full transition-all duration-200 ease-in-out shadow-sm pointer-events-none bg-white ${checked ? 'left-[22px]' : 'left-[2px]'
             }`}
         />
       </button>
@@ -475,10 +476,14 @@ export const RoundedActionButton: React.FC<RoundedActionButtonProps> = ({
       darkBorder: '#5C222D',
     },
     secondary: {
-      baseFill: '#6B7280',
-      hoverFill: '#4B5563',
+      baseFill: '#4C6287',
+      hoverFill: '#3D5070',
       text: '#FFFFFF',
-      border: '#4B5563',
+      border: '#3D5070',
+      darkBaseFill: '#334A73',
+      darkHoverFill: '#466191',
+      darkText: '#FFFFFF',
+      darkBorder: '#466191',
     },
     green: {
       baseFill: '#EAFaf1',
@@ -531,10 +536,15 @@ export const RoundedActionButton: React.FC<RoundedActionButtonProps> = ({
         color: fg,
         borderColor: border,
       }}
-      className={`rounded-full font-bold text-[13px] px-3.5 border shadow-sm inline-flex items-center justify-center gap-1.5 transition-all duration-150 shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`rounded-full font-bold text-[13px] px-4 border shadow-sm inline-flex items-center justify-center text-center gap-1.5 transition-all duration-150 shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
-      {icon && <span className="inline-flex items-center shrink-0">{icon}</span>}
-      <span className="truncate" title={label}>{label}</span>
+      {icon && <span className="inline-flex items-center justify-center shrink-0">{icon}</span>}
+      <span
+        className={`truncate leading-none ${icon ? '-translate-y-[0.5px]' : '-translate-y-[1px]'}`}
+        title={label}
+      >
+        {label}
+      </span>
     </button>
   );
 };
@@ -678,18 +688,18 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
         onClick={() => {
           if (!disabled) setOpen((o) => !o);
         }}
-        className={`w-full h-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] px-4 flex items-center transition-colors focus:outline-none focus:border-[#F28C28] ${disabled
-            ? 'opacity-60 cursor-not-allowed'
-            : 'hover:bg-[#F8FAFC] dark:hover:bg-[#142544] cursor-pointer'
-          } ${align === 'center' ? 'justify-center font-bold' : 'justify-between font-normal'
+        className={`relative w-full h-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] flex items-center transition-colors focus:outline-none focus:border-[#F28C28] ${disabled
+          ? 'opacity-60 cursor-not-allowed'
+          : 'hover:bg-[#F8FAFC] dark:hover:bg-[#142544] cursor-pointer'
+          } ${align === 'center' ? 'pl-3.5 pr-7 justify-center font-bold' : 'px-4 justify-between font-normal'
           }`}
       >
         <span
           title={value || placeholder}
-          className={`text-[13px] truncate ${value
-              ? 'text-[#18223A] dark:text-[#F4F7FF]'
-              : 'text-[#9AA9BF] font-normal'
-            } ${align === 'center' ? 'mr-3' : 'pr-2'}`}
+          className={`text-[13px] truncate leading-none ${value
+            ? 'text-[#18223A] dark:text-[#F4F7FF]'
+            : 'text-[#9AA9BF] font-normal'
+            } ${align === 'center' ? 'flex-1 text-center' : 'pr-2'}`}
         >
           {value || placeholder}
         </span>
@@ -856,8 +866,8 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
         height: `${height}px`,
       }}
       className={`relative inline-flex items-center rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] transition-colors ${disabled
-          ? 'opacity-60 cursor-not-allowed'
-          : 'focus-within:border-[#F28C28] dark:focus-within:border-[#F28C28]'
+        ? 'opacity-60 cursor-not-allowed'
+        : 'focus-within:border-[#F28C28] dark:focus-within:border-[#F28C28]'
         }`}
     >
       {/* Numeric Input */}
@@ -911,8 +921,8 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
                 setOpen(false);
               }}
               className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${u === unitValue
-                  ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
-                  : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
+                ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
+                : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
                 }`}
             >
               {u}
@@ -970,8 +980,8 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
             {/* Imagem da Logo: livre e fluida, sem caixa branca forçada */}
             <div
               className={`relative flex items-center justify-center transition-transform duration-150 group-hover:scale-[1.02] ${brandSettings.logo_shape === 'rect'
-                  ? 'max-w-[128px] max-h-[96px]'
-                  : 'w-[94px] h-[94px] rounded-full overflow-hidden shadow-sm'
+                ? 'max-w-[128px] max-h-[96px]'
+                : 'w-[94px] h-[94px] rounded-full overflow-hidden shadow-sm'
                 }`}
             >
               <img
@@ -1048,7 +1058,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                     style={{
                       backgroundColor: dark ? '#2A3B5C' : '#101A33',
                     }}
-                    className="absolute left-[60px] top-1/2 -translate-y-1/2 h-[26px] px-3 rounded-full text-white font-semibold text-[11.5px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in"
+                    className="absolute left-[60px] top-1/2 -translate-y-1/2 h-[26px] px-3 rounded-full text-white font-semibold text-[11.5px] leading-none flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in"
                   >
                     {item.label}
                   </div>
@@ -1102,10 +1112,10 @@ export const AnimatedFeedbackModal: React.FC<AnimatedFeedbackModalProps> = ({
     >
       <div
         className={`w-[290px] p-6 rounded-[24px] bg-white/95 dark:bg-[#111F3B]/95 backdrop-blur-md border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col items-center justify-center select-none transition-all duration-300 pointer-events-auto ${closing
-            ? 'scale-95'
-            : type === 'error'
-              ? 'animate-shake-error'
-              : 'animate-pop-in'
+          ? 'scale-95'
+          : type === 'error'
+            ? 'animate-shake-error'
+            : 'animate-pop-in'
           }`}
       >
         {/* Type 1: SUCCESS (Green circle drawing + checkmark with 4.6px thickness) */}
@@ -1438,16 +1448,60 @@ export const OpenSectionIcon: React.FC<{ className?: string }> = ({ className = 
   </svg>
 );
 
+export const NexoEmptyStateIcon: React.FC<{ className?: string }> = ({
+  className = 'w-[115px] h-[58px]',
+}) => (
+  <svg
+    viewBox="0 0 116 58"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-[#B0C2DC] dark:text-[#4C648E] pointer-events-none select-none shrink-0 ${className}`}
+  >
+    {/* Left radiating lines */}
+    <path d="M11 16L18 20.5" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" />
+    <path d="M3 29.5H16" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    <path d="M11 43.5L18 39" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" />
+
+    {/* Right radiating lines */}
+    <path d="M105 16L98 20.5" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" />
+    <path d="M113 29.5H100" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    <path d="M105 43.5L98 39" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" />
+
+    {/* Document outline with top-left chamfered corner */}
+    <path
+      d="M47 3.5H71.5C76.2 3.5 80 7.3 80 12V46C80 50.7 76.2 54.5 71.5 54.5H44.5C39.8 54.5 36 50.7 36 46V14.5L47 3.5Z"
+      stroke="currentColor"
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+
+    {/* Row 1: short bar */}
+    <path d="M59.5 16.5H69.5" stroke="currentColor" strokeWidth="4.6" strokeLinecap="round" />
+
+    {/* Row 2: checkmark + bar */}
+    <path
+      d="M46.5 25L49 27.5L53.5 22.8"
+      stroke="currentColor"
+      strokeWidth="4.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M58 27.5H69.5" stroke="currentColor" strokeWidth="4.6" strokeLinecap="round" />
+
+    {/* Row 3: bullet + bar */}
+    <circle cx="47.5" cy="38.5" r="3" fill="currentColor" />
+    <path d="M53 38.5H69.5" stroke="currentColor" strokeWidth="4.6" strokeLinecap="round" />
+  </svg>
+);
+
 export const NexoEmptyTableWatermark: React.FC<{
   title: string;
   subtitle: string;
 }> = ({ title, subtitle }) => (
   <div className="absolute inset-x-0 top-[48px] bottom-0 flex flex-col items-center justify-center p-4 pointer-events-none select-none z-10 text-center">
-    <img
-      src="/ui_assets/empty_state_reference_exact.png"
-      alt="Sem registros"
-      className="max-h-[150px] object-contain mb-3 pointer-events-none"
-    />
+    <NexoEmptyStateIcon className="w-[115px] h-[58px] mb-3" />
     <p className="text-[15px] font-bold text-[#687796] dark:text-[#93A4C6] mb-1">
       {title}
     </p>

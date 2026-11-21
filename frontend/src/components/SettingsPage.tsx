@@ -380,15 +380,15 @@ const ThemeTriSwitch: React.FC<{
   const pointerState = useRef<{ active: boolean; startX: number; startLeft: number; moved: boolean }>({
     active: false,
     startX: 0,
-    startLeft: 4,
+    startLeft: 3,
     moved: false,
   });
 
   const leftForMode = (m: 'light' | 'dark' | 'system') =>
-    m === 'light' ? 4 : m === 'system' ? 40 : 76;
+    m === 'light' ? 3 : m === 'system' ? 39 : 75;
 
   const modeForLeft = (px: number): 'light' | 'system' | 'dark' =>
-    px < 22 ? 'light' : px <= 58 ? 'system' : 'dark';
+    px < 21 ? 'light' : px <= 57 ? 'system' : 'dark';
 
   const currentLeft = dragging && dragLeft !== null ? dragLeft : leftForMode(value);
   const visualMode = dragging && dragLeft !== null ? modeForLeft(dragLeft) : value;
@@ -499,7 +499,7 @@ const ThemeTriSwitch: React.FC<{
         {/* Bolinha deslizante */}
         <span
           style={{ left: `${currentLeft}px` }}
-          className={`absolute top-[3px] w-[36px] h-[36px] rounded-full bg-white shadow-md flex items-center justify-center ${
+          className={`absolute top-1/2 -translate-y-1/2 w-[36px] h-[36px] rounded-full bg-white shadow-md flex items-center justify-center ${
             dragging ? '' : 'transition-all duration-300 ease-out'
           }`}
         >
@@ -627,7 +627,7 @@ const LogoShapeSwitch: React.FC<{
       >
         <span
           style={{ left: `${currentLeft}px` }}
-          className={`absolute top-[2px] w-[26px] h-[26px] rounded-full bg-white shadow-md flex items-center justify-center ${
+          className={`absolute top-1/2 -translate-y-1/2 w-[26px] h-[26px] rounded-full bg-white shadow-md flex items-center justify-center ${
             dragging ? '' : 'transition-all duration-300 ease-out'
           }`}
         >
@@ -874,10 +874,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [convHiddenCols, setConvHiddenCols] = useState<string[]>(['brand', 'category', 'code']);
   const [convColMenuOpen, setConvColMenuOpen] = useState(false);
   const convColMenuRef = useRef<HTMLDivElement>(null);
+  const convColDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (convColMenuRef.current && !convColMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        convColMenuRef.current &&
+        !convColMenuRef.current.contains(target) &&
+        (!convColDropdownRef.current || !convColDropdownRef.current.contains(target))
+      ) {
         setConvColMenuOpen(false);
       }
     };
@@ -2287,7 +2293,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                       {companyLogo && (
                         <button
                           type="button"
-                          onClick={() => setCompanyLogo('')}
+                          onClick={() => {
+                            setCompanyLogo('');
+                            setBrandThemeEnabled(false);
+                          }}
                           className="text-[12px] font-medium text-[#DC2626] dark:text-[#F87171] hover:underline cursor-pointer"
                         >
                           Remover
@@ -2318,11 +2327,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
 
                     {/* Master Switch */}
-                    <div className="flex items-center gap-2">
-                      <NexoCheckbox
-                        checked={brandThemeEnabled}
-                        onChange={() => setBrandThemeEnabled(!brandThemeEnabled)}
-                        title="Ativar ou desativar personalização com cores da marca"
+                    <div
+                      onClick={() => {
+                        if (companyLogo) setBrandThemeEnabled(!brandThemeEnabled);
+                      }}
+                      className={`flex items-center gap-2.5 select-none ${
+                        companyLogo ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      <NexoToggleSwitch
+                        checked={Boolean(companyLogo) && brandThemeEnabled}
+                        onChange={(next) => {
+                          if (companyLogo) setBrandThemeEnabled(next);
+                        }}
+                        disabled={!companyLogo}
+                        tooltip={
+                          companyLogo
+                            ? 'Ativar ou desativar personalização com cores da marca'
+                            : 'Anexe uma logo primeiro para ativar'
+                        }
                       />
                       <span className="text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
                         Ativar identidade da marca
@@ -2330,7 +2353,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
                   </div>
 
-                  {brandThemeEnabled && (
+                  {companyLogo && brandThemeEnabled && (
                     <div className="pt-3 border-t border-[#E2EAF5] dark:border-[#203357] space-y-3">
                       {/* Seletor de Cor da Marca */}
                       <div className="flex flex-wrap items-center gap-3">
@@ -5093,7 +5116,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
 
             {/* Tabela de Unidades (Padrão Oficial Nexo) */}
-            <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-2.5 flex flex-col min-h-[300px] border border-[#E2EAF5] dark:border-[#203357] shadow-xs relative transition-colors overflow-hidden">
+            <div className="flex-1 w-full flex flex-col min-h-[300px] relative">
+              <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-2.5 flex flex-col border border-[#E2EAF5] dark:border-[#203357] shadow-xs relative transition-colors overflow-hidden">
               <div className="flex-1 w-full overflow-auto flex flex-col relative">
                 <div className="min-w-full w-max align-middle flex-1 flex flex-col">
                   {(() => {
@@ -5231,47 +5255,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                                 />
                               </button>
                             </div>
-
-                            {/* Menu Flutuante de Exibir Colunas */}
-                            {convColMenuOpen && (
-                              <div className="absolute right-0 top-[38px] w-[200px] rounded-[14px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-2 z-50">
-                                <div className="px-3.5 pb-1.5 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
-                                  Exibir Colunas
-                                </div>
-                                {[
-                                  { key: 'material_name', label: 'Insumo' },
-                                  { key: 'code', label: 'Código' },
-                                  { key: 'brand', label: 'Marca' },
-                                  { key: 'category', label: 'Categoria' },
-                                  { key: 'unit', label: 'Unidade' },
-                                  { key: 'unit_name', label: 'Unidade Personalizada' },
-                                  { key: 'equivalence', label: 'Equivalência Base' },
-                                ].map((col) => {
-                                  const isVis = isColVis(col.key);
-                                  return (
-                                    <div
-                                      key={col.key}
-                                      onClick={() => toggleConvColumnVisibility(col.key)}
-                                      className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
-                                    >
-                                      <NexoCheckbox
-                                        checked={isVis}
-                                        onChange={() => toggleConvColumnVisibility(col.key)}
-                                      />
-                                      <span
-                                        className={`text-[12.5px] ${
-                                          isVis
-                                            ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
-                                            : 'text-[#687796] dark:text-[#93A4C6]'
-                                        }`}
-                                      >
-                                        {col.label}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
                           </div>
                         </div>
 
@@ -5402,6 +5385,52 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   })()}
                 </div>
               </div>
+              </div>
+
+              {/* Menu Flutuante de Exibir Colunas (fora do overflow da tabela para não cortar nem gerar rolagem) */}
+              {convColMenuOpen && (
+                <div
+                  ref={convColDropdownRef}
+                  className="absolute right-[10px] top-[48px] w-[200px] rounded-[14px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-2 z-50"
+                >
+                  <div className="px-3.5 pb-1.5 text-[10.5px] font-bold tracking-wider text-[#A0ABB9] uppercase">
+                    Exibir Colunas
+                  </div>
+                  <div className="max-h-[min(320px,48vh)] overflow-y-auto">
+                    {[
+                      { key: 'code', label: 'Código' },
+                      { key: 'brand', label: 'Marca' },
+                      { key: 'category', label: 'Categoria' },
+                      { key: 'unit', label: 'Unidade' },
+                      { key: 'unit_name', label: 'Unidade Personalizada' },
+                      { key: 'equivalence', label: 'Equivalência Base' },
+                    ].map((col) => {
+                      const isVis = !convHiddenCols.includes(col.key);
+                      return (
+                        <div
+                          key={col.key}
+                          onClick={() => toggleConvColumnVisibility(col.key)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#EEF4FB] dark:hover:bg-[#172746] text-left transition-colors cursor-pointer select-none"
+                        >
+                          <NexoCheckbox
+                            checked={isVis}
+                            onChange={() => toggleConvColumnVisibility(col.key)}
+                          />
+                          <span
+                            className={`text-[12.5px] ${
+                              isVis
+                                ? 'text-[#18223A] dark:text-[#F4F7FF] font-medium'
+                                : 'text-[#687796] dark:text-[#93A4C6]'
+                            }`}
+                          >
+                            {col.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Rodapé da Janela */}
@@ -5415,7 +5444,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   setShowCustomUnitsModal(false);
                   setSelectedConversionIds(new Set());
                 }}
-                variant="primary"
+                variant="secondary"
                 height={36}
               />
             </div>
@@ -5464,24 +5493,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     {convMaterialName}
                   </div>
                 ) : (
-                  <select
-                    value={convMaterialId}
-                    onChange={(e) => {
-                      const mid = Number(e.target.value);
-                      setConvMaterialId(mid);
-                      const m = availableMaterials.find((x) => x.id === mid);
-                      if (m && m.purchase_unit) {
-                        setConvBaseUnit(m.purchase_unit);
-                      }
-                    }}
-                    className="w-full h-[36px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 focus:outline-none focus:ring-2 focus:ring-[#F28C28]"
-                  >
-                    {availableMaterials.map((mat) => (
-                      <option key={mat.id} value={mat.id}>
-                        {mat.name} ({mat.purchase_unit || 'un'})
-                      </option>
-                    ))}
-                  </select>
+                  (() => {
+                    const formatMatLabel = (m: any) => `${m.name} (${m.purchase_unit || 'un'})`;
+                    const selectedMat = availableMaterials.find((x) => x.id === convMaterialId);
+                    return (
+                      <RoundedDropdown
+                        value={selectedMat ? formatMatLabel(selectedMat) : ''}
+                        onChange={(lbl) => {
+                          const mat = availableMaterials.find((x) => formatMatLabel(x) === lbl);
+                          if (mat) {
+                            setConvMaterialId(mat.id);
+                            if (mat.purchase_unit) setConvBaseUnit(mat.purchase_unit);
+                          }
+                        }}
+                        options={availableMaterials.map(formatMatLabel)}
+                        width="100%"
+                        height={36}
+                        align="left"
+                        placeholder="Selecione um insumo..."
+                      />
+                    );
+                  })()
                 )}
               </div>
 
@@ -5518,17 +5550,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   <label className="block text-[11.5px] font-bold text-[#60769D] dark:text-[#93A4C6] mb-1">
                     Unidade de Medida
                   </label>
-                  <select
-                    value={convBaseUnit}
-                    onChange={(e) => setConvBaseUnit(e.target.value)}
-                    className="w-full h-[36px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 focus:outline-none focus:ring-2 focus:ring-[#F28C28]"
-                  >
-                    <option value="g">Gramas (g)</option>
-                    <option value="kg">Quilos (kg)</option>
-                    <option value="ml">Mililitros (ml)</option>
-                    <option value="l">Litros (l)</option>
-                    <option value="un">Unidade (un)</option>
-                  </select>
+                  {(() => {
+                    const unitOpts: { key: string; label: string }[] = [
+                      { key: 'g', label: 'Gramas (g)' },
+                      { key: 'kg', label: 'Quilos (kg)' },
+                      { key: 'ml', label: 'Mililitros (ml)' },
+                      { key: 'l', label: 'Litros (l)' },
+                      { key: 'un', label: 'Unidade (un)' },
+                    ];
+                    const curLabel =
+                      unitOpts.find((u) => u.key === convBaseUnit)?.label || convBaseUnit;
+                    return (
+                      <RoundedDropdown
+                        value={curLabel}
+                        onChange={(lbl) => {
+                          const found = unitOpts.find((u) => u.label === lbl);
+                          if (found) setConvBaseUnit(found.key);
+                        }}
+                        options={unitOpts.map((u) => u.label)}
+                        width="100%"
+                        height={36}
+                        align="left"
+                      />
+                    );
+                  })()}
                 </div>
               </div>
 
