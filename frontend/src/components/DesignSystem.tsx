@@ -951,6 +951,41 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
   { key: 'Configurações', label: 'Configurações', icon: '/ui_assets/settings.png' },
 ];
 
+const NexoCadastroNavIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg
+    viewBox="0 0 36 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-white pointer-events-none select-none ${className}`}
+  >
+    {/* Folhinha com corte no canto superior direito (mesmo desenho vetorial do empty state) */}
+    <path
+      d="M10.2 3H24L30 9V28.8C30 31.1 28.1 33 25.8 33H10.2C7.9 33 6 31.1 6 28.8V7.2C6 4.9 7.9 3 10.2 3Z"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Linha 1: check + traço (centralizado) */}
+    <path
+      d="M11.5 12.2L13.3 14L16.3 10.8"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M19 12.5H24.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    {/* Linha 2: ponto + traço */}
+    <circle cx="12.7" cy="18.5" r="1.6" fill="currentColor" />
+    <path d="M16.8 18.5H24.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    {/* Linha 3 (final): traço contínuo com a mesma largura total das linhas de cima */}
+    <path d="M12.3 24.5H24.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
 export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
   active,
   onSelect,
@@ -1030,8 +1065,8 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                   onMouseEnter={() => setHovered(item.key)}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    width: '42px',
-                    height: 'clamp(42px, 7.2vh, 56px)',
+                    width: '46px',
+                    height: 'clamp(44px, 7.4vh, 56px)',
                     borderRadius: '18px',
                     backgroundColor: isActive
                       ? dark
@@ -1045,11 +1080,15 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                   }}
                   className="flex items-center justify-center transition-all duration-150 cursor-pointer focus:outline-none"
                 >
-                  <img
-                    src={item.icon}
-                    alt={item.label}
-                    className="w-[clamp(28px,4.4vh,34px)] h-[clamp(28px,4.4vh,34px)] object-contain pointer-events-none"
-                  />
+                  {item.key === 'Cadastro' ? (
+                    <NexoCadastroNavIcon className="w-[clamp(31px,4.8vh,37px)] h-[clamp(31px,4.8vh,37px)]" />
+                  ) : (
+                    <img
+                      src={item.icon}
+                      alt={item.label}
+                      className="w-[clamp(31px,4.8vh,37px)] h-[clamp(31px,4.8vh,37px)] object-contain pointer-events-none"
+                    />
+                  )}
                 </button>
 
                 {/* Capsule Tooltip on Hover */}
