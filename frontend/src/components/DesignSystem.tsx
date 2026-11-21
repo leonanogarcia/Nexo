@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { NavKey, CompanyBrandSettings } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 // ---------- Vector Icons ----------
 
@@ -810,10 +811,11 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
   className = '',
   disabled = false,
 }) => {
+  const { formatMoneyInput } = useI18n();
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value;
     if (type === 'money') {
-      onChange(formatMoneyBR(v));
+      onChange(formatMoneyInput(v));
       return;
     }
     if (type === 'numeric') {
@@ -967,12 +969,12 @@ interface ReferenceSidebarProps {
   brandSettings?: CompanyBrandSettings;
 }
 
-const NAV_ITEMS: { key: NavKey; label: string }[] = [
-  { key: 'Geral', label: 'Início' },
-  { key: 'Cadastro', label: 'Cadastro' },
-  { key: 'Receitas', label: 'Receitas' },
-  { key: 'Produtos', label: 'Produtos' },
-  { key: 'Configurações', label: 'Configurações' },
+const NAV_ITEMS: { key: NavKey; labelKey: string }[] = [
+  { key: 'Geral', labelKey: 'nav.home' },
+  { key: 'Cadastro', labelKey: 'nav.materials' },
+  { key: 'Receitas', labelKey: 'nav.recipes' },
+  { key: 'Produtos', labelKey: 'nav.products' },
+  { key: 'Configurações', labelKey: 'nav.settings' },
 ];
 
 const NexoHomeNavIcon: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
@@ -1131,6 +1133,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
   brandSettings,
 }) => {
   const [hovered, setHovered] = useState<NavKey | null>(null);
+  const { t } = useI18n();
 
   return (
     <aside className="w-[150px] h-full shrink-0 flex flex-col items-center relative select-none">
@@ -1229,7 +1232,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                     }}
                     className="absolute left-[60px] top-1/2 -translate-y-1/2 h-[26px] px-3 rounded-full text-white font-semibold text-[11.5px] leading-none flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none animate-fade-in"
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </div>
                 )}
               </div>

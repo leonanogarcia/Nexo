@@ -49,6 +49,8 @@ function extractProminentColor(dataUrl: string): Promise<string> {
 }
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useI18n } from '../i18n/I18nContext';
+import { CURRENCY_META, CurrencyCode, DateFormatCode, LanguageCode, TimeFormatCode } from '../i18n/types';
 import {
   RoundedActionButton,
   CapsuleInput,
@@ -773,6 +775,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onBrandUpdate,
   onAiStatusChange,
 }) => {
+  const { language, currency, dateFormat, timeFormat, saveRegionalSettings, t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsCategoryKey>('geral');
   const [loading, setLoading] = useState(true);
 
@@ -787,7 +790,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [showCompanyName, setShowCompanyName] = useState(true);
   const [logoShape, setLogoShape] = useState<'round' | 'rect'>('round');
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(dark ? 'dark' : 'light');
-  const [language, setLanguage] = useState('Português (Brasil)');
   const [savingCompany, setSavingCompany] = useState(false);
   const [resettingBrand, setResettingBrand] = useState(false);
 
@@ -802,6 +804,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [showAiHelpModal, setShowAiHelpModal] = useState(false);
   const [showAiModelHelpModal, setShowAiModelHelpModal] = useState(false);
   const [showBrandHelpModal, setShowBrandHelpModal] = useState(false);
+  const [showRegionalHelpModal, setShowRegionalHelpModal] = useState(false);
   const [showAiOverviewModal, setShowAiOverviewModal] = useState(false);
   const [showMetricsHelpModal, setShowMetricsHelpModal] = useState(false);
   const [showSalesChannelsHelpModal, setShowSalesChannelsHelpModal] = useState(false);
@@ -1063,7 +1066,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     highlights: string[];
   }>({
     app_name: 'Nexo',
-    version: '2.0.0',
+    version: '2.1.1',
     release_date: '16/11/2026',
     edition: 'Local (SQLite)',
     os_info: 'Windows',
@@ -1218,8 +1221,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (data.about) {
         setAboutInfo({
           app_name: data.about.app_name || 'Nexo',
-          version: data.about.version || '2.0.0',
-          release_date: data.about.release_date || '16/11/2026',
+          version: data.about.version || '2.1.1',
+          release_date: data.about.release_date || '21/11/2026',
           edition: data.about.edition || 'Local (SQLite)',
           os_info: data.about.os_info || 'Windows',
           python_version: data.about.python_version || '-',
@@ -2164,7 +2167,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   if (loading) {
     return (
       <div className="flex-1 w-full rounded-[22px] bg-white dark:bg-[#111F3B] p-8 flex items-center justify-center text-[#687796] dark:text-[#93A4C6] text-[13px]">
-        Carregando configurações...
+        {t('settings.loading')}
       </div>
     );
   }
@@ -2178,10 +2181,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         {/* Menu Lateral de Configurações (220px) */}
         <div className="w-[220px] shrink-0 rounded-[22px] bg-white dark:bg-[#111F3B] p-3 shadow-sm flex flex-col gap-1.5 transition-colors">
           <div className="px-3 py-2 text-[10.5px] font-bold uppercase tracking-wider text-[#A0ABB9]">
-            Categorias
+            {t('settings.categories')}
           </div>
           {SETTINGS_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
+            const tabLabel = t(`settings.tab.${tab.key}`);
             return (
               <button
                 key={tab.key}
@@ -2194,7 +2198,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 }`}
               >
                 <span className="flex items-center justify-center">{tab.icon}</span>
-                <span className="truncate" title={tab.label}>{tab.label}</span>
+                <span className="truncate" title={tabLabel}>{tabLabel}</span>
               </button>
             );
           })}
@@ -2458,29 +2462,141 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 </div>
               </div>
 
-              {/* Painel: Idioma */}
-              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3 transition-colors">
-                <div className="flex items-center gap-2 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2.5">
-                  <GlobeLanguageIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
-                  <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                    Idioma
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-[12.5px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
-                    Idioma do Nexo:
-                  </span>
-                  <div className="w-[200px]">
-                    <RoundedDropdown
-                      value={language}
-                      onChange={setLanguage}
-                      options={['Português (Brasil)']}
-                      width={200}
-                      height={34}
-                    />
+              {/* Painel: Idioma e Região */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
+                <div className="flex items-start gap-2.5 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+                  <GlobeLanguageIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                        {t('settings.regional.title')}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowRegionalHelpModal(true)}
+                        className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                        title={t('settings.regional.help_title')}
+                      >
+                        <InfoCircleIcon className="w-[18px] h-[18px]" />
+                      </button>
+                    </div>
+                    <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] mt-0.5">
+                      {t('settings.regional.subtitle')}
+                    </p>
                   </div>
                 </div>
+
+                {(() => {
+                  const LANG_OPTIONS: { code: LanguageCode; label: string }[] = [
+                    { code: 'pt-BR', label: 'Português (Brasil)' },
+                    { code: 'en', label: 'English' },
+                    { code: 'es', label: 'Español' },
+                  ];
+                  const CURRENCY_OPTIONS: { code: CurrencyCode; label: string }[] = (
+                    Object.keys(CURRENCY_META) as CurrencyCode[]
+                  ).map((code) => ({
+                    code,
+                    label: CURRENCY_META[code].label,
+                  }));
+                  const DATE_OPTIONS: { code: DateFormatCode; label: string }[] = [
+                    { code: 'DD/MM/YYYY', label: 'DD/MM/AAAA (31/12/2026)' },
+                    { code: 'MM/DD/YYYY', label: 'MM/DD/AAAA (12/31/2026)' },
+                    { code: 'YYYY-MM-DD', label: 'AAAA-MM-DD (2026-12-31)' },
+                  ];
+                  const TIME_OPTIONS: { code: TimeFormatCode; label: string }[] = [
+                    { code: '24h', label: '24h (14:30)' },
+                    { code: '12h', label: '12h (02:30 PM)' },
+                  ];
+
+                  const handleRegionalChange = async (
+                    patch: Partial<{
+                      language: LanguageCode;
+                      currency: CurrencyCode;
+                      date_format: DateFormatCode;
+                      time_format: TimeFormatCode;
+                    }>
+                  ) => {
+                    const ok = await saveRegionalSettings(patch);
+                    onNotify(
+                      ok ? t('settings.regional.saved') : t('settings.regional.save_error'),
+                      ok ? 'success' : 'error'
+                    );
+                  };
+
+                  return (
+                    <div className="space-y-3.5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                            {t('settings.regional.language')}
+                          </label>
+                          <RoundedDropdown
+                            value={LANG_OPTIONS.find((o) => o.code === language)?.label || 'Português (Brasil)'}
+                            onChange={(lbl) => {
+                              const found = LANG_OPTIONS.find((o) => o.label === lbl);
+                              if (found) handleRegionalChange({ language: found.code });
+                            }}
+                            options={LANG_OPTIONS.map((o) => o.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                            {t('settings.regional.currency')}
+                          </label>
+                          <RoundedDropdown
+                            value={CURRENCY_OPTIONS.find((o) => o.code === currency)?.label || CURRENCY_META.BRL.label}
+                            onChange={(lbl) => {
+                              const found = CURRENCY_OPTIONS.find((o) => o.label === lbl);
+                              if (found) handleRegionalChange({ currency: found.code });
+                            }}
+                            options={CURRENCY_OPTIONS.map((o) => o.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                            {t('settings.regional.date_format')}
+                          </label>
+                          <RoundedDropdown
+                            value={DATE_OPTIONS.find((o) => o.code === dateFormat)?.label || DATE_OPTIONS[0].label}
+                            onChange={(lbl) => {
+                              const found = DATE_OPTIONS.find((o) => o.label === lbl);
+                              if (found) handleRegionalChange({ date_format: found.code });
+                            }}
+                            options={DATE_OPTIONS.map((o) => o.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[12px] font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                            {t('settings.regional.time_format')}
+                          </label>
+                          <RoundedDropdown
+                            value={TIME_OPTIONS.find((o) => o.code === timeFormat)?.label || TIME_OPTIONS[0].label}
+                            onChange={(lbl) => {
+                              const found = TIME_OPTIONS.find((o) => o.label === lbl);
+                              if (found) handleRegionalChange({ time_format: found.code });
+                            }}
+                            options={TIME_OPTIONS.map((o) => o.label)}
+                            width="100%"
+                            height={34}
+                            align="left"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}
@@ -5591,6 +5707,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 label={savingConv ? 'Salvando...' : 'Salvar Unidade'}
                 onClick={handleSaveConversionForm}
                 variant="primary"
+                height={36}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRegionalHelpModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-full max-w-[460px] rounded-[24px] bg-white dark:bg-[#13203A] border border-[#DFE6F0] dark:border-[#24375C] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+              <GlobeLanguageIcon className="w-7 h-7 text-[#BA5200] dark:text-[#F28C28] shrink-0" />
+              <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                {t('settings.regional.help_title')}
+              </h3>
+            </div>
+            <ul className="space-y-2.5 text-[12.5px] text-[#60769D] dark:text-[#93A4C6] leading-relaxed list-disc pl-4">
+              <li>{t('settings.regional.help_lang')}</li>
+              <li>{t('settings.regional.help_currency')}</li>
+              <li>{t('settings.regional.help_dates')}</li>
+            </ul>
+            <div className="flex justify-end pt-2 border-t border-[#F0F4FA] dark:border-[#1E3156]">
+              <RoundedActionButton
+                label={t('common.close')}
+                onClick={() => setShowRegionalHelpModal(false)}
+                variant="secondary"
                 height={36}
               />
             </div>

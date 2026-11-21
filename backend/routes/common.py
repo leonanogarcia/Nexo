@@ -177,11 +177,17 @@ def get_database_health(db_file: Optional[Path] = None) -> Dict[str, Any]:
             status = "yellow"
         reasons.append(f"Banco fragmentado ({_format_bytes_label(wasted_bytes)} recuperáveis). Clique em Compactar (VACUUM).")
 
-    health_label = {
-        "green": "Saudável",
-        "yellow": "Atenção",
-        "red": "Crítico",
-    }[status]
+    from ..i18n import get_active_language, translate_api_message
+    _lang = get_active_language()
+    health_label = translate_api_message(
+        {
+            "green": "Saudável",
+            "yellow": "Atenção",
+            "red": "Crítico",
+        }[status],
+        _lang,
+    )
+    reasons = [translate_api_message(r, _lang) for r in reasons]
 
     can_vacuum = disk_free_bytes == 0 or disk_free_bytes > max(size_bytes * 2, 10 * 1024 * 1024)
 

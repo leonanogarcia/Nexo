@@ -16,6 +16,10 @@ export interface SystemStatus {
   mat_hidden_cols: string[];
   rec_hidden_cols?: string[];
   ai_enabled?: boolean;
+  language?: 'pt-BR' | 'en' | 'es';
+  currency?: 'BRL' | 'USD' | 'EUR' | 'GBP';
+  date_format?: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+  time_format?: '24h' | '12h';
   is_packaged?: boolean;
   version: string;
 }

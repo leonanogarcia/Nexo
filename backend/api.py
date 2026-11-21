@@ -1,13 +1,21 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import UI_ASSETS, paths
+from .i18n import get_active_language, translate_api_message
 from .routes.common import get_database_health
 from .routes import documents_ai, home_bi, materials, products, recipes, settings
 
-app = FastAPI(title="Nexo API", version="2.0.0")
+app = FastAPI(title="Nexo API", version="2.1.1")
+
+
+@app.exception_handler(HTTPException)
+async def localized_http_exception_handler(_request: Request, exc: HTTPException):
+    lang = get_active_language()
+    detail = translate_api_message(exc.detail, lang)
+    return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +34,8 @@ async def storage_guard_middleware(request: Request, call_next):
         if path.startswith(guarded_prefixes) and not path.endswith("/delete"):
             health = get_database_health()
             if not health["can_write"]:
-                detail = " ".join(health["health_reasons"]) or "Sem espaço suficiente em disco ou teto do banco atingido."
+                raw_detail = " ".join(health["health_reasons"]) or "Sem espaço suficiente em disco ou teto do banco atingido."
+                detail = translate_api_message(raw_detail)
                 return JSONResponse(status_code=507, content={"detail": detail})
     return await call_next(request)
 

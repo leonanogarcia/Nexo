@@ -40,5 +40,14 @@
 Quando o usuário pedir para retomar a **v2.1**, lembrar e desenvolver estas **2 frentes grandes** combinadas:
 1. **Conectores de Banco de Dados Remoto / Servidor (Empresa, AWS, PostgreSQL, MySQL, Banco Online):**
    - Permitir configurar conexão com servidor da empresa, AWS RDS ou banco online na aba **Configurações → Banco de Dados** (host, porta, banco, usuário, senha protegida, SSL), adaptando a camada SQL do backend, suportando migração do SQLite atual e atualizando os botões **`(i)`** com o passo a passo de configuração.
-2. **Sistema Completo de Idiomas (i18n — Português, Inglês e Espanhol):**
-   - Fazer o campo **Idioma do Nexo** funcionar de verdade com `Português (Brasil)`, `English` e `Español`, traduzindo toda a interface (menus, cards, tabelas, modais, gráficos, ajudas `(i)` e mensagens do backend) sem alterar os dados cadastrados pelo usuário.
+2. **Sistema Completo de Idiomas (i18n — Português, Inglês e Espanhol) & Preferências Regionais:**
+   - **Regra de Ouro:** Dados cadastrados pelo usuário (nomes de insumos, marcas, categorias, receitas, produtos, unidades personalizadas, canais personalizados, histórico digitado, empresa) **JAMAIS** são traduzidos — apenas a interface do Nexo.
+   - **3 Controles Independentes** na aba **Configurações → Idioma & Região** (mudar um não altera os outros):
+     1. **Idioma:** `Português (Brasil)` (`pt-BR`, padrão), `English` (`en`), `Español` (`es`);
+     2. **Moeda:** `BRL (R$)` (padrão), `USD ($)`, `EUR (€)`, `GBP (£)` — troca símbolo e formatação sem conversão cambial;
+     3. **Formato de Data e Hora:** `DD/MM/YYYY` (padrão), `MM/DD/YYYY`, `YYYY-MM-DD` e `24h` / `12h`.
+   - **Plano em 4 Etapas:**
+     - **Etapa 1:** Infraestrutura (`frontend/src/i18n/` com `I18nContext`, `pt-BR`, `en`, `es`, `formatters`) + persistência no backend (`GET /api/status`, `GET /api/settings`, `POST /api/settings/regional`).
+     - **Etapa 2:** UI dos 3 seletores em `SettingsPage.tsx` + tradução completa de Configurações.
+     - **Etapa 3:** Tradução e formatadores dinâmicos em `DesignSystem`, `HomePage`, `MaterialsPage`, `RecipesPage`, `ProductsPage`, `ConversionsModal`, `DocumentAttachmentsModal` e `AiPreviewModals`.
+     - **Etapa 4:** Mensagens da API no backend alinhadas ao idioma ativo.

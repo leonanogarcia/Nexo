@@ -22,6 +22,7 @@ import {
   SparklesIcon,
 } from './components/DesignSystem';
 import { NavKey, SystemStatus, CompanyBrandSettings } from './types';
+import { useI18n } from './i18n/I18nContext';
 
 const HomePage = lazy(() => import('./components/HomePage').then((m) => ({ default: m.HomePage })));
 const MaterialsPage = lazy(() => import('./components/MaterialsPage').then((m) => ({ default: m.MaterialsPage })));
@@ -73,6 +74,7 @@ const PAGE_HEADERS: Record<NavKey, PageHeaderMeta> = {
 };
 
 export const App: React.FC = () => {
+  const { t } = useI18n();
   const [activePage, setActivePage] = useState<NavKey>('Geral');
   const [status, setStatus] = useState<SystemStatus>({
     connected: true,
@@ -82,7 +84,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v2.0.0',
+    version: 'v2.1.1',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -182,7 +184,16 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const headerKeyMap: Record<NavKey, { titleKey: string; subtitleKey: string }> = {
+    Geral: { titleKey: 'header.home.title', subtitleKey: 'header.home.subtitle' },
+    Cadastro: { titleKey: 'header.materials.title', subtitleKey: 'header.materials.subtitle' },
+    Receitas: { titleKey: 'header.recipes.title', subtitleKey: 'header.recipes.subtitle' },
+    Produtos: { titleKey: 'header.products.title', subtitleKey: 'header.products.subtitle' },
+    Configurações: { titleKey: 'header.settings.title', subtitleKey: 'header.settings.subtitle' },
+  };
   const headerInfo = PAGE_HEADERS[activePage];
+  const headerTitle = t(headerKeyMap[activePage].titleKey);
+  const headerSubtitle = t(headerKeyMap[activePage].subtitleKey);
 
   return (
     <div className="w-screen h-screen flex bg-[#F4F7FC] dark:bg-[#081226] text-[#18223A] dark:text-[#F4F7FF] transition-colors duration-200 overflow-hidden">
@@ -195,10 +206,10 @@ export const App: React.FC = () => {
         <header className="pt-8 pb-3.5 px-4 flex items-center justify-between shrink-0">
           <div>
             <h1 className="text-[30px] leading-tight font-bold text-[#18223A] dark:text-[#F4F7FF]">
-              {headerInfo.title}
+              {headerTitle}
             </h1>
             <p className="text-[13.5px] text-[#687796] dark:text-[#93A4C6] mt-0.5">
-              {headerInfo.subtitle}
+              {headerSubtitle}
             </p>
           </div>
 
@@ -333,11 +344,11 @@ export const App: React.FC = () => {
                 }`}
             />
             <span>
-              Banco de dados: {status.connected ? 'Conectado' : 'Desconectado'} · {status.db_name}
+              {t('footer.db_label')}: {status.connected ? t('footer.connected') : t('footer.disconnected')} · {status.db_name}
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>Nexo · Gestão de Custos e Precificação · v2.0.0</span>
+          <span>{t('footer.app_tagline')} · {status.version || 'v2.1.1'}</span>
         </footer>
       </main>
     </div>

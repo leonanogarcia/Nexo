@@ -140,8 +140,12 @@ def get_system_status():
         "rec_hidden_cols": rec_hidden_cols,
         "prod_hidden_cols": prod_hidden_cols,
         "ai_enabled": get_setting("ai_enabled", "0") in ("1", "true", "True"),
+        "language": get_setting("language", "pt-BR"),
+        "currency": get_setting("currency", "BRL"),
+        "date_format": get_setting("date_format", "DD/MM/YYYY"),
+        "time_format": get_setting("time_format", "24h"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v2.0.0",
+        "version": "v2.1.1",
     }
 
 
@@ -218,6 +222,12 @@ def get_all_settings():
         "apply_brand_to_buttons": apply_brand_to_buttons,
         "show_company_name": show_company_name,
         "logo_shape": logo_shape,
+        "regional": {
+            "language": get_setting("language", "pt-BR"),
+            "currency": get_setting("currency", "BRL"),
+            "date_format": get_setting("date_format", "DD/MM/YYYY"),
+            "time_format": get_setting("time_format", "24h"),
+        },
         "cost_settings": cost_list,
         "total_operational_percentage": round(total_pct, 1),
         "total_operational_fixed": round(total_fixed, 2),
@@ -278,8 +288,8 @@ def get_all_settings():
         },
         "about": {
             "app_name": "Nexo",
-            "version": "2.0.0",
-            "release_date": "16/11/2026",
+            "version": "2.1.1",
+            "release_date": "21/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
             "python_version": platform.python_version(),
@@ -290,6 +300,41 @@ def get_all_settings():
                 "Indicador de saúde do banco (Verde/Amarelo/Vermelho) no rodapé global e suporte universal a IA (Gemini, OpenAI, OpenRouter e Compatível OpenAI).",
                 "Padrão Único de Tabelas, Relatórios completos (PDF/Excel/CSV/XML) e Aba Sobre.",
             ],
+        },
+    }
+
+
+class RegionalSettingsPayload(BaseModel):
+    language: Optional[str] = "pt-BR"
+    currency: Optional[str] = "BRL"
+    date_format: Optional[str] = "DD/MM/YYYY"
+    time_format: Optional[str] = "24h"
+
+
+@router.post("/api/settings/regional")
+def save_regional_settings(payload: RegionalSettingsPayload):
+    valid_langs = {"pt-BR", "en", "es"}
+    valid_currencies = {"BRL", "USD", "EUR", "GBP"}
+    valid_dates = {"DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"}
+    valid_times = {"24h", "12h"}
+
+    lang = payload.language if payload.language in valid_langs else "pt-BR"
+    curr = payload.currency if payload.currency in valid_currencies else "BRL"
+    dfmt = payload.date_format if payload.date_format in valid_dates else "DD/MM/YYYY"
+    tfmt = payload.time_format if payload.time_format in valid_times else "24h"
+
+    set_setting("language", lang)
+    set_setting("currency", curr)
+    set_setting("date_format", dfmt)
+    set_setting("time_format", tfmt)
+
+    return {
+        "ok": True,
+        "regional": {
+            "language": lang,
+            "currency": curr,
+            "date_format": dfmt,
+            "time_format": tfmt,
         },
     }
 
@@ -320,7 +365,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/2.0.0"}
+    base_headers = {"User-Agent": "Nexo/2.1.1"}
 
     if provider == "Google Gemini":
         if not api_key:

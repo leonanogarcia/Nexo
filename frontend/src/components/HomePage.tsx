@@ -10,6 +10,7 @@ import {
   useNexoColumnWidths,
 } from './DesignSystem';
 import { NavKey } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 interface HomePageProps {
   onNavigate: (tab: NavKey) => void;
@@ -141,22 +142,6 @@ interface BiDetailsData {
     custo_fmt: string;
   }[];
 }
-
-const PERIOD_LABELS: Record<string, string> = {
-  '30d': 'Últimos 30 dias',
-  '3m': 'Últimos 3 meses',
-  '6m': 'Últimos 6 meses',
-  '12m': 'Últimos 12 meses',
-  'all': 'Todo o histórico',
-};
-
-const PERIOD_KEYS_BY_LABEL: Record<string, string> = {
-  'Últimos 30 dias': '30d',
-  'Últimos 3 meses': '3m',
-  'Últimos 6 meses': '6m',
-  'Últimos 12 meses': '12m',
-  'Todo o histórico': 'all',
-};
 
 function getBiPaletteColors(prefs?: BiPreferences): string[] {
   if (!prefs) return ['#F28C28', '#18223A', '#2F72FF', '#18C39B', '#9C5CFF'];
@@ -551,12 +536,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
     void fetchDashboard();
   }, []);
 
-  const handlePeriodChange = (label: string) => {
-    const key = PERIOD_KEYS_BY_LABEL[label] || '12m';
-    setSelectedPeriod(key);
-    void fetchDashboard(key);
-  };
-
   const openBiModal = async (initialTab: BiTabKey) => {
     setBiTab(initialTab);
     setBiSearch('');
@@ -637,23 +616,38 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    onNotify('Relatório de BI exportado com sucesso!', 'success');
+    onNotify(t('home.bi_exported'), 'success');
   };
 
+  const { t, formatCurrency, formatDate } = useI18n();
+  const periodLabelMap: Record<string, string> = {
+    '30d': t('home.period.30d'),
+    '3m': t('home.period.3m'),
+    '6m': t('home.period.6m'),
+    '12m': t('home.period.12m'),
+    all: t('home.period.all'),
+  };
+  const periodKeysByLabel: Record<string, string> = {
+    [t('home.period.30d')]: '30d',
+    [t('home.period.3m')]: '3m',
+    [t('home.period.6m')]: '6m',
+    [t('home.period.12m')]: '12m',
+    [t('home.period.all')]: 'all',
+  };
   const palette = getBiPaletteColors(dashboard?.bi_preferences);
-  const currentPeriodLabel = PERIOD_LABELS[selectedPeriod || dashboard?.period || '12m'] || 'Últimos 12 meses';
+  const currentPeriodLabel = periodLabelMap[selectedPeriod || dashboard?.period || '12m'] || t('home.period.12m');
   const alertThreshold = dashboard?.bi_preferences?.cost_variation_alert_pct ?? 10;
   const targetMargin = dashboard?.bi_preferences?.target_margin_pct ?? 30;
   const avgMargin = dashboard?.avg_margin_pct ?? null;
 
   return (
     <div className="h-full overflow-y-auto pr-1 space-y-4">
-      {/* 1. 3 Cards de KPI clicáveis (Produtos, Receitas base, Insumos) */}
+      {/* 1. 3 Cards de KPI clicáveis (Produtos, Receitas, Insumos) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {[
-          { label: 'Produtos', suffix: 'cadastrados', value: dashboard?.kpis.products ?? 0, target: 'Produtos' as NavKey },
-          { label: 'Receitas', suffix: 'cadastradas', value: dashboard?.kpis.recipes ?? 0, target: 'Receitas' as NavKey },
-          { label: 'Insumos', suffix: 'cadastrados', value: dashboard?.kpis.materials ?? 0, target: 'Cadastro' as NavKey },
+          { label: t('home.kpi.products'), suffix: t('home.kpi.products_suffix'), value: dashboard?.kpis.products ?? 0, target: 'Produtos' as NavKey },
+          { label: t('home.kpi.recipes'), suffix: t('home.kpi.recipes_suffix'), value: dashboard?.kpis.recipes ?? 0, target: 'Receitas' as NavKey },
+          { label: t('home.kpi.materials'), suffix: t('home.kpi.materials_suffix'), value: dashboard?.kpis.materials ?? 0, target: 'Cadastro' as NavKey },
         ].map((card) => (
           <button
             key={card.label}
@@ -682,12 +676,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
         <div className="lg:col-span-2 rounded-[20px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h3 className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-              Custo dos Produtos
+              {t('home.cost_products')}
             </h3>
             <RoundedDropdown
               value={currentPeriodLabel}
-              onChange={handlePeriodChange}
-              options={Object.keys(PERIOD_KEYS_BY_LABEL)}
+              onChange={(lbl) => {
+                const key = periodKeysByLabel[lbl];
+                if (key) {
+                  setSelectedPeriod(key);
+                  fetchDashboard(key);
+                }
+              }}
+              options={Object.keys(periodKeysByLabel)}
               width={165}
               height={30}
             />
@@ -703,14 +703,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
         <div className="rounded-[20px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm flex items-center">
           <div className="w-full rounded-[18px] bg-[#F8FAFD] dark:bg-[#142544] border border-[#E2EAF5] dark:border-[#24385E] p-5 space-y-2.5">
             <div className="text-[12px] font-bold text-[#60769D] dark:text-[#93A4C6]">
-              Custo médio dos produtos
+              {t('home.avg_product_cost')}
             </div>
             <div className="text-[28px] font-extrabold text-[#18223A] dark:text-[#F4F7FF] leading-tight">
-              {dashboard?.avg_product_cost_fmt || 'R$ 0,00'}
+              {formatCurrency(dashboard?.avg_product_cost ?? 0)}
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-[#E6F9F5] dark:bg-[#123B39] text-[#0F9D7A] dark:text-[#56D4B4]">
-                calculado agora
+                {t('home.calculated_now')}
               </span>
               {avgMargin !== null && (
                 <span
@@ -720,12 +720,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
                       : 'bg-[#FEF3C7] dark:bg-[#3B2A0F] text-[#D97706] dark:text-[#FBBF24]'
                   }`}
                 >
-                  Margem média: {avgMargin.toFixed(1).replace('.', ',')}% (Meta: {targetMargin}%)
+                  {t('home.avg_margin', { avg: avgMargin.toFixed(1).replace('.', ','), target: targetMargin })}
                 </span>
               )}
             </div>
             <div className="text-[11px] text-[#8C9BB5] dark:text-[#64748B]">
-              com base nos custos cadastrados
+              {t('home.based_on_costs')}
             </div>
           </div>
         </div>
@@ -735,11 +735,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
         <div className="h-[245px] rounded-[20px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm flex flex-col gap-3">
           <div className="shrink-0">
-            <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">Compras</h3>
+            <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">{t('home.purchases')}</h3>
             <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">{currentPeriodLabel.toLowerCase()}</p>
           </div>
           {!dashboard?.purchases_by_category?.length ? (
-            <p className="text-[12px] text-[#8C9BB5] py-3">Nenhuma compra registrada ainda.</p>
+            <p className="text-[12px] text-[#8C9BB5] py-3">{t('home.no_purchases')}</p>
           ) : (
             <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
               {dashboard.purchases_by_category.map((cat, idx) => (
@@ -752,7 +752,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
                     <span className="text-[#18223A] dark:text-[#F4F7FF] truncate" title={cat.category}>{cat.category}</span>
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
-                    <span className="font-bold text-[#18223A] dark:text-[#F4F7FF]">{cat.total_fmt}</span>
+                    <span className="font-bold text-[#18223A] dark:text-[#F4F7FF]">{formatCurrency(cat.total)}</span>
                     <span className="text-[#60769D] dark:text-[#93A4C6] w-10 text-right">{cat.pct.toFixed(0)}%</span>
                   </div>
                 </div>
@@ -764,9 +764,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
         <div className="h-[245px] rounded-[20px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm flex flex-col gap-3">
           <div className="flex items-start justify-between gap-2 shrink-0">
             <div>
-              <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">Variação de preços</h3>
+              <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">{t('home.price_variation')}</h3>
               <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
-                histórico por insumo (alerta a partir de {alertThreshold}%)
+                {t('home.price_variation_sub', { pct: alertThreshold })}
               </p>
             </div>
             <button
@@ -774,12 +774,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
               onClick={() => openBiModal('insumo')}
               className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#F28C28] hover:text-[#BA5200] transition-colors cursor-pointer shrink-0"
             >
-              <span>Ver todas</span>
+              <span>{t('home.view_all')}</span>
               <OpenSectionIcon className="w-4 h-4" />
             </button>
           </div>
           {!dashboard?.price_variations?.length ? (
-            <p className="text-[12px] text-[#8C9BB5] py-3">Ainda não há histórico suficiente.</p>
+            <p className="text-[12px] text-[#8C9BB5] py-3">{t('home.no_history')}</p>
           ) : (
             <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
               {dashboard.price_variations.map((v) => (
@@ -788,7 +788,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
                   <div className="flex items-center gap-2 shrink-0">
                     {v.is_alert && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEE2E2] dark:bg-[#3F1518] text-[#DC2626] dark:text-[#F87171]">
-                        Alerta
+                        {t('home.alert')}
                       </span>
                     )}
                     <span
@@ -814,10 +814,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <div className="flex items-start justify-between gap-2 shrink-0">
             <div>
               <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                Produtos abaixo da meta de margem
+                {t('home.below_target')}
               </h3>
               <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
-                comparativo com a meta configurada ({targetMargin}%)
+                {t('home.below_target_sub', { pct: targetMargin })}
               </p>
             </div>
             <button
@@ -825,13 +825,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
               onClick={() => onNavigate('Produtos')}
               className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#F28C28] hover:text-[#BA5200] transition-colors cursor-pointer shrink-0"
             >
-              <span>Ajustar</span>
+              <span>{t('home.adjust')}</span>
               <OpenSectionIcon className="w-4 h-4" />
             </button>
           </div>
           {!dashboard?.below_target_margin?.length ? (
             <div className="flex-1 flex items-center text-[12px] text-[#16A34A] dark:text-[#4ADE80] font-medium">
-              Todos os produtos precificados estão dentro ou acima da meta de {targetMargin}%.
+              {t('home.all_above_target', { pct: targetMargin })}
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
@@ -842,7 +842,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
                       {prod.name}
                     </div>
                     <div className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
-                      Custo: {prod.unit_cost_fmt} · Venda: {prod.sale_price_fmt}
+                      {t('home.cost_label')}: {prod.unit_cost_fmt} · {t('home.sale_label')}: {prod.sale_price_fmt}
                     </div>
                   </div>
                   <span
@@ -864,20 +864,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <div className="flex items-start justify-between gap-2 shrink-0">
             <div>
               <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                Ranking de Lucro & Custo
+                {t('home.ranking_title')}
               </h3>
               <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
-                maiores lucros unitários vs. maiores custos de produção
+                {t('home.ranking_sub')}
               </p>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wide text-[#0F9D7A] dark:text-[#56D4B4]">
-                Maior Lucro
+                {t('home.highest_profit')}
               </div>
               {!dashboard?.profit_ranking?.length ? (
-                <p className="text-[12px] text-[#8C9BB5]">Sem preços de venda cadastrados.</p>
+                <p className="text-[12px] text-[#8C9BB5]">{t('home.no_sale_prices')}</p>
               ) : (
                 dashboard.profit_ranking.map((p, idx) => (
                   <div key={p.id} className="flex items-center justify-between gap-2 text-[12px]">
@@ -894,10 +894,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
 
             <div className="space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wide text-[#BA5200] dark:text-[#F28C28]">
-                Maior Custo
+                {t('home.highest_cost')}
               </div>
               {!dashboard?.highest_cost_products?.length ? (
-                <p className="text-[12px] text-[#8C9BB5]">Sem produtos cadastrados.</p>
+                <p className="text-[12px] text-[#8C9BB5]">{t('home.no_products')}</p>
               ) : (
                 dashboard.highest_cost_products.map((p, idx) => (
                   <div key={p.id} className="flex items-center justify-between gap-2 text-[12px]">
@@ -921,7 +921,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] shrink-0" />
             <span className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-              Pendências do Cadastro:
+              {t('home.pending_title')}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -943,31 +943,31 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
       {/* 6. Últimas Movimentações */}
       <div className="rounded-[20px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">Últimas movimentações</h3>
+          <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">{t('home.recent_moves')}</h3>
           <button
             type="button"
             onClick={() => onNavigate('Cadastro')}
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#F28C28] hover:text-[#BA5200] transition-colors cursor-pointer"
           >
-            <span>Ver todas</span>
+            <span>{t('home.view_all')}</span>
             <OpenSectionIcon className="w-4 h-4" />
           </button>
         </div>
 
         <div className="rounded-full bg-[#F8FAFD] dark:bg-[#142544] px-4 py-1.5 grid grid-cols-12 text-[11.5px] font-bold text-[#60769D] dark:text-[#93A4C6]">
-          <div className="col-span-3">Data</div>
-          <div className="col-span-5">Descrição</div>
-          <div className="col-span-2 text-center">Tipo</div>
-          <div className="col-span-2 text-right">Valor</div>
+          <div className="col-span-3">{t('home.col.date')}</div>
+          <div className="col-span-5">{t('home.col.description')}</div>
+          <div className="col-span-2 text-center">{t('home.col.type')}</div>
+          <div className="col-span-2 text-right">{t('home.col.value')}</div>
         </div>
 
         {!dashboard?.recent_purchases?.length ? (
-          <p className="text-[12px] text-[#8C9BB5] py-2 px-2">Nenhuma movimentação registrada ainda.</p>
+          <p className="text-[12px] text-[#8C9BB5] py-2 px-2">{t('home.no_moves')}</p>
         ) : (
           <div className="divide-y divide-[#F0F4FA] dark:divide-[#1E3156]">
             {dashboard.recent_purchases.map((item) => (
               <div key={item.id} className="grid grid-cols-12 items-center px-4 py-2 text-[12.5px]">
-                <div className="col-span-3 text-[#60769D] dark:text-[#93A4C6]">{item.date}</div>
+                <div className="col-span-3 text-[#60769D] dark:text-[#93A4C6]">{formatDate(item.date)}</div>
                 <div className="col-span-5 text-[#18223A] dark:text-[#F4F7FF] truncate pr-2" title={item.description}>
                   {item.description}
                 </div>
@@ -977,7 +977,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
                   </span>
                 </div>
                 <div className="col-span-2 text-right font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                  {item.value_fmt}
+                  {formatCurrency(item.value)}
                 </div>
               </div>
             ))}
@@ -991,12 +991,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
               <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                Histórico mensal de compras
+                {t('home.donut.purchases_title')}
               </h3>
-              <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">participação por insumo</p>
+              <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">{t('home.donut.purchases_sub')}</p>
             </div>
             <RoundedActionButton
-              label="Ver detalhes"
+              label={t('home.view_details')}
               onClick={() => openBiModal('insumo')}
               variant="primary"
               height={32}
@@ -1005,7 +1005,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <BiDonutChart
             slices={dashboard?.purchase_pie_slices || []}
             palette={palette}
-            emptyMessage="Sem compras registradas."
+            emptyMessage={t('home.donut.purchases_empty')}
           />
         </div>
 
@@ -1013,12 +1013,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
               <h3 className="text-[14px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                Evolução de custos
+                {t('home.donut.costs_title')}
               </h3>
-              <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">comparativo de receitas e produtos</p>
+              <p className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">{t('home.donut.costs_sub')}</p>
             </div>
             <RoundedActionButton
-              label="Ver detalhes"
+              label={t('home.view_details')}
               onClick={() => openBiModal('custos')}
               variant="primary"
               height={32}
@@ -1027,7 +1027,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
           <BiDonutChart
             slices={dashboard?.cost_pie_slices || []}
             palette={palette}
-            emptyMessage="Sem custos calculados."
+            emptyMessage={t('home.donut.costs_empty')}
           />
         </div>
       </div>
@@ -1039,14 +1039,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                  BI — Histórico de Compras e Evolução de Custos
+                  {t('home.bi_modal_title')}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setBiModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-white dark:bg-[#142544] border border-[#DCE4F0] dark:border-[#24385E] text-[#60769D] hover:text-[#BA5200] flex items-center justify-center cursor-pointer"
-                title="Fechar"
+                title={t('common.close')}
               >
                 ✕
               </button>
@@ -1057,9 +1057,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onNotify }) => {
               <div className="flex flex-wrap items-center gap-2">
                 {(
                   [
-                    { key: 'insumo', label: 'Variação por Insumo' },
-                    { key: 'marca', label: 'Variação por Marca' },
-                    { key: 'custos', label: 'Evolução de Custos' },
+                    { key: 'insumo', label: t('home.bi_tab.insumo') },
+                    { key: 'marca', label: t('home.bi_tab.marca') },
+                    { key: 'custos', label: t('home.bi_tab.custos') },
                   ] as { key: BiTabKey; label: string }[]
                 ).map((t) => {
                   const active = biTab === t.key;
