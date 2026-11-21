@@ -11,6 +11,7 @@ import {
   ClockIcon,
   ColumnResizeHandle,
   DuplicateIcon,
+  EditPencilIcon,
   EditPenIcon,
   GearPolygonIcon,
   NexoCheckbox,
@@ -987,13 +988,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                             openEditMaterial(item);
                           }}
                           title={item.active ? 'Editar' : 'Editar (Desativado)'}
-                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer disabled:cursor-default transition-colors"
                         >
-                          <img
-                            src="/ui_assets/action_edit_reference_exact.png"
-                            alt="Editar"
-                            className="w-4 h-4 object-contain"
-                          />
+                          <EditPencilIcon size={16} />
                         </button>
 
                         {/* Delete Button */}
@@ -1004,13 +1001,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                             triggerDeleteCheck([item.id]);
                           }}
                           title="Excluir"
-                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+                          className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
                         >
-                          <img
-                            src="/ui_assets/action_delete_reference_exact.png"
-                            alt="Excluir"
-                            className="w-4 h-4 object-contain"
-                          />
+                          <TrashIcon size={16} />
                         </button>
 
                         {/* 3-dots Options Button */}
@@ -1062,7 +1055,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             }}
             className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] disabled:opacity-35 cursor-pointer disabled:cursor-default"
           >
-            <img src="/ui_assets/action_edit_reference_exact.png" alt="" className="w-4 h-4" />
+            <EditPencilIcon size={16} className="text-[#687796] dark:text-[#AFC0E2]" />
             <span>{rowMenu.item.active ? 'Editar' : 'Editar (Desativado)'}</span>
           </button>
 
@@ -1088,7 +1081,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             }}
             className="w-full h-[34px] px-3.5 flex items-center gap-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] hover:bg-[#F4F7FC] dark:hover:bg-[#20375F] cursor-pointer"
           >
-            <img src="/ui_assets/action_delete_reference_exact.png" alt="" className="w-4 h-4" />
+            <TrashIcon size={16} className="text-[#DC2626] dark:text-[#F87171]" />
             <span>Excluir</span>
           </button>
 

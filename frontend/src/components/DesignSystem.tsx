@@ -229,6 +229,30 @@ export const DuplicateIcon: React.FC<{ color?: string; size?: number; className?
   </svg>
 );
 
+export const EditPencilIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
+  color = 'currentColor',
+  size = 16,
+  className = '',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M4.2 15.6L14.3 5.5L18.5 9.7L8.4 19.8L3.8 20.4C3.5 20.45 3.35 20.3 3.4 20L4.2 15.6Z"
+      fill={color}
+    />
+    <path
+      d="M15.7 4.1L17.4 2.4C18 1.8 19 1.8 19.6 2.4L21.6 4.4C22.2 5 22.2 6 21.6 6.6L19.9 8.3L15.7 4.1Z"
+      fill={color}
+    />
+  </svg>
+);
+
 export const TrashIcon: React.FC<{ color?: string; size?: number; className?: string }> = ({
   color = 'currentColor',
   size = 15,
@@ -943,13 +967,31 @@ interface ReferenceSidebarProps {
   brandSettings?: CompanyBrandSettings;
 }
 
-const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
-  { key: 'Geral', label: 'Início', icon: '/ui_assets/home.png' },
-  { key: 'Cadastro', label: 'Cadastro', icon: '/ui_assets/cadastro.png' },
-  { key: 'Receitas', label: 'Receitas', icon: '/ui_assets/receitas.png' },
-  { key: 'Produtos', label: 'Produtos', icon: '/ui_assets/produtos.png' },
-  { key: 'Configurações', label: 'Configurações', icon: '/ui_assets/settings.png' },
+const NAV_ITEMS: { key: NavKey; label: string }[] = [
+  { key: 'Geral', label: 'Início' },
+  { key: 'Cadastro', label: 'Cadastro' },
+  { key: 'Receitas', label: 'Receitas' },
+  { key: 'Produtos', label: 'Produtos' },
+  { key: 'Configurações', label: 'Configurações' },
 ];
+
+const NexoHomeNavIcon: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg
+    viewBox="0 0 36 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-white pointer-events-none select-none ${className}`}
+  >
+    <path
+      d="M18 4.8L6.6 14.4C6.1 14.9 5.8 15.6 5.8 16.4V27.6C5.8 29.6 7.4 31.2 9.4 31.2H14.3V23C14.3 21.9 15.2 21 16.3 21H19.7C20.8 21 21.7 21.9 21.7 23V31.2H26.6C28.6 31.2 30.2 29.6 30.2 27.6V16.4C30.2 15.6 29.9 14.9 29.4 14.4L18 4.8Z"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 const NexoCadastroNavIcon: React.FC<{ className?: string }> = ({
   className = 'w-full h-full',
@@ -985,6 +1027,102 @@ const NexoCadastroNavIcon: React.FC<{ className?: string }> = ({
     <path d="M12.3 24.5H24.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
   </svg>
 );
+
+const NexoRecipesNavIcon: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg
+    viewBox="0 0 36 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-white pointer-events-none select-none ${className}`}
+  >
+    <path
+      d="M8.5 14.5H27.5C29.4 14.5 31 16.1 31 18V20.6C31 21.4 30.6 22.1 30 22.5C30.6 22.9 31 23.6 31 24.5V27.8C31 29.8 29.4 31.4 27.5 31.4H8.5C6.6 31.4 5 29.8 5 27.8V24.5C5 23.6 5.4 22.9 6 22.5C5.4 22.1 5 21.4 5 20.6V18C5 16.1 6.6 14.5 8.5 14.5Z"
+      stroke="currentColor"
+      strokeWidth="2.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Franja de cobertura: 4 arcos (U) ligados entre si formando pontinhas para cima */}
+    <path
+      d="M5.6 22.2Q8.7 25.6 11.8 22.2Q14.9 25.6 18 22.2Q21.1 25.6 24.2 22.2Q27.3 25.6 30.4 22.2"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M11.5 14.5V10.6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M18 14.5V10.6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M24.5 14.5V10.6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <circle cx="11.5" cy="6.2" r="1.9" fill="currentColor" />
+    <circle cx="18" cy="6.2" r="1.9" fill="currentColor" />
+    <circle cx="24.5" cy="6.2" r="1.9" fill="currentColor" />
+  </svg>
+);
+
+const NexoProductsNavIcon: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg
+    viewBox="0 0 36 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-white pointer-events-none select-none ${className}`}
+  >
+    {/* Topo do cupcake: arco lateral incompleto com menos sobra nas pontas */}
+    <path
+      d="M7 20.2C5.8 19.6 5.6 18 5.8 16C6.2 12.2 9.2 9 13 8.4C14 5.6 15.8 4.4 18 4.4C20.2 4.4 22 5.6 23 8.4C26.8 9 29.8 12.2 30.2 16C30.4 18 30.2 19.6 29 20.2"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Serrilhado suavizado (menor amplitude entre crista e vale) */}
+    <path
+      d="M7 20.2L9.7 21.1L12.4 19.6L15.2 21.1L18 19.6L20.8 21.1L23.6 19.6L26.3 21.1L29 20.2"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Base / forminha um pouco maior e mais larga */}
+    <path
+      d="M8.4 20.8L10.6 29.8C10.9 30.9 11.8 31.6 13 31.6H23C24.2 31.6 25.1 30.9 25.4 29.8L27.6 20.8"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const NexoSettingsNavIcon: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg
+    viewBox="0 0 36 36"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    className={`text-white pointer-events-none select-none ${className}`}
+  >
+    {/* 6 dentes matematicamente equidistantes a cada 60° em torno de (18, 18) */}
+    <path
+      d="M14.67 8.04L14.72 3.77L21.28 3.77L21.33 8.04L24.96 10.14L28.68 8.04L31.96 13.73L28.29 15.91L28.29 20.09L31.96 22.27L28.68 27.96L24.96 25.86L21.33 27.96L21.28 32.23L14.72 32.23L14.67 27.96L11.04 25.86L7.32 27.96L4.04 22.27L7.71 20.09L7.71 15.91L4.04 13.73L7.32 8.04L11.04 10.14Z"
+      stroke="currentColor"
+      strokeWidth="2.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="18" cy="18" r="3.7" stroke="currentColor" strokeWidth="2.6" />
+  </svg>
+);
+
+const renderSidebarNavIcon = (key: NavKey) => {
+  const cls = 'w-[clamp(31px,4.8vh,37px)] h-[clamp(31px,4.8vh,37px)]';
+  if (key === 'Geral') return <NexoHomeNavIcon className={cls} />;
+  if (key === 'Cadastro') return <NexoCadastroNavIcon className={cls} />;
+  if (key === 'Receitas') return <NexoRecipesNavIcon className={cls} />;
+  if (key === 'Produtos') return <NexoProductsNavIcon className={cls} />;
+  return <NexoSettingsNavIcon className={cls} />;
+};
 
 export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
   active,
@@ -1080,15 +1218,7 @@ export const ReferenceSidebar: React.FC<ReferenceSidebarProps> = ({
                   }}
                   className="flex items-center justify-center transition-all duration-150 cursor-pointer focus:outline-none"
                 >
-                  {item.key === 'Cadastro' ? (
-                    <NexoCadastroNavIcon className="w-[clamp(31px,4.8vh,37px)] h-[clamp(31px,4.8vh,37px)]" />
-                  ) : (
-                    <img
-                      src={item.icon}
-                      alt={item.label}
-                      className="w-[clamp(31px,4.8vh,37px)] h-[clamp(31px,4.8vh,37px)] object-contain pointer-events-none"
-                    />
-                  )}
+                  {renderSidebarNavIcon(item.key)}
                 </button>
 
                 {/* Capsule Tooltip on Hover */}

@@ -57,6 +57,7 @@ import {
   NexoCheckbox,
   NexoToggleSwitch,
   TrashIcon,
+  EditPencilIcon,
   PlusIcon,
   RoundedEntry,
   GearPolygonIcon,
@@ -5353,13 +5354,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                                     type="button"
                                     onClick={() => handleOpenEditConversion(item)}
                                     title="Editar"
-                                    className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                                    className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
                                   >
-                                    <img
-                                      src="/ui_assets/action_edit_reference_exact.png"
-                                      alt="Editar"
-                                      className="w-4 h-4 object-contain"
-                                    />
+                                    <EditPencilIcon size={16} />
                                   </button>
 
                                   {/* Delete Button */}
@@ -5367,13 +5364,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                                     type="button"
                                     onClick={() => handleDeleteConversion(item.id)}
                                     title="Excluir"
-                                    className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                                    className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
                                   >
-                                    <img
-                                      src="/ui_assets/action_delete_reference_exact.png"
-                                      alt="Excluir"
-                                      className="w-4 h-4 object-contain"
-                                    />
+                                    <TrashIcon size={16} />
                                   </button>
                                 </div>
                               </div>
