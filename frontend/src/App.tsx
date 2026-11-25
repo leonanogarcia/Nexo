@@ -84,7 +84,7 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v2.1.2',
+    version: 'v2.1.3',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
@@ -143,7 +143,7 @@ export const App: React.FC = () => {
               const chkData = await chkRes.json();
               if (chkData.has_update && chkData.latest_version) {
                 setUpdatePrompt({
-                  current_version: chkData.current_version || '2.1.2',
+                  current_version: chkData.current_version || '2.1.3',
                   latest_version: chkData.latest_version,
                 });
               }
@@ -371,7 +371,7 @@ export const App: React.FC = () => {
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>{t('footer.app_tagline')} · {status.version || 'v2.1.2'}</span>
+          <span>{t('footer.app_tagline')} · {status.version || 'v2.1.3'}</span>
         </footer>
       </main>
 

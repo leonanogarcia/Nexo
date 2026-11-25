@@ -566,7 +566,7 @@ export const RoundedActionButton: React.FC<RoundedActionButtonProps> = ({
     >
       {icon && <span className="inline-flex items-center justify-center shrink-0">{icon}</span>}
       <span
-        className={`truncate leading-none ${icon ? '-translate-y-[0.5px]' : '-translate-y-[1px]'}`}
+        className={`${width ? 'truncate' : 'whitespace-nowrap'} leading-[1.35]`}
         title={label}
       >
         {label}
@@ -879,7 +879,7 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={value || placeholder}
-            className={`w-full h-full bg-transparent text-[13px] leading-none focus:outline-none text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] font-normal ${
+            className={`w-full h-full bg-transparent text-[13px] leading-[1.35] focus:outline-none text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] font-normal ${
               align === 'center' ? 'text-center' : 'text-left pr-2'
             }`}
           />
@@ -895,7 +895,7 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
           >
             <span
               title={value || placeholder}
-              className={`text-[13px] truncate leading-none ${value
+              className={`text-[13px] truncate leading-[1.35] ${value
                 ? 'text-[#18223A] dark:text-[#F4F7FF]'
                 : 'text-[#9AA9BF] font-normal'
                 } ${align === 'center' ? 'flex-1 text-center' : 'pr-2'}`}

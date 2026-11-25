@@ -3,7 +3,7 @@
 ; e em execucao grava todos os dados do usuario em %LOCALAPPDATA%\Nexo (Sem precisar de Admin).
 
 #define MyAppName "Nexo"
-#define MyAppVersion "2.1.2"
+#define MyAppVersion "2.1.3"
 #define MyAppPublisher "Nexo - Gestao de Custos e Precificacao"
 #define MyAppExeName "Nexo.exe"
 

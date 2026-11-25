@@ -145,7 +145,7 @@ def get_system_status():
         "date_format": get_setting("date_format", "DD/MM/YYYY"),
         "time_format": get_setting("time_format", "24h"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v2.1.2",
+        "version": "v2.1.3",
     }
 
 
@@ -288,7 +288,7 @@ def get_all_settings():
         },
         "about": {
             "app_name": "Nexo",
-            "version": "2.1.2",
+            "version": "2.1.3",
             "release_date": "21/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
@@ -365,7 +365,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/2.1.2"}
+    base_headers = {"User-Agent": "Nexo/2.1.3"}
 
     if provider == "Google Gemini":
         if not api_key:
@@ -903,16 +903,19 @@ def _get_current_app_version() -> str:
                 return v
     except Exception:
         pass
-    return "2.1.2"
+    return "2.1.3"
 
 
 def _normalize_update_url(raw: str) -> str:
     url = (raw or "").strip().rstrip("/")
     if not url:
         return ""
-    if not url.startswith(("http://", "https://")):
-        url = f"http://{url}"
-    return url
+    low = url.lower()
+    if low.startswith("http://"):
+        return "http://" + url[7:]
+    if low.startswith("https://"):
+        return "https://" + url[8:]
+    return f"http://{url}"
 
 
 def _parse_ver_tuple(v: str) -> tuple:
@@ -942,7 +945,7 @@ def get_update_config():
     return {
         "ok": True,
         "server_url": get_setting("update_server_url", "") or "",
-        "auto_check": get_setting("update_auto_check", "1") in ("1", "true", "True"),
+        "auto_check": get_setting("update_auto_check", "0") in ("1", "true", "True"),
         "current_version": _get_current_app_version(),
     }
 
@@ -978,8 +981,9 @@ def check_for_updates(url: Optional[str] = Query(None)):
 
     manifest_url = f"{target_url}/manifest.json"
     try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         req = urllib.request.Request(manifest_url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=2.0) as resp:
+        with opener.open(req, timeout=2.5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         latest_version = str(data.get("version") or "").strip()
         filename = str(data.get("file") or "").strip()
@@ -1026,8 +1030,9 @@ def install_update(payload: Optional[UpdateInstallPayload] = None):
     if not target_url:
         raise HTTPException(status_code=400, detail="URL do servidor de atualização não configurada.")
 
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(f"{target_url}/manifest.json", timeout=3.0) as resp:
+        with opener.open(f"{target_url}/manifest.json", timeout=3.0) as resp:
             manifest = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Não foi possível conectar ao servidor de atualização: {e}")
@@ -1043,7 +1048,7 @@ def install_update(payload: Optional[UpdateInstallPayload] = None):
 
     try:
         h = hashlib.sha256()
-        with urllib.request.urlopen(f"{target_url}/releases/{filename}", timeout=30.0) as resp, dest_exe.open("wb") as out:
+        with opener.open(f"{target_url}/releases/{filename}", timeout=30.0) as resp, dest_exe.open("wb") as out:
             while True:
                 chunk = resp.read(1024 * 512)
                 if not chunk:

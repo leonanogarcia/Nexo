@@ -95,6 +95,7 @@ export const ptBR: TranslationDictionary = {
   'settings.tab.metricas': 'Métricas de Custo',
   'settings.tab.unidades': 'Unidades de Medida',
   'settings.tab.banco': 'Banco de Dados & BI',
+  'settings.tab.atualizacoes': 'Atualização',
   'settings.tab.sobre': 'Sobre',
   'settings.company.title': 'Empresa & Identidade Visual',
   'settings.company.help_title': 'Como funciona a Identidade Visual',

@@ -95,6 +95,7 @@ export const en: TranslationDictionary = {
   'settings.tab.metricas': 'Cost Metrics',
   'settings.tab.unidades': 'Units of Measure',
   'settings.tab.banco': 'Database & BI',
+  'settings.tab.atualizacoes': 'Updates',
   'settings.tab.sobre': 'About',
   'settings.company.title': 'Company & Brand Identity',
   'settings.company.help_title': 'How Brand Identity works',

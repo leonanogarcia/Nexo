@@ -817,8 +817,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
   // Atualizações em Rede Local (NexoHub)
   const [updateServerUrl, setUpdateServerUrl] = useState('');
-  const [updateAutoCheck, setUpdateAutoCheck] = useState(true);
-  const [updateCurrentVer, setUpdateCurrentVer] = useState('2.1.1');
+  const [updateAutoCheck, setUpdateAutoCheck] = useState(false);
+  const [updateCurrentVer, setUpdateCurrentVer] = useState('2.1.2');
   const [updateCheckResult, setUpdateCheckResult] = useState<{
     configured: boolean;
     reachable: boolean;
@@ -837,7 +837,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
         if (res.ok) {
           const data = await res.json();
           setUpdateServerUrl(data.server_url || '');
-          setUpdateAutoCheck(data.auto_check !== false);
+          setUpdateAutoCheck(data.auto_check === true);
           if (data.current_version) setUpdateCurrentVer(data.current_version);
         }
       } catch {
@@ -4137,7 +4137,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   </div>
                   <NexoToggleSwitch
                     checked={updateAutoCheck}
-                    onChange={setUpdateAutoCheck}
+                    onChange={async (nextVal) => {
+                      setUpdateAutoCheck(nextVal);
+                      let nextUrl = updateServerUrl.trim();
+                      if (nextVal && !nextUrl) {
+                        nextUrl = 'http://';
+                        setUpdateServerUrl('http://');
+                      }
+                      try {
+                        await fetch('/api/updates/config', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            server_url: nextUrl === 'http://' ? '' : nextUrl,
+                            auto_check: nextVal,
+                          }),
+                        });
+                      } catch {
+                        // ignore
+                      }
+                    }}
                   />
                 </div>
 
@@ -4145,34 +4164,38 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                   Ative o botão acima para verificar automaticamente ao abrir o Nexo. Se o notebook servidor estiver desligado, o Nexo abre normalmente sem erro.
                 </p>
 
-                <div className="space-y-1.5">
-                  <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] pl-1">
-                    URL do Servidor de Atualização (Opcional)
-                  </label>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <div className="flex-1 min-w-[240px]">
-                      <CapsuleInput
-                        value={updateServerUrl}
-                        onChange={setUpdateServerUrl}
-                        placeholder="Ex: http://NOTEBOOK-PRINCIPAL:8765"
+                {updateAutoCheck && (
+                  <div className="space-y-1.5">
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] pl-1">
+                      URL do Servidor de Atualização (Opcional)
+                    </label>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="flex-1 min-w-[240px]">
+                        <CapsuleInput
+                          value={updateServerUrl}
+                          onChange={setUpdateServerUrl}
+                          autoCapitalizeFirst={false}
+                          spellCheck={false}
+                          placeholder="Ex: http://192.168.0.7:8790"
+                        />
+                      </div>
+                      <RoundedActionButton
+                        label="Testar conexão"
+                        onClick={() => handleCheckUpdates(updateServerUrl.trim())}
+                        disabled={checkingUpdates || !updateServerUrl.trim()}
+                        variant="secondary"
+                        height={34}
+                      />
+                      <RoundedActionButton
+                        label={savingUpdateConfig ? 'Salvando...' : 'Salvar'}
+                        onClick={handleSaveUpdateConfig}
+                        disabled={savingUpdateConfig}
+                        variant="primary"
+                        height={34}
                       />
                     </div>
-                    <RoundedActionButton
-                      label="Testar conexão"
-                      onClick={() => handleCheckUpdates(updateServerUrl.trim())}
-                      disabled={checkingUpdates || !updateServerUrl.trim()}
-                      variant="secondary"
-                      height={34}
-                    />
-                    <RoundedActionButton
-                      label={savingUpdateConfig ? 'Salvando...' : 'Salvar'}
-                      onClick={handleSaveUpdateConfig}
-                      disabled={savingUpdateConfig}
-                      variant="primary"
-                      height={34}
-                    />
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}
@@ -5083,7 +5106,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
             <div className="px-6 py-4 space-y-3 text-[12.5px] text-[#475569] dark:text-[#CBD5E1] leading-relaxed">
               <p>
-                Você pode conectar este Nexo a um computador da sua mesma rede Wi-Fi rodando o <strong>NexoHub</strong> (ex.: <code>http://NOME-DO-PC:8765</code>).
+                Você pode conectar este Nexo a um computador da sua mesma rede Wi-Fi rodando o <strong>NexoHub</strong> (ex.: <code>http://NOME-DO-PC:8790</code>).
               </p>
               <ul className="list-disc pl-5 space-y-1.5">
                 <li>Quando o computador servidor estiver ligado na rede e tiver uma versão mais nova, o Nexo pergunta se deseja instalar na hora.</li>

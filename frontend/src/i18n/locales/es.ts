@@ -95,6 +95,7 @@ export const es: TranslationDictionary = {
   'settings.tab.metricas': 'Métricas de Costo',
   'settings.tab.unidades': 'Unidades de Medida',
   'settings.tab.banco': 'Base de Datos y BI',
+  'settings.tab.atualizacoes': 'Actualizaciones',
   'settings.tab.sobre': 'Acerca de',
   'settings.company.title': 'Empresa e Identidad Visual',
   'settings.company.help_title': 'Cómo funciona la Identidad Visual',
