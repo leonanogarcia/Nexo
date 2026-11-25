@@ -17,8 +17,11 @@ def now_iso():
 
 
 def init_db():
+    import shutil
     paths.DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    paths.get_db_path().parent.mkdir(parents=True, exist_ok=True)
+    db_file = paths.get_db_path()
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    pre_migration_backed_up = False
     with db() as c:
         c.executescript('''
         CREATE TABLE IF NOT EXISTS ai_usage_logs(
@@ -141,8 +144,17 @@ def init_db():
         ''')
 
         def add_col(table, col, definition):
+            nonlocal pre_migration_backed_up
             cols = {r['name'] for r in c.execute(f'PRAGMA table_info({table})').fetchall()}
             if col not in cols:
+                if not pre_migration_backed_up and db_file.exists() and db_file.stat().st_size > 0:
+                    try:
+                        paths.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        shutil.copy2(db_file, paths.BACKUP_DIR / f'nexo_pre_migration_{stamp}.db')
+                    except Exception:
+                        pass
+                    pre_migration_backed_up = True
                 c.execute(f'ALTER TABLE {table} ADD COLUMN {col} {definition}')
 
         add_col('materials', 'code', 'TEXT')

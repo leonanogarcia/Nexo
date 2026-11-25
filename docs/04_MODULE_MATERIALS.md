@@ -5,8 +5,9 @@
 - **Data Mapping Rule:** The `refresh_materials` SQL SELECT statement MUST perfectly match the column indices defined in the UI. If a column is added (like barcode), the SQL query must be updated to prevent data shifting.
 
 ## 2. Registration Form Modal (`material_form`)
-- **Inputs:** Must strictly use `RoundedDropdown` for selections and `rounded_entry`/`masked_money_entry` for text/numbers.
-- **Fields:** Nome, Marca, Quantidade, Unidade, Valor da compra, Categoria, Data, Cód. Barras.
+- **Inputs:** Must strictly use `RoundedDropdown` for selections, `CapsuleInput` for text/numbers/money, and **`CapsuleQuantityUnit`** (cápsula única dividida padrão Nexo) para Quantidade e Unidade.
+- **Título e Placeholder da Cápsula:** O rótulo acima da `CapsuleQuantityUnit` em Insumos é apenas **`Quantidade *`** (sem `/ Unidade`), passando `unitPlaceholder="Unidade"` pois a cápsula larga comporta a palavra inteira sem truncar.
+- **Fields:** Nome, Marca, Quantidade + Unidade (`CapsuleQuantityUnit`), Valor da compra, Categoria, Data, Cód. Barras.
 - **Validation:** Quantities > 0, Values >= 0 (Zero only allowed if Category is 'Doação').
 
 ## 3. Conversões Customizadas (Dicionário de Medidas)
@@ -33,7 +34,13 @@ Aplicado no backend (`POST /api/materials`, `PUT /api/materials/{id}`, `POST /ap
   - Bloqueia palavras genéricas de teste/lixo (`teste`, `test`, `asdf`, `qwe`, `nada`, `na`, `n/a`, `nenhum`, `generico`, `sem`, `qualquer`, `abc`, `xyz`).
   - Em **Marca**, ou o usuário informa a marca real ou marca explicitamente a caixinha **`☐ Sem marca`** (ideal para ovos, frutas e granel).
 - **Normalização Forte (`_canonical_key`):** Remove acentos (`unicodedata.NFKD`), colapsa espaços extras e converte para minúsculas antes de comparar identidade.
-- **Detector de Erro de Digitação (`_check_material_duplicate_or_typo`):** Se `Marca + Embalagem Base` coincidirem com um insumo ativo existente e `difflib.SequenceMatcher` do nome normalizado for `>= 0.85`, bloqueia a criação e alerta sobre possível erro de digitação.
+- **Detector de Parecidos vs Duplicata Exata (`_check_material_duplicate_or_typo`):**
+  - Se `Nome + Marca + Embalagem Base` forem **idênticos**, bloqueia como duplicata exata (HTTP `400`).
+  - Se `Marca + Embalagem Base` coincidirem e `difflib.SequenceMatcher` do nome normalizado for `>= 0.85` (ex.: `"Sacola P"` vs `"Sacola PP"`, ou erro de digitação), lança `SimilarMaterialWarning` (HTTP `409`, `SIMILAR_MATERIAL_EXISTS`), exibindo modal de decisão com 3 ações: **Atualizar existente**, **Criar como novo** (`confirm_similar: true`) ou **Voltar e editar o nome**.
+
+### 4. Rascunhos Temporários no Topo da Tabela (v2.1.2)
+- Ao fechar o modal de novo insumo com campos preenchidos sem salvar, o rascunho é guardado exclusivamente no `localStorage` (`nexo_material_drafts_v1`), nunca no SQLite.
+- Rascunhos aparecem fixos no topo da tabela com badge **`RASCUNHO`** e botões de **Continuar** ou **Descartar**, sendo removidos automaticamente ao salvar oficialmente.
 
 ### 3. Fluxo Rígido da Notinha Fiscal (IA)
 - **Sugestão Inteligente (`parse_receipt_with_ai`):** Só sugere `action: "update"` automaticamente se **Nome** e **Embalagem na unidade base** coincidirem. Se a embalagem for diferente (`500 g` vs `1 kg`), sugere automaticamente `action: "create"`.

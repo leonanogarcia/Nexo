@@ -69,6 +69,23 @@
   - **Frontend:** `handleSave` bloqueia via `failSave(...)` (banner no topo + `AnimatedFeedbackModal` central em `z-[100]`).
   - **Backend:** `_validate_recipe_items` e `_validate_product_items` validam `POST` e `PUT` exigindo registros existentes com `active=1` e `archived=0`.
 
-### 4. Auto-Anexo e Ícone Oficial
+- **Auto-Anexo e Ícone Oficial:**
 - O botão **Anexos & Viewer** no menu de contexto usa o ícone vetorial oficial `PaperclipIcon` (disponível em Receitas e Produtos, independente da IA).
 - Ao criar uma nova Receita ou Produto a partir da leitura da IA (`aiDraft.source_file`), o arquivo original é anexado automaticamente em `/api/documents/{RECIPE_BASE|PRODUCT}/{id}` logo após o salvamento.
+
+---
+
+## Padrões de Usabilidade Consolidados na v2.1.2
+
+1. **Modais Amplos e Rolagem Interna Fixa (`RecipeFormModal` e `ProductFormModal`):**
+   - Os modais usam `w-full max-w-[960px]` (`max-h-[92vh]`) para aproveitar telas Full HD sem quebrar em meia tela.
+   - O cabeçalho do card de Ingredientes/Componentes (`+ Adicionar Ingrediente` / `+ Adicionar Componente` + barra de colunas) permanece **fixo no topo do card**, enquanto apenas a lista de linhas rola internamente (`max-h-[340px] overflow-y-auto`) com scroll automático para o final ao adicionar nova linha.
+
+2. **Botão Inline de Unidade Especial (`RulerConversionIcon`):**
+   - Linhas de ingrediente em Receitas e linhas de `Insumo` em Produtos exibem o botão `RulerConversionIcon` (com `<NexoTooltip>`) ao lado da `CapsuleQuantityUnit`, abrindo `ConversionsModal` (`z-[70]`) pré-selecionado no insumo (`initialMaterialId`) e recarregando as unidades compatíveis ao fechar sem fechar a ficha em edição.
+
+3. **Equipamento / Cocção Opcional em Receitas:**
+   - O card *"Usa forno, fogão ou equipamento? (Opcional)"* inicia **desligado** por padrão com um switch simples (sem texto redundante ao lado). Quando desligado, mantém `cooking_appliance = 'none'` e `cooking_time_minutes = 0` sem impactar o custo.
+
+4. **Rascunhos Temporários no Topo da Tabela (`localStorage`):**
+   - Ao fechar o modal de criação de Receita (`nexo_recipe_drafts_v1`) ou Produto (`nexo_product_drafts_v1`) com dados preenchidos sem salvar, o rascunho é salvo localmente no navegador e exibido fixo no topo da respectiva tabela com badge **`RASCUNHO`**, sem nunca gravar no banco de dados nem interferir em cálculos/relatórios.

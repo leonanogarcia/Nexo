@@ -84,11 +84,16 @@ export const App: React.FC = () => {
     company_name: 'Nexo',
     units: ['mg', 'g', 'kg', 't', 'ml', 'L', 'kL', 'un'],
     mat_hidden_cols: ['code'],
-    version: 'v2.1.1',
+    version: 'v2.1.2',
   });
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: FeedbackType } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [updatePrompt, setUpdatePrompt] = useState<{
+    current_version: string;
+    latest_version: string;
+  } | null>(null);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
   const [brandSettings, setBrandSettings] = useState<CompanyBrandSettings>({
     company_name: 'Nexo',
     company_logo: '',
@@ -126,6 +131,24 @@ export const App: React.FC = () => {
             show_company_name: sData.show_company_name !== false,
             logo_shape: sData.logo_shape === 'rect' ? 'rect' : 'round',
           });
+        }
+
+        // Verifica atualizações na rede local silenciosamente se configurado e ativado
+        const updCfgRes = await fetch('/api/updates/config');
+        if (updCfgRes.ok) {
+          const updCfg = await updCfgRes.json();
+          if (updCfg.auto_check && updCfg.server_url) {
+            const chkRes = await fetch('/api/updates/check');
+            if (chkRes.ok) {
+              const chkData = await chkRes.json();
+              if (chkData.has_update && chkData.latest_version) {
+                setUpdatePrompt({
+                  current_version: chkData.current_version || '2.1.2',
+                  latest_version: chkData.latest_version,
+                });
+              }
+            }
+          }
         }
       } catch (e) {
         console.error('Falha ao carregar status inicial:', e);
@@ -348,9 +371,53 @@ export const App: React.FC = () => {
               {status.db_health ? ` (${status.db_health.size_fmt} · ${status.db_health.health_label})` : ''}
             </span>
           </button>
-          <span>{t('footer.app_tagline')} · {status.version || 'v2.1.1'}</span>
+          <span>{t('footer.app_tagline')} · {status.version || 'v2.1.2'}</span>
         </footer>
       </main>
+
+      {updatePrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-[90] p-4">
+          <div className="w-full max-w-[440px] rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl p-6 flex flex-col">
+            <h3 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF] text-center">
+              Nova versão disponível (v{updatePrompt.latest_version})
+            </h3>
+            <p className="text-[13px] text-[#60769D] dark:text-[#93A4C6] text-center mt-2 leading-relaxed">
+              Você está usando a versão <strong>v{updatePrompt.current_version}</strong>. Deseja atualizar agora? O Nexo será fechado, atualizado mantendo seus dados e reaberto automaticamente.
+            </p>
+            <div className="flex items-center justify-end gap-2.5 mt-5">
+              <RoundedActionButton
+                label="Agora não"
+                onClick={() => setUpdatePrompt(null)}
+                disabled={installingUpdate}
+                variant="secondary"
+                height={36}
+              />
+              <RoundedActionButton
+                label={installingUpdate ? 'Baixando...' : 'Instalar agora'}
+                onClick={async () => {
+                  setInstallingUpdate(true);
+                  try {
+                    const res = await fetch('/api/updates/install', { method: 'POST' });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      notify(data.detail || 'Não foi possível iniciar a atualização.', 'error');
+                      setInstallingUpdate(false);
+                      return;
+                    }
+                    notify(data.message || 'Atualizando o Nexo...', 'success');
+                  } catch (err: any) {
+                    notify(err.message || 'Erro ao iniciar atualização.', 'error');
+                    setInstallingUpdate(false);
+                  }
+                }}
+                disabled={installingUpdate}
+                variant="primary"
+                height={36}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

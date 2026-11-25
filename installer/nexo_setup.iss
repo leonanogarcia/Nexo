@@ -3,7 +3,7 @@
 ; e em execucao grava todos os dados do usuario em %LOCALAPPDATA%\Nexo (Sem precisar de Admin).
 
 #define MyAppName "Nexo"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "2.1.2"
 #define MyAppPublisher "Nexo - Gestao de Custos e Precificacao"
 #define MyAppExeName "Nexo.exe"
 
@@ -21,6 +21,12 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
+CloseApplications=yes
+CloseApplicationsFilter=Nexo.exe
+
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\frontend\dist\assets"
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

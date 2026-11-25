@@ -12,11 +12,13 @@ import {
   NexoEmptyStateIcon,
   NexoEmptyTableWatermark,
   NexoToolbarOverflowMenu,
+  NexoTooltip,
   PaperclipIcon,
   PlusIcon,
   RoundedActionButton,
   RoundedDropdown,
   RoundedEntry,
+  RulerConversionIcon,
   TrashIcon,
   FlameIcon,
   ZapEnergyIcon,
@@ -24,6 +26,7 @@ import {
   useNexoColumnWidths,
   useToolbarOverflow,
 } from './DesignSystem';
+import { ConversionsModal } from './ConversionsModal';
 import { DocumentAttachmentsModal } from './DocumentAttachmentsModal';
 import { AiParsedRecipeResult, AiRecipePreviewModal, QuickCreateMaterialModal } from './AiPreviewModals';
 
@@ -161,7 +164,42 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [formModal, setFormModal] = useState<{
     open: boolean;
     editItem: ProductItem | null;
-  }>({ open: false, editItem: null });
+    draftItem?: ProductDraft | null;
+  }>({ open: false, editItem: null, draftItem: null });
+
+  const [drafts, setDrafts] = useState<ProductDraft[]>(() => {
+    try {
+      const raw = localStorage.getItem(PRODUCT_DRAFTS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const persistDrafts = useCallback((next: ProductDraft[]) => {
+    setDrafts(next);
+    try {
+      localStorage.setItem(PRODUCT_DRAFTS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, []);
+
+  const saveDraftItem = useCallback(
+    (draft: ProductDraft) => {
+      persistDrafts([draft, ...drafts.filter((d) => d.draftId !== draft.draftId)]);
+    },
+    [drafts, persistDrafts]
+  );
+
+  const removeDraftItem = useCallback(
+    (draftId: string) => {
+      persistDrafts(drafts.filter((d) => d.draftId !== draftId));
+    },
+    [drafts, persistDrafts]
+  );
 
   const [historyModal, setHistoryModal] = useState<{
     open: boolean;
@@ -614,10 +652,102 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 <div className="py-16 text-center text-[#687796] dark:text-[#93A4C6] text-[13px]">
                   Carregando produtos...
                 </div>
-              ) : sortedItems.length === 0 ? (
+              ) : sortedItems.length === 0 && drafts.length === 0 ? (
                 <div className="flex-1 min-h-[240px]" />
               ) : (
-                sortedItems.map((prod) => {
+                <>
+                  {drafts.map((draft) => (
+                    <div
+                      key={draft.draftId}
+                      onDoubleClick={() => setFormModal({ open: true, editItem: null, draftItem: draft })}
+                      className="h-[38px] flex items-center text-[13px] transition-colors relative cursor-pointer group bg-[#FFF9F0] dark:bg-[#231910] hover:bg-[#FFF3E0] dark:hover:bg-[#2E2115] text-[#18223A] dark:text-[#F4F7FF]"
+                    >
+                      <div className="w-[60px] h-full flex items-center justify-center shrink-0 sticky left-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115]">
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#F28C28] text-white">
+                          Rasc.
+                        </span>
+                      </div>
+
+                      <div className="flex items-center flex-1 h-full">
+                        {visibleColumns.map((col) => {
+                          let cellContent: React.ReactNode = '-';
+                          switch (col.key) {
+                            case 'code':
+                              cellContent = (
+                                <span className="font-mono text-[11px] font-bold text-[#F28C28]">
+                                  RASCUNHO
+                                </span>
+                              );
+                              break;
+                            case 'name':
+                              cellContent = (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">
+                                    {draft.name.trim() || '(Produto sem nome)'}
+                                  </span>
+                                  <span className="text-[11px] text-[#9A5B13] dark:text-[#FBBF24]">
+                                    • {draft.items.length} {draft.items.length === 1 ? 'componente' : 'componentes'}
+                                  </span>
+                                </div>
+                              );
+                              break;
+                            case 'weight':
+                              cellContent = `${draft.weightQty || '1'} ${draft.weightUnit || 'un'}`;
+                              break;
+                            case 'sale_price':
+                              cellContent = draft.salePrice || 'R$ 0,00';
+                              break;
+                            case 'status':
+                              cellContent = (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FFF0D8] text-[#BA5200] dark:bg-[#5A3518] dark:text-[#F28C28]">
+                                  Rascunho
+                                </span>
+                              );
+                              break;
+                            default:
+                              cellContent = '-';
+                          }
+                          return (
+                            <div
+                              key={col.key}
+                              style={{ width: `${colWidths[col.key] || col.width}px` }}
+                              className={`px-3 text-[13px] truncate shrink-0 ${
+                                col.align === 'center' ? 'text-center' : 'text-left'
+                              }`}
+                            >
+                              {cellContent}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-[76px] h-full flex items-center justify-center gap-1 shrink-0 sticky right-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115] pr-1"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setFormModal({ open: true, editItem: null, draftItem: draft })}
+                          title="Continuar rascunho"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[#BA5200] dark:text-[#F28C28] hover:bg-[#F28C28]/15 transition-colors cursor-pointer"
+                        >
+                          <EditPencilIcon size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeDraftItem(draft.draftId);
+                            onNotify('Rascunho descartado.', 'success');
+                          }}
+                          title="Descartar rascunho"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] transition-colors cursor-pointer"
+                        >
+                          <TrashIcon size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {sortedItems.map((prod) => {
                   const isChecked = checkedIds.has(prod.id);
                   const isSelected = selectedId === prod.id || isChecked;
                   const rowBg = isSelected
@@ -806,7 +936,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                       </div>
                     </div>
                   );
-                })
+                })}
+                </>
               )}
             </div>
           </div>
@@ -925,14 +1056,26 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       {formModal.open && (
         <ProductFormModal
           editItem={formModal.editItem}
+          draftItem={formModal.draftItem}
           aiDraft={aiDraft}
           units={units}
-          onClose={() => {
-            setFormModal({ open: false, editItem: null });
+          onClose={(draftSnapshot) => {
+            if (draftSnapshot) {
+              saveDraftItem(draftSnapshot);
+              onNotify('Rascunho salvo no topo da lista.', 'success');
+            }
+            setFormModal({ open: false, editItem: null, draftItem: null });
             setAiDraft(null);
           }}
-          onSaved={async () => {
-            setFormModal({ open: false, editItem: null });
+          onDiscardDraft={(draftId) => {
+            removeDraftItem(draftId);
+            setFormModal({ open: false, editItem: null, draftItem: null });
+            setAiDraft(null);
+            onNotify('Rascunho descartado.', 'success');
+          }}
+          onSaved={async (savedDraftId) => {
+            if (savedDraftId) removeDraftItem(savedDraftId);
+            setFormModal({ open: false, editItem: null, draftItem: null });
             setAiDraft(null);
             await fetchProducts();
             onNotify(
@@ -1047,28 +1190,65 @@ interface FormCompositionRow {
   broken_reason?: string;
 }
 
+const PRODUCT_DRAFTS_STORAGE_KEY = 'nexo_product_drafts_v1';
+
+interface ProductDraft {
+  draftId: string;
+  updatedAt: string;
+  name: string;
+  weightQty: string;
+  weightUnit: string;
+  salePrice: string;
+  notes: string;
+  items: FormCompositionRow[];
+}
+
 interface ProductFormModalProps {
   editItem: ProductItem | null;
+  draftItem?: ProductDraft | null;
   aiDraft?: AiParsedRecipeResult | null;
   units: string[];
-  onClose: () => void;
-  onSaved: () => void;
+  onClose: (draftSnapshot?: ProductDraft) => void;
+  onDiscardDraft?: (draftId: string) => void;
+  onSaved: (savedDraftId?: string) => void;
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
 }
 
 const ProductFormModal: React.FC<ProductFormModalProps> = ({
   editItem,
+  draftItem = null,
   aiDraft,
   units,
   onClose,
+  onDiscardDraft,
   onSaved,
   onNotify,
 }) => {
-  const [name, setName] = useState(editItem ? editItem.name : (aiDraft?.name || ''));
-  const [weightQty, setWeightQty] = useState(editItem ? String(editItem.weight_qty) : (aiDraft ? String(aiDraft.yield_qty || 1) : '1'));
-  const [weightUnit, setWeightUnit] = useState(editItem ? editItem.weight_unit : (aiDraft?.yield_unit || 'un'));
-  const [salePrice, setSalePrice] = useState(editItem ? editItem.sale_price_fmt : 'R$ 0,00');
-  const [notes, setNotes] = useState(editItem ? editItem.notes : (aiDraft?.notes || ''));
+  const [name, setName] = useState(
+    editItem ? editItem.name : draftItem ? draftItem.name : aiDraft?.name || ''
+  );
+  const [weightQty, setWeightQty] = useState(
+    editItem
+      ? String(editItem.weight_qty)
+      : draftItem
+      ? draftItem.weightQty
+      : aiDraft
+      ? String(aiDraft.yield_qty || 1)
+      : '1'
+  );
+  const [weightUnit, setWeightUnit] = useState(
+    editItem
+      ? editItem.weight_unit
+      : draftItem
+      ? draftItem.weightUnit
+      : aiDraft?.yield_unit || 'un'
+  );
+  const [salePrice, setSalePrice] = useState(
+    editItem ? editItem.sale_price_fmt : draftItem ? draftItem.salePrice : 'R$ 0,00'
+  );
+  const [notes, setNotes] = useState(
+    editItem ? editItem.notes : draftItem ? draftItem.notes : aiDraft?.notes || ''
+  );
 
   // Options caches
   const [options, setOptions] = useState<{
@@ -1079,6 +1259,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Rows (inicializacao imediata a partir dos dados que a tabela ja possui)
   const [items, setItems] = useState<FormCompositionRow[]>(() => {
+    if (!editItem && draftItem?.items) {
+      return draftItem.items;
+    }
     if (editItem && editItem.items && editItem.items.length > 0) {
       return editItem.items.map((it) => ({
         item_type: it.item_type as any,
@@ -1125,6 +1308,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quickCreateTarget, setQuickCreateTarget] = useState<{ idx: number; name: string; unit: string } | null>(null);
+  const [conversionTarget, setConversionTarget] = useState<{ materialId: number | null } | null>(null);
+  const componentsScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch composition options & sales channels settings
   useEffect(() => {
@@ -1268,6 +1453,11 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
       available_units: ['un', 'g', 'kg', 'ml', 'L'],
     };
     setItems((prev) => [...prev, newRow]);
+    requestAnimationFrame(() => {
+      if (componentsScrollRef.current) {
+        componentsScrollRef.current.scrollTop = componentsScrollRef.current.scrollHeight;
+      }
+    });
   };
 
   const removeComponentRow = (idx: number) => {
@@ -1386,7 +1576,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           console.error('Erro ao auto-anexar documento do produto:', attachErr);
         }
       }
-      onSaved();
+      onSaved(draftItem?.draftId);
     } catch (e: any) {
       failSave(e.message || 'Erro de conexão com o servidor.', 'error');
     } finally {
@@ -1394,9 +1584,72 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
+  const refreshMaterialConversions = async (targetMaterialId?: number | null) => {
+    const idsToRefresh = targetMaterialId
+      ? [targetMaterialId]
+      : Array.from(
+          new Set(
+            items
+              .filter((i) => i.item_type === 'MATERIAL' && i.ref_id > 0)
+              .map((i) => i.ref_id)
+          )
+        );
+    if (idsToRefresh.length === 0) return;
+
+    const mapCustom: Record<number, string[]> = {};
+    await Promise.all(
+      idsToRefresh.map(async (mid) => {
+        try {
+          const cRes = await fetch(`/api/materials/${mid}/conversions`);
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            mapCustom[mid] = (cData.items || []).map((c: any) => c.name);
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+
+    const nextRows = items.map((row) => {
+      if (row.item_type !== 'MATERIAL' || !row.ref_id || !mapCustom[row.ref_id]) return row;
+      const mat = options.materials.find((m) => m.id === row.ref_id);
+      const baseFamily = mat ? [mat.unit, 'g', 'kg', 'mg', 'ml', 'L', 'un'] : ['un', 'g', 'kg', 'ml', 'L'];
+      return {
+        ...row,
+        available_units: Array.from(new Set([...baseFamily, row.unit, ...mapCustom[row.ref_id]])),
+      };
+    });
+    setItems(nextRows);
+    recalculatePreview(nextRows, salePrice);
+  };
+
+  const handleRequestClose = () => {
+    if (!editItem) {
+      const hasContent =
+        name.trim().length > 0 ||
+        notes.trim().length > 0 ||
+        items.some((i) => i.ref_id > 0 || Boolean(i.unresolved_name));
+      if (hasContent) {
+        onClose({
+          draftId: draftItem?.draftId || `draft_prod_${Date.now()}`,
+          updatedAt: new Date().toISOString(),
+          name,
+          weightQty,
+          weightUnit,
+          salePrice,
+          notes,
+          items,
+        });
+        return;
+      }
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-[740px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-[960px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156] bg-white dark:bg-[#0F1B35] shrink-0">
           <div className="flex items-center gap-2.5">
@@ -1411,7 +1664,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             ✕
@@ -1530,7 +1783,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   <span className="w-[36px] text-center">Ação</span>
                 </div>
 
-                {/* Rows de componentes */}
+                {/* Rows de componentes com rolagem própria */}
+                <div ref={componentsScrollRef} className="max-h-[340px] overflow-y-auto space-y-2 pr-1">
                 {items.map((row, idx) => {
                   let componentOptions: Array<{ id: number; label: string }> = [];
                   if (row.item_type === 'MATERIAL') componentOptions = options.materials;
@@ -1636,8 +1890,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           />
                         </div>
 
-                      {/* Quantidade e Unidade unificadas em cápsula Nexo */}
-                      <div className="w-[160px] shrink-0 flex items-center justify-center">
+                      {/* Quantidade e Unidade unificadas em cápsula Nexo + Botão Unidade Especial */}
+                      <div className="shrink-0 flex items-center gap-1.5">
                         <CapsuleQuantityUnit
                           qtyValue={row.qty}
                           onQtyChange={(v) => updateComponentRow(idx, { qty: v })}
@@ -1649,9 +1903,24 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               : [row.unit || 'un', 'un', 'g', 'kg', 'ml', 'L']
                           }
                           qtyPlaceholder="Qtd"
-                          width={160}
+                          width={152}
                           height={34}
                         />
+                        {row.item_type === 'MATERIAL' && (
+                          <NexoTooltip text="Criar unidade especial / conversão para este insumo">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setConversionTarget({
+                                  materialId: row.ref_id > 0 ? row.ref_id : null,
+                                })
+                              }
+                              className="w-8 h-8 rounded-full border border-[#DDE5F2] dark:border-[#24385E] bg-white dark:bg-[#142340] text-[#F28C28] hover:bg-[#FFF8EE] dark:hover:bg-[#2A1E14] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            >
+                              <RulerConversionIcon size={15} />
+                            </button>
+                          </NexoTooltip>
+                        )}
                       </div>
 
                       {/* Custo Calculado */}
@@ -1674,6 +1943,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
@@ -1898,12 +2168,22 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
         {/* Modal Actions Footer */}
         <div className="px-6 py-3 border-t border-[#E2EAF5] dark:border-[#1E3156] flex items-center justify-between bg-white dark:bg-[#0F1B35] shrink-0">
-          <RoundedActionButton
-            label="Cancelar"
-            onClick={onClose}
-            variant="secondary"
-            height={36}
-          />
+          <div className="flex items-center gap-2">
+            <RoundedActionButton
+              label="Cancelar"
+              onClick={handleRequestClose}
+              variant="secondary"
+              height={36}
+            />
+            {draftItem && onDiscardDraft && (
+              <RoundedActionButton
+                label="Descartar rascunho"
+                onClick={() => onDiscardDraft(draftItem.draftId)}
+                variant="danger"
+                height={36}
+              />
+            )}
+          </div>
           <RoundedActionButton
             label={saving ? 'Salvando...' : editItem ? 'Salvar Alterações' : 'Salvar Produto'}
             onClick={handleSave}
@@ -1913,6 +2193,18 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           />
         </div>
       </div>
+
+      {conversionTarget && (
+        <ConversionsModal
+          initialMaterialId={conversionTarget.materialId}
+          onClose={async () => {
+            const targetMatId = conversionTarget.materialId;
+            setConversionTarget(null);
+            await refreshMaterialConversions(targetMatId);
+          }}
+          onNotify={onNotify}
+        />
+      )}
 
       <QuickCreateMaterialModal
         open={Boolean(quickCreateTarget)}

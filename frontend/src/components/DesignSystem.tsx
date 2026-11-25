@@ -1,5 +1,6 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavKey, CompanyBrandSettings } from '../types';
 import { useI18n } from '../i18n/I18nContext';
 
@@ -673,6 +674,68 @@ interface RoundedDropdownProps {
   disabled?: boolean;
 }
 
+interface FloatingRect {
+  top?: number;
+  bottom?: number;
+  left: number;
+  right?: number;
+  width: number;
+  maxHeight: number;
+}
+
+function useFloatingDropdownPosition(
+  anchorRef: React.RefObject<HTMLElement | null>,
+  open: boolean,
+  preferredMaxHeight = 240
+): FloatingRect | null {
+  const [pos, setPos] = useState<FloatingRect | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const gap = 6;
+      const spaceBelow = window.innerHeight - r.bottom - 12;
+      const spaceAbove = r.top - 12;
+      const openUp = spaceBelow < Math.min(preferredMaxHeight, 170) && spaceAbove > spaceBelow;
+      if (openUp) {
+        setPos({
+          bottom: window.innerHeight - r.top + gap,
+          left: r.left,
+          right: window.innerWidth - r.right,
+          width: r.width,
+          maxHeight: Math.max(120, Math.min(preferredMaxHeight, spaceAbove)),
+        });
+      } else {
+        setPos({
+          top: r.bottom + gap,
+          left: r.left,
+          right: window.innerWidth - r.right,
+          width: r.width,
+          maxHeight: Math.max(120, Math.min(preferredMaxHeight, spaceBelow)),
+        });
+      }
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [anchorRef, open, preferredMaxHeight]);
+
+  return pos;
+}
+
+const normalizeDropdownSearch = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
   value,
   onChange,
@@ -684,12 +747,63 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
   disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pos = useFloatingDropdownPosition(wrapRef, open, 240);
+
+  const filteredOptions = useMemo(() => {
+    const q = normalizeDropdownSearch(query.trim());
+    if (!q) return options;
+    return options.filter((opt) => normalizeDropdownSearch(opt).includes(q));
+  }, [options, query]);
+
+  const closeMenu = () => {
+    setOpen(false);
+    setQuery('');
+    setActiveIndex(-1);
+  };
+
+  const openMenu = () => {
+    if (disabled) return;
+    setQuery('');
+    const idx = options.indexOf(value);
+    setActiveIndex(idx >= 0 ? idx : options.length > 0 ? 0 : -1);
+    setOpen(true);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const selectOption = (opt: string) => {
+    onChange(opt);
+    closeMenu();
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (query.trim()) {
+      setActiveIndex(filteredOptions.length > 0 ? 0 : -1);
+    }
+  }, [query, filteredOptions.length, open]);
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
+      const target = e.target as Node;
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
+      ) {
+        closeMenu();
       }
     };
     if (open) {
@@ -697,6 +811,41 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
     }
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [open]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+      } else if (filteredOptions.length > 0) {
+        setActiveIndex((prev) => (prev + 1) % filteredOptions.length);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+      } else if (filteredOptions.length > 0) {
+        setActiveIndex((prev) => (prev <= 0 ? filteredOptions.length - 1 : prev - 1));
+      }
+    } else if (e.key === 'Enter') {
+      if (open) {
+        e.preventDefault();
+        if (activeIndex >= 0 && filteredOptions[activeIndex] !== undefined) {
+          selectOption(filteredOptions[activeIndex]);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      if (open) {
+        e.preventDefault();
+        closeMenu();
+      }
+    } else if (e.key === 'Tab') {
+      if (open) {
+        closeMenu();
+      }
+    }
+  };
 
   return (
     <div
@@ -707,73 +856,141 @@ export const RoundedDropdown: React.FC<RoundedDropdownProps> = ({
       }}
       className="relative inline-block shrink-0"
     >
-      <button
-        type="button"
-        disabled={disabled}
+      <div
         onClick={() => {
-          if (!disabled) setOpen((o) => !o);
+          if (!open) openMenu();
         }}
-        className={`relative w-full h-full rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] flex items-center transition-colors focus:outline-none focus:border-[#F28C28] ${disabled
+        className={`relative w-full h-full rounded-full bg-white dark:bg-[#0E1B35] border transition-colors flex items-center ${
+          open
+            ? 'border-[#F28C28]'
+            : 'border-[#B0C0D6] dark:border-[#24385E]'
+        } ${disabled
           ? 'opacity-60 cursor-not-allowed'
-          : 'hover:bg-[#F8FAFC] dark:hover:bg-[#142544] cursor-pointer'
+          : 'hover:bg-[#F8FAFC] dark:hover:bg-[#142544] cursor-text'
           } ${align === 'center' ? 'pl-3.5 pr-7 justify-center font-bold' : 'px-4 justify-between font-normal'
           }`}
       >
-        <span
-          title={value || placeholder}
-          className={`text-[13px] truncate leading-none ${value
-            ? 'text-[#18223A] dark:text-[#F4F7FF]'
-            : 'text-[#9AA9BF] font-normal'
-            } ${align === 'center' ? 'flex-1 text-center' : 'pr-2'}`}
-        >
-          {value || placeholder}
-        </span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          className={`text-[#687796] shrink-0 transition-transform duration-150 ${align === 'center' ? 'absolute right-3.5' : ''
-            } ${open ? 'rotate-180' : ''}`}
-        >
-          <path
-            d="M2 4L6 8L10 4"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {open ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            disabled={disabled}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={value || placeholder}
+            className={`w-full h-full bg-transparent text-[13px] leading-none focus:outline-none text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] font-normal ${
+              align === 'center' ? 'text-center' : 'text-left pr-2'
+            }`}
           />
-        </svg>
-      </button>
+        ) : (
+          <button
+            type="button"
+            disabled={disabled}
+            onFocus={() => openMenu()}
+            onKeyDown={handleKeyDown}
+            className={`w-full h-full flex items-center focus:outline-none ${
+              align === 'center' ? 'justify-center' : 'justify-start'
+            }`}
+          >
+            <span
+              title={value || placeholder}
+              className={`text-[13px] truncate leading-none ${value
+                ? 'text-[#18223A] dark:text-[#F4F7FF]'
+                : 'text-[#9AA9BF] font-normal'
+                } ${align === 'center' ? 'flex-1 text-center' : 'pr-2'}`}
+            >
+              {value || placeholder}
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (open) closeMenu();
+            else openMenu();
+          }}
+          className={`text-[#687796] shrink-0 flex items-center justify-center cursor-pointer ${
+            align === 'center' ? 'absolute right-3.5' : ''
+          }`}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          >
+            <path
+              d="M2 4L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
-      {open && (
-        <div className="absolute left-0 right-0 mt-1.5 rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-lg z-50 max-h-60 overflow-y-auto py-1">
-          {options.length === 0 ? (
-            <div className="px-4 py-2 text-xs text-[#9AA9BF] text-center">Sem opções</div>
-          ) : (
-            options.map((opt) => {
-              const isSelected = opt === value;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt);
-                    setOpen(false);
-                  }}
-                  className={`w-full h-9 px-3.5 text-[13px] flex items-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${align === 'center' ? 'justify-center' : 'justify-start text-left'
-                    } ${isSelected
-                      ? 'text-[#BA5200] dark:text-[#F28C28] font-bold'
-                      : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'fixed',
+              top: pos.top,
+              bottom: pos.bottom,
+              left: pos.left,
+              width: pos.width,
+              maxHeight: pos.maxHeight,
+            }}
+            className="rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl z-[9999] overflow-y-auto py-1"
+          >
+            {filteredOptions.length === 0 ? (
+              <div className="px-4 py-2 text-xs text-[#9AA9BF] text-center">
+                {options.length === 0 ? 'Sem opções' : 'Nenhum resultado'}
+              </div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const isSelected = opt === value;
+                const isActive = idx === activeIndex;
+                return (
+                  <button
+                    key={opt}
+                    ref={(el) => {
+                      optionRefs.current[idx] = el;
+                    }}
+                    type="button"
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectOption(opt);
+                    }}
+                    className={`w-full min-h-9 h-auto py-1.5 px-3.5 text-[13px] leading-snug whitespace-normal break-normal flex items-center transition-colors cursor-pointer ${
+                      align === 'center' ? 'justify-center text-center' : 'justify-start text-left'
+                    } ${
+                      isActive
+                        ? 'bg-[#EEF4FC] dark:bg-[#1B2F56]'
+                        : 'hover:bg-[#F8FAFC] dark:hover:bg-[#172746]'
+                    } ${
+                      isSelected
+                        ? 'text-[#BA5200] dark:text-[#F28C28] font-bold'
+                        : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
                     }`}
-                >
-                  <span className="truncate" title={opt}>{opt}</span>
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
+                  >
+                    <span title={opt}>{opt}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
@@ -844,6 +1061,65 @@ export const CapsuleInput: React.FC<CapsuleInputProps> = ({
   );
 };
 
+export const NexoTooltip: React.FC<{
+  text?: string;
+  children: React.ReactNode;
+  placement?: 'top' | 'bottom';
+  className?: string;
+}> = ({ text, children, placement = 'top', className = '' }) => {
+  const [visible, setVisible] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number; actualPlacement: 'top' | 'bottom' } | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
+  const show = () => {
+    if (!text) return;
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const centerX = Math.max(24, Math.min(window.innerWidth - 24, rect.left + rect.width / 2));
+    const preferTop = placement === 'top';
+    const actualPlacement: 'top' | 'bottom' =
+      preferTop && rect.top < 46 ? 'bottom' : !preferTop && window.innerHeight - rect.bottom < 46 ? 'top' : placement;
+    const top = actualPlacement === 'top' ? rect.top - 8 : rect.bottom + 8;
+    setCoords({ left: centerX, top, actualPlacement });
+    setVisible(true);
+  };
+
+  const hide = () => setVisible(false);
+
+  if (!text) return <>{children}</>;
+
+  return (
+    <span
+      ref={anchorRef}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      onMouseDown={hide}
+      className={`inline-flex items-center min-w-0 ${className}`}
+    >
+      {children}
+      {visible &&
+        coords &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: coords.left,
+              top: coords.top,
+              transform: coords.actualPlacement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+            }}
+            className="pointer-events-none z-[10000] max-w-[280px] px-3 py-1.5 rounded-full bg-[#18223A] dark:bg-[#F4F7FF] text-white dark:text-[#18223A] text-[11.5px] font-semibold leading-snug text-center shadow-lg border border-[#24385E]/40 dark:border-[#DDE5F2]"
+          >
+            {text}
+          </div>,
+          document.body
+        )}
+    </span>
+  );
+};
+
 // ---------- CapsuleQuantityUnit (Fused [ Quantidade | Unidade ▼ ]) ----------
 
 export interface CapsuleQuantityUnitProps {
@@ -855,6 +1131,7 @@ export interface CapsuleQuantityUnitProps {
   width?: number | string;
   height?: number;
   qtyPlaceholder?: string;
+  unitPlaceholder?: string;
   disabled?: boolean;
 }
 
@@ -867,14 +1144,29 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
   width = 180,
   height = 34,
   qtyPlaceholder = 'Qtd',
+  unitPlaceholder = 'Un.',
   disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const unitOptionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pos = useFloatingDropdownPosition(wrapRef, open, 190);
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    unitOptionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
+      ) {
         setOpen(false);
       }
     };
@@ -883,6 +1175,46 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
     }
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [open]);
+
+  const toggleUnitMenu = () => {
+    if (disabled) return;
+    setOpen((o) => {
+      const next = !o;
+      if (next) {
+        const idx = unitOptions.indexOf(unitValue);
+        setActiveIndex(idx >= 0 ? idx : unitOptions.length > 0 ? 0 : -1);
+      }
+      return next;
+    });
+  };
+
+  const handleUnitKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) {
+        toggleUnitMenu();
+      } else if (unitOptions.length > 0) {
+        setActiveIndex((prev) => (prev + 1) % unitOptions.length);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) {
+        toggleUnitMenu();
+      } else if (unitOptions.length > 0) {
+        setActiveIndex((prev) => (prev <= 0 ? unitOptions.length - 1 : prev - 1));
+      }
+    } else if (e.key === 'Enter' && open) {
+      e.preventDefault();
+      if (activeIndex >= 0 && unitOptions[activeIndex] !== undefined) {
+        onUnitChange(unitOptions[activeIndex]);
+        setOpen(false);
+      }
+    } else if (e.key === 'Escape' && open) {
+      e.preventDefault();
+      setOpen(false);
+    }
+  };
 
   return (
     <div
@@ -903,59 +1235,90 @@ export const CapsuleQuantityUnit: React.FC<CapsuleQuantityUnitProps> = ({
         value={qtyValue}
         onChange={(e) => onQtyChange(e.target.value.replace(/[^0-9.,]/g, ''))}
         placeholder={qtyPlaceholder}
-        className="flex-1 min-w-0 h-full bg-transparent px-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none text-center font-medium"
+        className="flex-1 min-w-[54px] h-full bg-transparent px-2.5 text-[13px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none text-center font-medium"
       />
 
       {/* Gray Divider Line */}
       <div className="w-[1px] h-[18px] bg-[#B0C0D6] dark:bg-[#2A3F66] shrink-0" />
 
       {/* Unit Selector Trigger */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className="h-full px-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer select-none shrink-0"
+      <NexoTooltip
+        text={unitValue && unitValue.length > 6 ? unitValue : undefined}
+        className="h-full max-w-[56%]"
       >
-        <span>{unitValue || 'Unidade'}</span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 12 12"
-          fill="none"
-          className={`text-[#687796] transition-transform duration-150 ${open ? 'rotate-180' : ''
-            }`}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={toggleUnitMenu}
+          onKeyDown={handleUnitKeyDown}
+          className={`h-full min-w-0 max-w-full px-2.5 flex items-center justify-center gap-1.5 text-[12.5px] transition-colors cursor-pointer select-none focus:outline-none ${
+            unitValue
+              ? 'font-bold text-[#18223A] dark:text-[#F4F7FF] hover:text-[#BA5200] dark:hover:text-[#F28C28]'
+              : 'font-normal text-[#9AA9BF] hover:text-[#687796] dark:hover:text-[#CBD5E1]'
+          }`}
         >
-          <path
-            d="M2 4L6 8L10 4"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+          <span className="truncate">{unitValue || unitPlaceholder}</span>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 12 12"
+            fill="none"
+            className={`text-[#687796] shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''
+              }`}
+          >
+            <path
+              d="M2 4L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </NexoTooltip>
 
       {/* Floating Unit Dropdown */}
-      {open && (
-        <div className="absolute right-0 top-[40px] min-w-[95px] max-h-[190px] overflow-y-auto rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-1 z-50">
-          {unitOptions.map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => {
-                onUnitChange(u);
-                setOpen(false);
-              }}
-              className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${u === unitValue
-                ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
-                : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
-                }`}
-            >
-              {u}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'fixed',
+              top: pos.top,
+              bottom: pos.bottom,
+              right: pos.right,
+              maxHeight: pos.maxHeight,
+            }}
+            className="min-w-[110px] w-max max-w-[240px] overflow-y-auto rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-1 z-[9999]"
+          >
+            {unitOptions.map((u, idx) => (
+              <button
+                key={u}
+                ref={(el) => {
+                  unitOptionRefs.current[idx] = el;
+                }}
+                type="button"
+                onMouseEnter={() => setActiveIndex(idx)}
+                onClick={() => {
+                  onUnitChange(u);
+                  setOpen(false);
+                }}
+                className={`w-full min-h-8 h-auto py-1.5 px-3 text-[12.5px] leading-snug text-center whitespace-normal break-normal flex items-center justify-center transition-colors cursor-pointer ${
+                  idx === activeIndex
+                    ? 'bg-[#EEF4FC] dark:bg-[#1B2F56]'
+                    : 'hover:bg-[#F8FAFC] dark:hover:bg-[#172746]'
+                } ${u === unitValue
+                  ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
+                  : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
+                  }`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
@@ -1817,6 +2180,14 @@ export const RefreshSyncIcon: React.FC<{ className?: string }> = ({ className = 
     <polyline points="3 3 3 8 8 8" />
     <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" />
     <polyline points="21 21 21 16 16 16" />
+  </svg>
+);
+
+export const HelpCircleIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 

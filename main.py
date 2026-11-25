@@ -198,6 +198,7 @@ def main():
         "width": w,
         "height": h,
         "min_size": (min_w, min_h),
+        "maximized": True,
         "background_color": "#F4F7FC",
         "text_select": False,
     }

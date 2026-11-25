@@ -7,6 +7,7 @@ import {
 import {
   AlertTriangleIcon,
   CapsuleInput,
+  CapsuleQuantityUnit,
   CartPurchaseIcon,
   ClockIcon,
   ColumnResizeHandle,
@@ -125,11 +126,83 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
   } | null>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
 
+const MATERIAL_DRAFTS_STORAGE_KEY = 'nexo_material_drafts_v1';
+
+interface MaterialDraft {
+  draftId: string;
+  updatedAt: string;
+  name: string;
+  brand: string;
+  qty: string;
+  unit: string;
+  value: string;
+  category: string;
+  barcode: string;
+  purchaseDate: string;
+}
+
   // Modals State
   const [formModal, setFormModal] = useState<{
     open: boolean;
     editItem: MaterialItem | null;
-  }>({ open: false, editItem: null });
+    draftId?: string | null;
+  }>({ open: false, editItem: null, draftId: null });
+
+  const [drafts, setDrafts] = useState<MaterialDraft[]>(() => {
+    try {
+      const raw = localStorage.getItem(MATERIAL_DRAFTS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const persistDrafts = useCallback((next: MaterialDraft[]) => {
+    setDrafts(next);
+    try {
+      localStorage.setItem(MATERIAL_DRAFTS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, []);
+
+  const saveDraftItem = useCallback(
+    (draft: MaterialDraft) => {
+      persistDrafts([draft, ...drafts.filter((d) => d.draftId !== draft.draftId)]);
+    },
+    [drafts, persistDrafts]
+  );
+
+  const removeDraftItem = useCallback(
+    (draftId: string) => {
+      persistDrafts(drafts.filter((d) => d.draftId !== draftId));
+    },
+    [drafts, persistDrafts]
+  );
+
+  const [similarWarningModal, setSimilarWarningModal] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    editId?: number;
+    editMode?: 'correction' | 'update';
+    editReason?: string;
+    pendingPayload: any;
+    existing: {
+      id: number;
+      code: string;
+      name: string;
+      brand: string;
+      qty: number;
+      qty_fmt: string;
+      unit: string;
+      value: number;
+      value_fmt: string;
+      category: string;
+      barcode: string;
+    };
+  } | null>(null);
 
   const [editDecisionModal, setEditDecisionModal] = useState<{
     open: boolean;
@@ -298,7 +371,47 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
     setFBarcode('');
     setFDate(new Date().toISOString().slice(0, 10));
     setFormError(null);
-    setFormModal({ open: true, editItem: null });
+    setFormModal({ open: true, editItem: null, draftId: null });
+  };
+
+  const openDraftMaterial = (draft: MaterialDraft) => {
+    setFName(draft.name);
+    setFBrand(draft.brand);
+    setFQty(draft.qty);
+    setFUnit(draft.unit);
+    setFValue(draft.value);
+    setFCategory(draft.category || 'Comestível');
+    setFBarcode(draft.barcode);
+    setFDate(draft.purchaseDate || new Date().toISOString().slice(0, 10));
+    setFormError(null);
+    setFormModal({ open: true, editItem: null, draftId: draft.draftId });
+  };
+
+  const handleCloseFormModal = () => {
+    if (!formModal.editItem) {
+      const hasContent =
+        fName.trim().length > 0 ||
+        fBrand.trim().length > 0 ||
+        fQty.trim().length > 0 ||
+        fValue.trim().length > 0 ||
+        fBarcode.trim().length > 0;
+      if (hasContent) {
+        saveDraftItem({
+          draftId: formModal.draftId || `draft_mat_${Date.now()}`,
+          updatedAt: new Date().toISOString(),
+          name: fName,
+          brand: fBrand,
+          qty: fQty,
+          unit: fUnit,
+          value: fValue,
+          category: fCategory,
+          barcode: fBarcode,
+          purchaseDate: fDate,
+        });
+        onNotify('Rascunho salvo no topo da lista.', 'success');
+      }
+    }
+    setFormModal({ open: false, editItem: null, draftId: null });
   };
 
   const openEditMaterial = (item?: MaterialItem) => {
@@ -337,7 +450,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
     setFBarcode('');
     setFDate(new Date().toISOString().slice(0, 10));
     setFormError(null);
-    setFormModal({ open: true, editItem: null });
+    setFormModal({ open: true, editItem: null, draftId: null });
   };
 
   const parseLocalFloat = (str: string): number => {
@@ -353,6 +466,36 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       s = s.replace(',', '.');
     }
     return parseFloat(s);
+  };
+
+  const getErrorMessage = (detail: any, fallback: string): string => {
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (detail && typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+    return fallback;
+  };
+
+  const handleSimilarConflict = (
+    res: Response,
+    data: any,
+    mode: 'create' | 'edit',
+    pendingPayload: any,
+    editId?: number,
+    editMode?: 'correction' | 'update',
+    editReason?: string
+  ): boolean => {
+    if (res.status === 409 && data?.detail?.code === 'SIMILAR_MATERIAL_EXISTS' && data?.detail?.existing) {
+      setSimilarWarningModal({
+        open: true,
+        mode,
+        editId,
+        editMode,
+        editReason,
+        pendingPayload,
+        existing: data.detail.existing,
+      });
+      return true;
+    }
+    return false;
   };
 
   const handleSaveForm = async () => {
@@ -469,7 +612,10 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
         });
         const data = await res.json();
         if (!res.ok) {
-          setFormError(data.detail || 'Não foi possível atualizar o item.');
+          if (handleSimilarConflict(res, data, 'edit', payload, before.id, 'correction', 'Atualização cadastral')) {
+            return;
+          }
+          setFormError(getErrorMessage(data.detail, 'Não foi possível atualizar o item.'));
           return;
         }
         setFormModal({ open: false, editItem: null });
@@ -490,10 +636,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setFormError(data.detail || 'Não foi possível salvar o item.');
+        if (handleSimilarConflict(res, data, 'create', payload)) {
+          return;
+        }
+        setFormError(getErrorMessage(data.detail, 'Não foi possível salvar o item.'));
         return;
       }
-      setFormModal({ open: false, editItem: null });
+      if (formModal.draftId) removeDraftItem(formModal.draftId);
+      setFormModal({ open: false, editItem: null, draftId: null });
       await fetchMaterials();
       onNotify('Insumo salvo com sucesso.', 'success');
     } catch (e: any) {
@@ -511,8 +661,11 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setFormError(data.detail || 'Não foi possível salvar o novo insumo.');
         setEditDecisionModal(null);
+        if (handleSimilarConflict(res, data, 'create', editDecisionModal.pendingPayload)) {
+          return;
+        }
+        setFormError(getErrorMessage(data.detail, 'Não foi possível salvar o novo insumo.'));
         return;
       }
       setEditDecisionModal(null);
@@ -522,6 +675,78 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
     } catch (e: any) {
       setFormError(e.message || 'Erro de conexão com o servidor.');
       setEditDecisionModal(null);
+    }
+  };
+
+  const handleConfirmSimilarUpdateExisting = async () => {
+    if (!similarWarningModal) return;
+    const { existing, pendingPayload } = similarWarningModal;
+    try {
+      const res = await fetch(`/api/materials/${existing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...pendingPayload,
+          name: existing.name,
+          edit_mode: 'update',
+          edit_reason: 'Atualização de insumo similar via cadastro',
+          confirm_similar: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(getErrorMessage(data.detail, 'Não foi possível atualizar o insumo existente.'));
+        setSimilarWarningModal(null);
+        return;
+      }
+      if (formModal.draftId) removeDraftItem(formModal.draftId);
+      setSimilarWarningModal(null);
+      setFormModal({ open: false, editItem: null, draftId: null });
+      await fetchMaterials();
+      onNotify(`Insumo "${existing.name}" atualizado com sucesso.`, 'success');
+    } catch (e: any) {
+      setFormError(e.message || 'Erro de conexão com o servidor.');
+      setSimilarWarningModal(null);
+    }
+  };
+
+  const handleConfirmSimilarForceSave = async () => {
+    if (!similarWarningModal) return;
+    const { mode, editId, editMode, editReason, pendingPayload } = similarWarningModal;
+    try {
+      const isEdit = mode === 'edit' && typeof editId === 'number';
+      const url = isEdit ? `/api/materials/${editId}` : '/api/materials';
+      const method = isEdit ? 'PUT' : 'POST';
+      const bodyPayload = isEdit
+        ? {
+            ...pendingPayload,
+            edit_mode: editMode || 'correction',
+            edit_reason: editReason || 'Atualização cadastral',
+            confirm_similar: true,
+          }
+        : {
+            ...pendingPayload,
+            confirm_similar: true,
+          };
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(getErrorMessage(data.detail, 'Não foi possível salvar o item.'));
+        setSimilarWarningModal(null);
+        return;
+      }
+      if (!isEdit && formModal.draftId) removeDraftItem(formModal.draftId);
+      setSimilarWarningModal(null);
+      setFormModal({ open: false, editItem: null, draftId: null });
+      await fetchMaterials();
+      onNotify(isEdit ? 'Insumo atualizado com sucesso.' : 'Insumo salvo com sucesso.', 'success');
+    } catch (e: any) {
+      setFormError(e.message || 'Erro de conexão com o servidor.');
+      setSimilarWarningModal(null);
     }
   };
 
@@ -552,8 +777,14 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        setFormError(data.detail || 'Não foi possível atualizar o item.');
+        const appliedReason = reason.trim() || (mode === 'correction' ? 'Correção de cadastro' : 'Nova compra');
+        const beforeId = editDecisionModal.beforeItem.id;
+        const pending = editDecisionModal.pendingPayload;
         setEditDecisionModal(null);
+        if (handleSimilarConflict(res, data, 'edit', pending, beforeId, mode, appliedReason)) {
+          return;
+        }
+        setFormError(getErrorMessage(data.detail, 'Não foi possível atualizar o item.'));
         return;
       }
       setEditDecisionModal(null);
@@ -869,10 +1100,109 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             </div>
 
             {/* Table Body or Empty State */}
-            {items.length === 0 && !loading ? (
+            {items.length === 0 && drafts.length === 0 && !loading ? (
               <div className="flex-1 min-h-[240px]" />
             ) : (
               <div className="divide-y divide-[#F0F4FA] dark:divide-[#17294A]">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft.draftId}
+                    onDoubleClick={() => openDraftMaterial(draft)}
+                    className="h-[38px] flex items-center transition-colors group cursor-pointer bg-[#FFF9F0] dark:bg-[#231910] hover:bg-[#FFF3E0] dark:hover:bg-[#2E2115] text-[#18223A] dark:text-[#F4F7FF]"
+                  >
+                    <div className="w-[60px] h-full flex items-center justify-center shrink-0 sticky left-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115]">
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#F28C28] text-white">
+                        Rasc.
+                      </span>
+                    </div>
+
+                    <div className="flex items-center flex-1 h-full">
+                      {visibleColumns.map((col) => {
+                        const colWidth = colWidths[col.key] ?? col.width;
+                        let cellContent: React.ReactNode = '-';
+                        switch (col.key) {
+                          case 'code':
+                            cellContent = (
+                              <span className="font-mono text-[11px] font-bold text-[#F28C28]">
+                                RASCUNHO
+                              </span>
+                            );
+                            break;
+                          case 'barcode':
+                            cellContent = draft.barcode || '-';
+                            break;
+                          case 'name':
+                            cellContent = (
+                              <span className="font-semibold">
+                                {draft.name.trim() || '(Insumo sem nome)'}
+                              </span>
+                            );
+                            break;
+                          case 'brand':
+                            cellContent = draft.brand || '-';
+                            break;
+                          case 'qty':
+                            cellContent = draft.qty || '-';
+                            break;
+                          case 'unit':
+                            cellContent = draft.unit || '-';
+                            break;
+                          case 'value':
+                            cellContent = draft.value ? `R$ ${draft.value}` : '-';
+                            break;
+                          case 'category':
+                            cellContent = draft.category || '-';
+                            break;
+                          case 'status':
+                            cellContent = (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FFF0D8] text-[#BA5200] dark:bg-[#5A3518] dark:text-[#F28C28]">
+                                Rascunho
+                              </span>
+                            );
+                            break;
+                          default:
+                            cellContent = '-';
+                        }
+                        return (
+                          <div
+                            key={col.key}
+                            style={{ width: `${colWidth}px`, flexShrink: 0 }}
+                            className={`px-3 text-[13px] truncate ${
+                              col.align === 'left' ? 'text-left' : 'text-center'
+                            }`}
+                          >
+                            {cellContent}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-[90px] h-full flex items-center justify-center gap-1 shrink-0 sticky right-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openDraftMaterial(draft)}
+                        title="Continuar rascunho"
+                        className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#BA5200] dark:text-[#F28C28] hover:bg-[#F28C28]/15 cursor-pointer transition-colors"
+                      >
+                        <EditPencilIcon size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeDraftItem(draft.draftId);
+                          onNotify('Rascunho descartado.', 'success');
+                        }}
+                        title="Descartar rascunho"
+                        className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] cursor-pointer transition-colors"
+                      >
+                        <TrashIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
                 {items.map((item) => {
                   const isChecked = checkedIds.has(item.id);
                   const isSelected = selectedId === item.id || isChecked;
@@ -1145,7 +1475,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setFormModal({ open: false, editItem: null })}
+                onClick={handleCloseFormModal}
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10"
               >
                 ✕
@@ -1186,31 +1516,22 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Quantidade * | Unidade * | Valor da compra * */}
+              {/* Row 2: Quantidade e Unidade * (Cápsula Dividida Padrão Nexo) | Valor da compra * */}
               <div className="grid grid-cols-12 gap-2.5">
-                <div className="col-span-4">
+                <div className="col-span-7">
                   <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
                     Quantidade *
                   </label>
-                  <CapsuleInput
-                    value={fQty}
-                    onChange={setFQty}
-                    type="numeric"
-                    placeholder="Ex: 1000"
-                  />
-                </div>
-                <div className="col-span-3">
-                  <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-0.5 pl-1">
-                    Unidade *
-                  </label>
-                  <RoundedDropdown
-                    value={fUnit}
-                    onChange={setFUnit}
-                    options={units}
+                  <CapsuleQuantityUnit
+                    qtyValue={fQty}
+                    onQtyChange={setFQty}
+                    unitValue={fUnit}
+                    onUnitChange={setFUnit}
+                    unitOptions={units}
                     width="100%"
                     height={32}
-                    align="left"
-                    placeholder="Un."
+                    qtyPlaceholder="Ex: 1000"
+                    unitPlaceholder="Unidade"
                   />
                 </div>
                 <div className="col-span-5">
@@ -1268,6 +1589,18 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 * campo obrigatório
               </span>
               <div className="flex items-center gap-2">
+                {formModal.draftId && (
+                  <RoundedActionButton
+                    label="Descartar rascunho"
+                    onClick={() => {
+                      if (formModal.draftId) removeDraftItem(formModal.draftId);
+                      setFormModal({ open: false, editItem: null, draftId: null });
+                      onNotify('Rascunho descartado.', 'success');
+                    }}
+                    variant="danger"
+                    height={34}
+                  />
+                )}
                 <RoundedActionButton
                   label="Salvar"
                   onClick={handleSaveForm}
@@ -1276,11 +1609,82 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 />
                 <RoundedActionButton
                   label="Cancelar"
-                  onClick={() => setFormModal({ open: false, editItem: null })}
+                  onClick={handleCloseFormModal}
                   variant="secondary"
                   height={34}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 1.5: Item parecido já cadastrado (Atualizar existente vs Criar novo)
+         ===================================================================== */}
+      {similarWarningModal && similarWarningModal.open && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-[60] p-4">
+          <div className="w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-2xl p-6 flex flex-col">
+            <div className="text-center mb-4">
+              <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0D8] text-[#F28C28] dark:bg-[#3D2514] mb-2">
+                <TagBadgeIcon className="w-5 h-5" />
+              </span>
+              <h3 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                Item parecido já cadastrado
+              </h3>
+              <p className="text-[13px] text-[#687796] dark:text-[#93A4C6] mt-0.5">
+                Encontramos um insumo com nome bem próximo. Deseja atualizar o que já existe ou cadastrar como um item separado?
+              </p>
+            </div>
+
+            <div className="rounded-[16px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#1E3156] p-4 mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] rounded-[12px] p-3">
+                  <span className="block text-[10.5px] uppercase tracking-wider font-semibold text-[#8C9BB5]">
+                    Já cadastrado {similarWarningModal.existing.code ? `(${similarWarningModal.existing.code})` : ''}
+                  </span>
+                  <div className="mt-1 text-[13.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] truncate">
+                    {similarWarningModal.existing.name}
+                  </div>
+                  <div className="text-[12px] text-[#475569] dark:text-[#AFC0E2] mt-0.5">
+                    {similarWarningModal.existing.brand} • {similarWarningModal.existing.qty_fmt} {similarWarningModal.existing.unit} • R$ {similarWarningModal.existing.value_fmt}
+                  </div>
+                </div>
+                <span className="text-[#F28C28] text-[18px] font-bold">➔</span>
+                <div className="flex-1 bg-white dark:bg-[#111F3B] border border-[#F28C28]/40 dark:border-[#F28C28]/50 rounded-[12px] p-3">
+                  <span className="block text-[10.5px] uppercase tracking-wider font-semibold text-[#F28C28]">
+                    {similarWarningModal.mode === 'edit' ? 'Editado' : 'Novo cadastro'}
+                  </span>
+                  <div className="mt-1 text-[13.5px] font-bold text-[#F28C28] truncate">
+                    {similarWarningModal.pendingPayload.name}
+                  </div>
+                  <div className="text-[12px] text-[#475569] dark:text-[#AFC0E2] mt-0.5">
+                    {(similarWarningModal.pendingPayload.brand || 'Sem marca')} • {similarWarningModal.pendingPayload.qty} {similarWarningModal.pendingPayload.unit} • R$ {similarWarningModal.pendingPayload.value}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <RoundedActionButton
+                label={`Atualizar "${similarWarningModal.existing.name}"`}
+                onClick={handleConfirmSimilarUpdateExisting}
+                variant="primary"
+                height={36}
+              />
+              <RoundedActionButton
+                label={similarWarningModal.mode === 'edit' ? 'Salvar alteração mesmo assim' : `Criar "${similarWarningModal.pendingPayload.name}" como novo`}
+                onClick={handleConfirmSimilarForceSave}
+                variant="secondary"
+                height={36}
+              />
+              <button
+                type="button"
+                onClick={() => setSimilarWarningModal(null)}
+                className="mt-1 text-[12.5px] font-semibold text-[#687796] dark:text-[#93A4C6] hover:text-[#18223A] dark:hover:text-[#F4F7FF] py-1.5 transition-colors"
+              >
+                Voltar e editar o nome
+              </button>
             </div>
           </div>
         </div>

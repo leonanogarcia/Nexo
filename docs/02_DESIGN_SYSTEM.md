@@ -120,3 +120,29 @@ Qualquer histórico transacional (Insumos, Receitas, Produtos) DEVE utilizar a c
 - **Switches deslizantes sem texto interno:**
   - `ThemeTriSwitch` (`116×44px`): 3 estados (**Claro → Sistema → Escuro**), com clique para avançar, arrastar na trilha e *tooltip* exibindo apenas o nome do modo.
   - `LogoShapeSwitch` (`64×32px`): 2 estados (**Redonda / Circular ↔ Livre / Retangular**), fundo em degradê Nexo (`#F28C28 → #111F3B`), clique + arrastar + *tooltip*.
+  - Switches opcionais em formulários (ex.: equipamento de cocção em Receitas) também devem exibir apenas o controle visual sem texto redundante `"Ativado"/"Desligado"` ao lado.
+
+---
+
+## Padrões Oficiais Consolidados na v2.1.2 (Obrigatórios)
+
+### 1. Janela Principal Maximizada (`main.py`)
+- O aplicativo abre **maximizado** (`"maximized": True` no `webview.create_window`), preservando `SPI_GETWORKAREA` e `min_size` responsivo (`920×560`) para continuar compatível com meia tela em monitores Full HD.
+
+### 2. Menus Flutuantes em Portal (`RoundedDropdown` e `CapsuleQuantityUnit`)
+- **Proibido prender dropdown em `overflow` de modal:** Tanto `RoundedDropdown` quanto `CapsuleQuantityUnit` devem renderizar seus menus via `createPortal(..., document.body)` com `position: fixed` (`z-[9999]`) e `useFloatingDropdownPosition` (invertendo para cima automaticamente quando não há espaço abaixo).
+- **Digitação Direta & Teclado (`RoundedDropdown`):** Clicar ou focar na cápsula abre a lista e libera digitação imediata sem tecla extra (filtro sem acento e sem diferenciar maiúsculas/minúsculas). Navegação obrigatória por `↓`, `↑`, `Enter` e `Esc`.
+- **Quebra por Palavra vs `truncate`:**
+  - Nas **listas suspensas abertas**, opções longas quebram em múltiplas linhas **apenas entre palavras inteiras** (`whitespace-normal break-normal`, nunca picotando palavras no meio).
+  - Nos **campos fechados**, mantém `truncate` (`...`) + tooltip para nunca deformar a cápsula.
+
+### 3. Cápsula Dividida `CapsuleQuantityUnit`
+- **Proteção do campo numérico:** O `<input>` de quantidade deve ter `min-w-[54px]`, e o botão da unidade `max-w-[56%]` + `truncate` + `<NexoTooltip>`, impedindo que unidades personalizadas longas espremam o campo de digitação.
+- **Placeholder da Unidade:** Quando nenhuma unidade está selecionada, o texto deve aparecer em **cinza claro e peso normal (`text-[#9AA9BF] font-normal`)** igual ao placeholder numérico. O padrão curto é **`Un.`**; apenas em cápsulas largas onde a palavra cabe inteira sem cortar (ex.: modal de Insumos) usa-se `unitPlaceholder="Unidade"`.
+- **Padronização total:** Toda cápsula `[ Quantidade | Unidade ▼ ]` (inclusive em `ConversionsModal.tsx`) deve usar `<CapsuleQuantityUnit>`.
+
+### 4. Tooltips Nexo (`NexoTooltip`) e Ícones `(i)` vs `(?)`
+- **Tooltip em cápsula:** Botões de ícone/ação e textos de unidade truncados devem usar `<NexoTooltip>` (`rounded-full`, `createPortal`, `z-[10000]`) no padrão visual do Nexo, evitando depender do balão preto nativo do Windows (`title`).
+- **Regra Semântica `InfoCircleIcon` (`i`) vs `HelpCircleIcon` (`?`):**
+  - `InfoCircleIcon` (`i` na bolinha): reservado para **avisos informativos** ("o que é / onde aparece").
+  - `HelpCircleIcon` (`?` na bolinha, `strokeWidth="2"`, ícone limpo sem borda de cápsula ao redor): obrigatório para **guias passo a passo / tutoriais de "como usar ou configurar"** (ex.: *Conversões de Medidas*, *Modelo IA*, *Chave API*, *Métricas de Custo*, *Canais de Venda*).

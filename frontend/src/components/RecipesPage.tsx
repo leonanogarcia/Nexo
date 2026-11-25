@@ -19,6 +19,7 @@ import {
   NexoEmptyStateIcon,
   NexoEmptyTableWatermark,
   NexoToolbarOverflowMenu,
+  NexoTooltip,
   PaperclipIcon,
   PlusIcon,
   RoundedActionButton,
@@ -124,7 +125,42 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
   const [formModal, setFormModal] = useState<{
     open: boolean;
     editItem: RecipeItem | null;
-  }>({ open: false, editItem: null });
+    draftItem?: RecipeDraft | null;
+  }>({ open: false, editItem: null, draftItem: null });
+
+  const [drafts, setDrafts] = useState<RecipeDraft[]>(() => {
+    try {
+      const raw = localStorage.getItem(RECIPE_DRAFTS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const persistDrafts = useCallback((next: RecipeDraft[]) => {
+    setDrafts(next);
+    try {
+      localStorage.setItem(RECIPE_DRAFTS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, []);
+
+  const saveDraftItem = useCallback(
+    (draft: RecipeDraft) => {
+      persistDrafts([draft, ...drafts.filter((d) => d.draftId !== draft.draftId)]);
+    },
+    [drafts, persistDrafts]
+  );
+
+  const removeDraftItem = useCallback(
+    (draftId: string) => {
+      persistDrafts(drafts.filter((d) => d.draftId !== draftId));
+    },
+    [drafts, persistDrafts]
+  );
 
   const [historyModal, setHistoryModal] = useState<{
     open: boolean;
@@ -614,10 +650,101 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
             </div>
 
             {/* Table Body or Empty State */}
-            {sortedItems.length === 0 && !loading ? (
+            {sortedItems.length === 0 && drafts.length === 0 && !loading ? (
               <div className="flex-1 min-h-[240px]" />
             ) : (
               <div className="divide-y divide-[#F0F4FA] dark:divide-[#17294A]">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft.draftId}
+                    onDoubleClick={() => setFormModal({ open: true, editItem: null, draftItem: draft })}
+                    className="h-[38px] flex items-center transition-colors group cursor-pointer bg-[#FFF9F0] dark:bg-[#231910] hover:bg-[#FFF3E0] dark:hover:bg-[#2E2115] text-[#18223A] dark:text-[#F4F7FF]"
+                  >
+                    {/* Left Badge Cell (60px) */}
+                    <div className="w-[60px] h-full flex items-center justify-center shrink-0 sticky left-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115]">
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#F28C28] text-white">
+                        Rasc.
+                      </span>
+                    </div>
+
+                    {/* Data Cells */}
+                    <div className="flex items-center flex-1 h-full">
+                      {visibleColumns.map((col) => {
+                        let cellContent: React.ReactNode = '-';
+                        switch (col.key) {
+                          case 'code':
+                            cellContent = (
+                              <span className="font-mono text-[11px] font-bold text-[#F28C28]">
+                                RASCUNHO
+                              </span>
+                            );
+                            break;
+                          case 'name':
+                            cellContent = (
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-[#18223A] dark:text-[#F4F7FF]">
+                                  {draft.name.trim() || '(Receita sem nome)'}
+                                </span>
+                                <span className="text-[11px] text-[#9A5B13] dark:text-[#FBBF24]">
+                                  • {draft.ingredients.length} {draft.ingredients.length === 1 ? 'ingrediente' : 'ingredientes'}
+                                </span>
+                              </div>
+                            );
+                            break;
+                          case 'yield':
+                            cellContent = `${draft.yieldQty || '1'} ${draft.yieldUnit || 'un'}`;
+                            break;
+                          case 'status':
+                            cellContent = (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#FFF0D8] text-[#BA5200] dark:bg-[#5A3518] dark:text-[#F28C28]">
+                                Rascunho
+                              </span>
+                            );
+                            break;
+                          default:
+                            cellContent = '-';
+                        }
+                        return (
+                          <div
+                            key={col.key}
+                            style={{ width: `${colWidths[col.key] || col.width}px` }}
+                            className={`px-3 text-[13px] truncate shrink-0 ${
+                              col.align === 'center' ? 'text-center' : 'text-left'
+                            }`}
+                          >
+                            {cellContent}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right Actions (50px) */}
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-[76px] h-full flex items-center justify-center gap-1 shrink-0 sticky right-0 z-10 bg-[#FFF9F0] dark:bg-[#231910] group-hover:bg-[#FFF3E0] dark:group-hover:bg-[#2E2115] pr-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setFormModal({ open: true, editItem: null, draftItem: draft })}
+                        title="Continuar rascunho"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[#BA5200] dark:text-[#F28C28] hover:bg-[#F28C28]/15 transition-colors cursor-pointer"
+                      >
+                        <EditPencilIcon size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeDraftItem(draft.draftId);
+                          onNotify('Rascunho descartado.', 'success');
+                        }}
+                        title="Descartar rascunho"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[#DC2626] dark:text-[#F87171] hover:bg-[#FEE2E2] dark:hover:bg-[#3D1822] transition-colors cursor-pointer"
+                      >
+                        <TrashIcon size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
                 {sortedItems.map((item) => {
                   const isChecked = checkedIds.has(item.id);
                   const isSelected = selectedId === item.id || isChecked;
@@ -897,14 +1024,26 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
       {formModal.open && (
         <RecipeFormModal
           editItem={formModal.editItem}
+          draftItem={formModal.draftItem}
           aiDraft={aiDraft}
           units={units}
-          onClose={() => {
-            setFormModal({ open: false, editItem: null });
+          onClose={(draftSnapshot) => {
+            if (draftSnapshot) {
+              saveDraftItem(draftSnapshot);
+              onNotify('Rascunho salvo no topo da lista.', 'success');
+            }
+            setFormModal({ open: false, editItem: null, draftItem: null });
             setAiDraft(null);
           }}
-          onSaved={async () => {
-            setFormModal({ open: false, editItem: null });
+          onDiscardDraft={(draftId) => {
+            removeDraftItem(draftId);
+            setFormModal({ open: false, editItem: null, draftItem: null });
+            setAiDraft(null);
+            onNotify('Rascunho descartado.', 'success');
+          }}
+          onSaved={async (savedDraftId) => {
+            if (savedDraftId) removeDraftItem(savedDraftId);
+            setFormModal({ open: false, editItem: null, draftItem: null });
             setAiDraft(null);
             await fetchRecipes();
             onNotify('Receita salva com sucesso!', 'success');
@@ -1011,12 +1150,28 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({
 // Sub-Component: RecipeFormModal (Nova / Editar Receita com Cálculo Vivo)
 // =====================================================================
 
+const RECIPE_DRAFTS_STORAGE_KEY = 'nexo_recipe_drafts_v1';
+
+interface RecipeDraft {
+  draftId: string;
+  updatedAt: string;
+  name: string;
+  yieldQty: string;
+  yieldUnit: string;
+  cookingAppliance: string;
+  cookingTime: string;
+  notes: string;
+  ingredients: FormIngredientRow[];
+}
+
 interface RecipeFormModalProps {
   editItem: RecipeItem | null;
+  draftItem?: RecipeDraft | null;
   aiDraft?: AiParsedRecipeResult | null;
   units: string[];
-  onClose: () => void;
-  onSaved: () => void;
+  onClose: (draftSnapshot?: RecipeDraft) => void;
+  onDiscardDraft?: (draftId: string) => void;
+  onSaved: (savedDraftId?: string) => void;
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
 }
 
@@ -1051,22 +1206,67 @@ function getCompatibleUnits(purchaseUnit: string, customUnits: string[] = []): s
 
 const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   editItem,
+  draftItem = null,
   aiDraft,
   units,
   onClose,
+  onDiscardDraft,
   onSaved,
   onNotify,
 }) => {
-  const [name, setName] = useState(editItem ? editItem.name : (aiDraft?.name || ''));
-  const [yieldQty, setYieldQty] = useState(editItem ? String(editItem.yield_qty) : (aiDraft ? String(aiDraft.yield_qty || 1) : '1'));
-  const [yieldUnit, setYieldUnit] = useState(editItem ? editItem.yield_unit : (aiDraft?.yield_unit || 'un'));
-  const [cookingAppliance, setCookingAppliance] = useState<string>(editItem ? ((editItem as any).cooking_appliance || 'none') : 'none');
-  const [cookingTime, setCookingTime] = useState<string>(editItem ? String((editItem as any).cooking_time_minutes || '0') : '0');
-  const [notes, setNotes] = useState(editItem ? editItem.notes : (aiDraft?.notes || ''));
+  const [name, setName] = useState(
+    editItem ? editItem.name : draftItem ? draftItem.name : aiDraft?.name || ''
+  );
+  const [yieldQty, setYieldQty] = useState(
+    editItem
+      ? String(editItem.yield_qty)
+      : draftItem
+      ? draftItem.yieldQty
+      : aiDraft
+      ? String(aiDraft.yield_qty || 1)
+      : '1'
+  );
+  const [yieldUnit, setYieldUnit] = useState(
+    editItem
+      ? editItem.yield_unit
+      : draftItem
+      ? draftItem.yieldUnit
+      : aiDraft?.yield_unit || 'un'
+  );
+  const [cookingAppliance, setCookingAppliance] = useState<string>(
+    editItem
+      ? (editItem as any).cooking_appliance || 'none'
+      : draftItem
+      ? draftItem.cookingAppliance
+      : 'none'
+  );
+  const [cookingTime, setCookingTime] = useState<string>(
+    editItem
+      ? String((editItem as any).cooking_time_minutes || '0')
+      : draftItem
+      ? draftItem.cookingTime
+      : '0'
+  );
+  const [cookingEnabled, setCookingEnabled] = useState<boolean>(() => {
+    const initialApp = editItem
+      ? (editItem as any).cooking_appliance || 'none'
+      : draftItem
+      ? draftItem.cookingAppliance
+      : 'none';
+    return initialApp !== 'none';
+  });
+  const [notes, setNotes] = useState(
+    editItem ? editItem.notes : draftItem ? draftItem.notes : aiDraft?.notes || ''
+  );
 
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [quickCreateTarget, setQuickCreateTarget] = useState<{ idx: number; name: string; unit: string } | null>(null);
+  const [conversionTarget, setConversionTarget] = useState<{ materialId: number | null } | null>(null);
+  const ingredientsScrollRef = useRef<HTMLDivElement>(null);
   const [ingredients, setIngredients] = useState<FormIngredientRow[]>(() => {
+    if (!editItem && draftItem?.ingredients) {
+      return draftItem.ingredients;
+    }
     if (!editItem && aiDraft?.ingredients?.length) {
       return aiDraft.ingredients
         .filter((g) => g.selected)
@@ -1117,7 +1317,10 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           const detRes = await fetch(`/api/recipes/${editItem.id}`);
           if (detRes.ok) {
             const data = await detRes.json();
-            if (data.cooking_appliance) setCookingAppliance(data.cooking_appliance);
+            if (data.cooking_appliance) {
+              setCookingAppliance(data.cooking_appliance);
+              setCookingEnabled(data.cooking_appliance !== 'none');
+            }
             if (data.cooking_time_minutes !== undefined) setCookingTime(String(data.cooking_time_minutes));
             if (data.materials_cost_fmt) setMaterialsCostFmt(data.materials_cost_fmt);
             if (data.operational_cost_fmt) setOperationalCostFmt(data.operational_cost_fmt);
@@ -1247,6 +1450,11 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
       available_units: [],
     };
     setIngredients((prev) => [...prev, newRow]);
+    requestAnimationFrame(() => {
+      if (ingredientsScrollRef.current) {
+        ingredientsScrollRef.current.scrollTop = ingredientsScrollRef.current.scrollHeight;
+      }
+    });
   };
 
   const removeIngredientRow = (idx: number) => {
@@ -1298,6 +1506,68 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
   const failSave = (msg: string, type: 'warning' | 'error' = 'warning') => {
     setError(msg);
     onNotify(msg, type);
+  };
+
+  const refreshIngredientConversions = async (targetMaterialId?: number | null) => {
+    const idsToRefresh = targetMaterialId
+      ? [targetMaterialId]
+      : Array.from(new Set(ingredients.map((i) => i.material_id).filter((id) => id > 0)));
+    if (idsToRefresh.length === 0) return;
+
+    const mapCustom: Record<number, string[]> = {};
+    await Promise.all(
+      idsToRefresh.map(async (mid) => {
+        try {
+          const cRes = await fetch(`/api/materials/${mid}/conversions`);
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            const cList: ConversionItem[] = cData.items || [];
+            mapCustom[mid] = cList.map((c) => c.name);
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+
+    const nextRows = ingredients.map((row) => {
+      if (!row.material_id || !mapCustom[row.material_id]) return row;
+      const mat = materials.find((m) => m.id === row.material_id);
+      const availUnits = getCompatibleUnits(mat?.purchase_unit || row.unit || 'g', [
+        row.unit,
+        ...mapCustom[row.material_id],
+      ]);
+      return {
+        ...row,
+        available_units: availUnits,
+      };
+    });
+    setIngredients(nextRows);
+    recalculatePreview(nextRows, yieldQty, yieldUnit);
+  };
+
+  const handleRequestClose = () => {
+    if (!editItem) {
+      const hasContent =
+        name.trim().length > 0 ||
+        notes.trim().length > 0 ||
+        ingredients.some((i) => i.material_id > 0 || Boolean(i.unresolved_name));
+      if (hasContent) {
+        onClose({
+          draftId: draftItem?.draftId || `draft_${Date.now()}`,
+          updatedAt: new Date().toISOString(),
+          name,
+          yieldQty,
+          yieldUnit,
+          cookingAppliance,
+          cookingTime,
+          notes,
+          ingredients,
+        });
+        return;
+      }
+    }
+    onClose();
   };
 
   const handleSave = async () => {
@@ -1370,7 +1640,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           console.error('Erro ao auto-anexar documento da receita:', attachErr);
         }
       }
-      onSaved();
+      onSaved(draftItem?.draftId);
     } catch (e: any) {
       failSave(e.message || 'Erro de conexão com o servidor.', 'error');
     } finally {
@@ -1380,7 +1650,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
 
     return (
     <div className="fixed inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-[740px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-[960px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156] bg-white dark:bg-[#0F1B35] shrink-0">
           <div className="flex items-center gap-2.5">
@@ -1395,7 +1665,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             ✕
@@ -1497,12 +1767,13 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                 {/* Header cápsula da tabela de ingredientes */}
                 <div className="h-[30px] rounded-full bg-[#EEF4FB] dark:bg-[#142544] px-3 flex items-center text-[11.5px] font-bold text-[#60769D] dark:text-[#AFC0E2] select-none">
                   <span className="flex-1 pl-1">Insumo</span>
-                  <span className="w-[160px] text-center">Quantidade | Unidade</span>
+                  <span className="w-[190px] text-center">Quantidade | Unidade</span>
                   <span className="w-[95px] text-center">Custo Proporcional</span>
                   <span className="w-[36px] text-center">Ação</span>
                 </div>
 
-                {/* Rows de ingredientes */}
+                {/* Rows de ingredientes com rolagem própria */}
+                <div ref={ingredientsScrollRef} className="max-h-[340px] overflow-y-auto space-y-2 pr-1">
                 {ingredients.map((ing, idx) => {
                   const selectedMat = materials.find((m) => m.id === ing.material_id);
                   const selectedMatLabel = selectedMat ? selectedMat.label : '';
@@ -1569,8 +1840,8 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                           />
                         </div>
 
-                        {/* Quantidade e Unidade unificadas em cápsula Nexo */}
-                        <div className="w-[160px] shrink-0 flex items-center justify-center">
+                        {/* Quantidade e Unidade unificadas em cápsula Nexo + Botão Unidade Especial */}
+                        <div className="shrink-0 flex items-center gap-1.5">
                           <CapsuleQuantityUnit
                             qtyValue={ing.qty}
                             onQtyChange={(v) => updateIngredientRow(idx, { qty: v })}
@@ -1582,9 +1853,22 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                                 : [ing.unit || 'g', 'g', 'kg', 'ml', 'L', 'un']
                             }
                             qtyPlaceholder="Ex: 200"
-                            width={160}
+                            width={152}
                             height={34}
                           />
+                          <NexoTooltip text="Criar unidade especial / conversão para este insumo">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setConversionTarget({
+                                  materialId: ing.material_id > 0 ? ing.material_id : null,
+                                })
+                              }
+                              className="w-8 h-8 rounded-full border border-[#DDE5F2] dark:border-[#24385E] bg-white dark:bg-[#142340] text-[#F28C28] hover:bg-[#FFF8EE] dark:hover:bg-[#2A1E14] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                            >
+                              <RulerConversionIcon size={15} />
+                            </button>
+                          </NexoTooltip>
                         </div>
 
                         {/* Custo Calculado */}
@@ -1607,101 +1891,136 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Card Intermediário: Preparo, Forno & Cocção da Receita */}
+          {/* Card Intermediário: Preparo, Forno & Equipamento (Opcional com Switch) */}
           <div className="p-4 rounded-[18px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-[#F0F4FA] dark:border-[#1E3156] pb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-[#FFF0E6] dark:bg-[#2D1B10] flex items-center justify-center text-[#F28C28]">
-                  <FlameIcon size={12} />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="w-6 h-6 rounded-full bg-[#FFF0E6] dark:bg-[#2D1B10] flex items-center justify-center text-[#F28C28] shrink-0 mt-0.5">
+                  <FlameIcon size={13} />
                 </div>
-                <span className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-                  Preparo, Forno & Cocção da Receita (Gás e Eletricidade)
-                </span>
-              </div>
-              <span className="text-[11px] text-[#60769D] dark:text-[#93A4C6]">
-                Calculado com base na rotina da sua cozinha
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              {/* Equipamento */}
-              <div className="md:col-span-8">
-                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
-                  Equipamento Utilizado
-                </label>
-                {(() => {
-                  const applianceOptions: { key: string; label: string }[] = [
-                    { key: 'none', label: 'Sem cocção ativa (Mistura fria / Sem forno ou fogão)' },
-                    { key: 'gas_oven', label: 'Forno a Gás (Fogo médio - bolos, tortas, assados)' },
-                    { key: 'gas_stove_burner', label: 'Boca de Fogão / Panela (Chama média - brigadeiros, caldas)' },
-                    { key: 'electric_oven', label: 'Forno Elétrico Convector' },
-                    { key: 'mixer_planetary', label: 'Batedeira Planetária (Massa pesada / Claras)' },
-                    { key: 'induction_cooktop', label: 'Cooktop de Indução' },
-                    { key: 'microwave', label: 'Micro-ondas' },
-                  ];
-                  const currentLabel =
-                    applianceOptions.find((o) => o.key === cookingAppliance)?.label ||
-                    applianceOptions[0].label;
-                  return (
-                    <RoundedDropdown
-                      value={currentLabel}
-                      onChange={(lbl) => {
-                        const found = applianceOptions.find((o) => o.label === lbl);
-                        const newApp = found ? found.key : 'none';
-                        setCookingAppliance(newApp);
-                        recalculatePreview(ingredients, yieldQty, yieldUnit, newApp, cookingTime);
-                      }}
-                      options={applianceOptions.map((o) => o.label)}
-                      width="100%"
-                      height={34}
-                      align="left"
-                    />
-                  );
-                })()}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Usa forno, fogão ou equipamento?
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F1F5F9] dark:bg-[#1B2C4D] text-[#60769D] dark:text-[#93A4C6]">
+                      Opcional
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] mt-0.5">
+                    Ative apenas se quiser somar o gasto de gás ou energia elétrica no custo desta receita.
+                  </p>
+                </div>
               </div>
 
-              {/* Tempo em minutos */}
-              <div className="md:col-span-4">
-                <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
-                  Tempo de Forno / Fogo (minutos)
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    disabled={cookingAppliance === 'none'}
-                    value={cookingAppliance === 'none' ? '0' : cookingTime}
-                    onChange={(e) => {
-                      const newT = e.target.value.replace(/[^0-9.,]/g, '');
-                      setCookingTime(newT);
-                      recalculatePreview(ingredients, yieldQty, yieldUnit, cookingAppliance, newT);
-                    }}
-                    placeholder="40"
-                    className="w-full h-[34px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 pr-11 focus:outline-none focus:ring-2 focus:ring-[#F28C28] disabled:opacity-50"
+              <button
+                type="button"
+                role="switch"
+                aria-checked={cookingEnabled}
+                onClick={() => {
+                  const nextEnabled = !cookingEnabled;
+                  setCookingEnabled(nextEnabled);
+                  if (nextEnabled) {
+                    const nextApp = cookingAppliance === 'none' ? 'gas_oven' : cookingAppliance;
+                    setCookingAppliance(nextApp);
+                    recalculatePreview(ingredients, yieldQty, yieldUnit, nextApp, cookingTime);
+                  } else {
+                    setCookingAppliance('none');
+                    setCookingTime('0');
+                    recalculatePreview(ingredients, yieldQty, yieldUnit, 'none', '0');
+                  }
+                }}
+                aria-label={cookingEnabled ? 'Desativar equipamento de cocção' : 'Ativar equipamento de cocção'}
+                className="flex items-center shrink-0 cursor-pointer select-none"
+              >
+                <span
+                  className={`relative inline-flex items-center w-10 h-5 rounded-full transition-colors ${
+                    cookingEnabled ? 'bg-[#F28C28]' : 'bg-[#CBD5E1] dark:bg-[#24385E]'
+                  }`}
+                >
+                  <span
+                    className={`inline-block w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${
+                      cookingEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
                   />
-                  <span className="absolute right-3 text-[11px] font-bold text-[#8C9BB5]">min</span>
-                </div>
-              </div>
+                </span>
+              </button>
             </div>
 
-            {/* Informação didática da receita */}
-            {cookingAppliance !== 'none' && parseFloat(cookingTime) > 0 ? (
-              <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] flex items-center gap-2 pl-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F28C28] shrink-0" />
-                <span>
-                  O gasto de gás e energia de <strong>{cookingTime} min</strong> será incorporado a este lote da receita e distribuído no rendimento de <strong>{yieldQty || 1} {yieldUnit}</strong>.
-                </span>
-              </div>
-            ) : (
-              <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] flex items-center gap-2 pl-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#8C9BB5] shrink-0" />
-                <span>
-                  Receita sem cocção ativa. Apenas o custo dos ingredientes será contabilizado no lote.
-                </span>
-              </div>
+            {cookingEnabled && (
+              <>
+                <div className="pt-3 border-t border-[#F0F4FA] dark:border-[#1E3156] grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                  {/* Equipamento */}
+                  <div className="md:col-span-8">
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Equipamento Utilizado
+                    </label>
+                    {(() => {
+                      const applianceOptions: { key: string; label: string }[] = [
+                        { key: 'gas_oven', label: 'Forno a Gás (Fogo médio - bolos, tortas, assados)' },
+                        { key: 'gas_stove_burner', label: 'Boca de Fogão / Panela (Chama média - brigadeiros, caldas)' },
+                        { key: 'electric_oven', label: 'Forno Elétrico Convector' },
+                        { key: 'mixer_planetary', label: 'Batedeira Planetária (Massa pesada / Claras)' },
+                        { key: 'induction_cooktop', label: 'Cooktop de Indução' },
+                        { key: 'microwave', label: 'Micro-ondas' },
+                      ];
+                      const currentLabel =
+                        applianceOptions.find((o) => o.key === cookingAppliance)?.label ||
+                        applianceOptions[0].label;
+                      return (
+                        <RoundedDropdown
+                          value={currentLabel}
+                          onChange={(lbl) => {
+                            const found = applianceOptions.find((o) => o.label === lbl);
+                            const newApp = found ? found.key : 'gas_oven';
+                            setCookingAppliance(newApp);
+                            recalculatePreview(ingredients, yieldQty, yieldUnit, newApp, cookingTime);
+                          }}
+                          options={applianceOptions.map((o) => o.label)}
+                          width="100%"
+                          height={34}
+                          align="left"
+                        />
+                      );
+                    })()}
+                  </div>
+
+                  {/* Tempo em minutos */}
+                  <div className="md:col-span-4">
+                    <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] mb-1 pl-1">
+                      Tempo de Uso (minutos)
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        value={cookingTime === '0' ? '' : cookingTime}
+                        onChange={(e) => {
+                          const newT = e.target.value.replace(/[^0-9.,]/g, '');
+                          setCookingTime(newT || '0');
+                          recalculatePreview(ingredients, yieldQty, yieldUnit, cookingAppliance, newT || '0');
+                        }}
+                        placeholder="Ex: 40"
+                        className="w-full h-[34px] rounded-full border border-[#D5E1F2] dark:border-[#283E6B] bg-white dark:bg-[#101D38] text-[12.5px] font-bold text-[#18223A] dark:text-[#F4F7FF] px-3 pr-11 focus:outline-none focus:ring-2 focus:ring-[#F28C28]"
+                      />
+                      <span className="absolute right-3 text-[11px] font-bold text-[#8C9BB5]">min</span>
+                    </div>
+                  </div>
+                </div>
+
+                {parseFloat(cookingTime) > 0 && (
+                  <div className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6] flex items-center gap-2 pl-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#F28C28] shrink-0" />
+                    <span>
+                      O gasto de gás e energia de <strong>{cookingTime} min</strong> será incorporado a este lote da receita e distribuído no rendimento de <strong>{yieldQty || 1} {yieldUnit}</strong>.
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1783,12 +2102,22 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
 
         {/* Modal Actions Footer */}
         <div className="px-6 py-3 border-t border-[#E2EAF5] dark:border-[#1E3156] flex items-center justify-between bg-white dark:bg-[#0F1B35] shrink-0">
-          <RoundedActionButton
-            label="Cancelar"
-            onClick={onClose}
-            variant="secondary"
-            height={36}
-          />
+          <div className="flex items-center gap-2">
+            <RoundedActionButton
+              label="Cancelar"
+              onClick={handleRequestClose}
+              variant="secondary"
+              height={36}
+            />
+            {draftItem && onDiscardDraft && (
+              <RoundedActionButton
+                label="Descartar rascunho"
+                onClick={() => onDiscardDraft(draftItem.draftId)}
+                variant="danger"
+                height={36}
+              />
+            )}
+          </div>
           <RoundedActionButton
             label={saving ? 'Salvando...' : editItem ? 'Salvar Alterações' : 'Salvar Receita'}
             onClick={handleSave}
@@ -1798,6 +2127,18 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({
           />
         </div>
       </div>
+
+      {conversionTarget && (
+        <ConversionsModal
+          initialMaterialId={conversionTarget.materialId}
+          onClose={async () => {
+            const targetMatId = conversionTarget.materialId;
+            setConversionTarget(null);
+            await refreshIngredientConversions(targetMatId);
+          }}
+          onNotify={onNotify}
+        />
+      )}
 
       <QuickCreateMaterialModal
         open={Boolean(quickCreateTarget)}

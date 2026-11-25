@@ -276,6 +276,7 @@ class MaterialCreatePayload(BaseModel):
     category: str = "Comestível"
     barcode: Optional[str] = ""
     purchase_date: Optional[str] = None
+    confirm_similar: bool = False
 
 
 class MaterialUpdatePayload(BaseModel):
@@ -289,6 +290,7 @@ class MaterialUpdatePayload(BaseModel):
     purchase_date: Optional[str] = None
     edit_mode: str = "correction"  # "correction" | "update"
     edit_reason: Optional[str] = ""
+    confirm_similar: bool = False
 
 
 class BulkDeleteCheckPayload(BaseModel):
@@ -415,6 +417,13 @@ def _base_packaging(qty: float, unit: str) -> tuple[str, float]:
     return (dim, round(base_q, 4))
 
 
+class SimilarMaterialWarning(ValueError):
+    """Raised when a similar (non-identical) material already exists and requires user confirmation."""
+    def __init__(self, message: str, existing: dict):
+        super().__init__(message)
+        self.existing = existing
+
+
 def _check_material_duplicate_or_typo(
     c,
     name: str,
@@ -422,6 +431,7 @@ def _check_material_duplicate_or_typo(
     qty: float,
     unit: str,
     exclude_id: Optional[int] = None,
+    confirm_similar: bool = False,
 ) -> None:
     import difflib
     c_name = _canonical_key(name)
@@ -429,7 +439,7 @@ def _check_material_duplicate_or_typo(
     dim, b_qty = _base_packaging(qty, unit)
 
     rows = c.execute(
-        "SELECT id, name, brand, purchase_qty, purchase_unit FROM materials WHERE COALESCE(archived, 0)=0"
+        "SELECT id, code, name, brand, purchase_qty, purchase_unit, purchase_value, category, COALESCE(barcode, '') AS barcode FROM materials WHERE COALESCE(archived, 0)=0"
     ).fetchall()
     for r in rows:
         if exclude_id and r["id"] == exclude_id:
@@ -444,11 +454,24 @@ def _check_material_duplicate_or_typo(
             raise ValueError(
                 f'Já existe um insumo idêntico cadastrado: "{r["name"]}" ({r["brand"] or "Sem marca"} • {fmt_num(r["purchase_qty"])} {r["purchase_unit"]}). Atualize o existente em vez de duplicar.'
             )
-        if r_brand == c_brand:
+        if r_brand == c_brand and not confirm_similar:
             ratio = difflib.SequenceMatcher(None, c_name, r_name).ratio()
             if ratio >= 0.85:
-                raise ValueError(
-                    f'Possível erro de digitação! Já existe "{r["name"]}" ({r["brand"] or "Sem marca"} • {fmt_num(r["purchase_qty"])} {r["purchase_unit"]}). Verifique antes de criar outro.'
+                raise SimilarMaterialWarning(
+                    f'Já existe um insumo parecido: "{r["name"]}" ({r["brand"] or "Sem marca"} • {fmt_num(r["purchase_qty"])} {r["purchase_unit"]}).',
+                    existing={
+                        "id": r["id"],
+                        "code": r["code"] or "",
+                        "name": r["name"],
+                        "brand": r["brand"] or "Sem marca",
+                        "qty": float(r["purchase_qty"] or 0),
+                        "qty_fmt": fmt_num(r["purchase_qty"]),
+                        "unit": r["purchase_unit"] or "un",
+                        "value": float(r["purchase_value"] or 0),
+                        "value_fmt": fmt(r["purchase_value"]),
+                        "category": r["category"] or "Comestível",
+                        "barcode": r["barcode"] or "",
+                    },
                 )
 
 def _format_history_date(val_str: str) -> str:
@@ -471,4 +494,4 @@ def _format_history_date(val_str: str) -> str:
         formatted += " (Hoje)"
     return formatted
 
-__all__ = ['_format_bytes_label', '_format_limit_kb', '_next_limit_step_kb', 'get_database_health', 'MaterialCreatePayload', 'MaterialUpdatePayload', 'BulkDeleteCheckPayload', 'ToggleActivePayload', 'ConversionPayload', 'UpdateConversionPayload', 'BatchDeleteConversionsPayload', 'SettingPayload', 'RecipeItemPayload', 'RecipePayload', '_normalize_purchase_datetime', '_load_hidden_cols', '_canonical_key', '_validate_quality_text', '_base_packaging', '_check_material_duplicate_or_typo', '_format_history_date']
+__all__ = ['_format_bytes_label', '_format_limit_kb', '_next_limit_step_kb', 'get_database_health', 'MaterialCreatePayload', 'MaterialUpdatePayload', 'BulkDeleteCheckPayload', 'ToggleActivePayload', 'ConversionPayload', 'UpdateConversionPayload', 'BatchDeleteConversionsPayload', 'SettingPayload', 'RecipeItemPayload', 'RecipePayload', '_normalize_purchase_datetime', '_load_hidden_cols', '_canonical_key', '_validate_quality_text', '_base_packaging', 'SimilarMaterialWarning', '_check_material_duplicate_or_typo', '_format_history_date']

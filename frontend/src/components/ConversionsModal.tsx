@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MaterialOption, ConversionItem } from '../types';
-import { NexoEmptyStateIcon, RoundedDropdown, RoundedEntry, RoundedActionButton } from './DesignSystem';
+import { CapsuleQuantityUnit, HelpCircleIcon, NexoEmptyStateIcon, NexoTooltip, RoundedDropdown, RoundedEntry, RoundedActionButton } from './DesignSystem';
 
 // ---------- ConversionsModal (Regra doc 04.3) ----------
 
@@ -8,7 +8,7 @@ export const ConversionsModal: React.FC<{
   initialMaterialId?: number | null;
   onClose: () => void;
   onNotify: (msg: string, type?: 'success' | 'warning' | 'error') => void;
-}> = ({ onClose, onNotify }) => {
+}> = ({ initialMaterialId = null, onClose, onNotify }) => {
   const [options, setOptions] = useState<MaterialOption[]>([]);
   const [selectedLabel, setSelectedLabel] = useState('');
   const [conversions, setConversions] = useState<ConversionItem[]>([]);
@@ -17,22 +17,7 @@ export const ConversionsModal: React.FC<{
   const [baseUnit, setBaseUnit] = useState('g');
   const [factor, setFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  // Fused capsule unit dropdown
-  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
-  const unitWrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      if (unitWrapRef.current && !unitWrapRef.current.contains(e.target as Node)) {
-        setUnitDropdownOpen(false);
-      }
-    };
-    if (unitDropdownOpen) {
-      document.addEventListener('mousedown', handleOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [unitDropdownOpen]);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Table sorting & resizable column state
   const [sortCol, setSortCol] = useState<'name' | 'factor' | null>(null);
@@ -49,14 +34,18 @@ export const ConversionsModal: React.FC<{
           const data = await res.json();
           const list: MaterialOption[] = data.items || [];
           setOptions(list);
-          // Always opens clean without pre-selection
-          setSelectedLabel('');
+          if (initialMaterialId) {
+            const match = list.find((o) => o.id === initialMaterialId);
+            setSelectedLabel(match ? match.label : '');
+          } else {
+            setSelectedLabel('');
+          }
         }
       } catch (e) {
         console.error(e);
       }
     })();
-  }, []);
+  }, [initialMaterialId]);
 
   const selectedMaterialId = useMemo(() => {
     if (!selectedLabel) return null;
@@ -174,14 +163,26 @@ export const ConversionsModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-[70] p-4">
       <div className="w-full max-w-[700px] max-h-[92vh] rounded-[22px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-5 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156] bg-white dark:bg-[#0F1B35]">
           <div>
-            <h2 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
-              Conversões de Medidas
-            </h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-[18px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                Conversões de Medidas
+              </h2>
+              <NexoTooltip text="Ajuda — Como usar">
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(true)}
+                  aria-label="Ajuda — Como usar"
+                  className="p-1 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                >
+                  <HelpCircleIcon className="w-[20px] h-[20px]" />
+                </button>
+              </NexoTooltip>
+            </div>
             <p className="text-[12px] text-[#687796] dark:text-[#93A4C6] mt-0.5">
               Defina equivalências (ex: xícara, colher, pote) para o cálculo exato do custo em fichas técnicas.
             </p>
@@ -258,70 +259,20 @@ export const ConversionsModal: React.FC<{
               </div>
 
               {/* Fused Capsule: [ Quantidade | Unidade ▼ ] */}
-              <div className="shrink-0" ref={unitWrapRef}>
+              <div className="shrink-0">
                 <label className="block text-[11.5px] font-semibold text-[#687796] dark:text-[#93A4C6] mb-1 pl-1">
                   Quantidade * | Unidade *
                 </label>
-                <div className="relative inline-flex items-center h-[34px] rounded-full bg-white dark:bg-[#0E1B35] border border-[#B0C0D6] dark:border-[#24385E] focus-within:border-[#F28C28] dark:focus-within:border-[#F28C28] transition-colors">
-                  {/* Numeric Input */}
-                  <input
-                    type="text"
-                    value={factor}
-                    onChange={(e) => setFactor(e.target.value.replace(/[^0-9.,]/g, ''))}
-                    placeholder="Ex: 200"
-                    className="w-[100px] h-full bg-transparent px-3 text-[13px] text-[#18223A] dark:text-[#F4F7FF] placeholder-[#9AA9BF] focus:outline-none text-center font-medium"
-                  />
-
-                  {/* Gray Divider Line */}
-                  <div className="w-[1px] h-[18px] bg-[#B0C0D6] dark:bg-[#2A3F66] shrink-0" />
-
-                  {/* Unit Selector Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => setUnitDropdownOpen((o) => !o)}
-                    className="h-full px-3 flex items-center justify-center gap-1.5 text-[13px] font-bold text-[#18223A] dark:text-[#F4F7FF] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer select-none"
-                  >
-                    <span>{baseUnit}</span>
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      className={`text-[#687796] transition-transform duration-150 ${unitDropdownOpen ? 'rotate-180' : ''
-                        }`}
-                    >
-                      <path
-                        d="M2 4L6 8L10 4"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-
-                  {/* Floating Unit Menu */}
-                  {unitDropdownOpen && (
-                    <div className="absolute right-0 top-[40px] w-[80px] rounded-[12px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] shadow-xl py-1 z-50">
-                      {['g', 'kg', 'ml', 'L', 'un', 'mg'].map((u) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => {
-                            setBaseUnit(u);
-                            setUnitDropdownOpen(false);
-                          }}
-                          className={`w-full h-8 px-3 text-[12.5px] flex items-center justify-center transition-colors cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#172746] ${u === baseUnit
-                              ? 'text-[#BA5200] dark:text-[#F28C28] font-bold bg-[#FFF7EE] dark:bg-[#2C1C0D]'
-                              : 'text-[#18223A] dark:text-[#F4F7FF] font-normal'
-                            }`}
-                        >
-                          {u}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <CapsuleQuantityUnit
+                  qtyValue={factor}
+                  onQtyChange={setFactor}
+                  unitValue={baseUnit}
+                  onUnitChange={setBaseUnit}
+                  unitOptions={['g', 'kg', 'ml', 'L', 'un', 'mg']}
+                  qtyPlaceholder="Ex: 200"
+                  width={170}
+                  height={34}
+                />
               </div>
 
               {/* Action Button */}
@@ -452,6 +403,78 @@ export const ConversionsModal: React.FC<{
           </div>
         </div>
       </div>
+
+      {/* Modal de Ajuda / Mini-manual */}
+      {helpOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-[80] p-4">
+          <div className="w-full max-w-[480px] rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156]">
+              <div className="flex items-center gap-2">
+                <span className="text-[#F28C28] flex items-center">
+                  <HelpCircleIcon className="w-5 h-5" />
+                </span>
+                <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Como usar Conversões de Medidas
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-3.5 text-[13px] text-[#18223A] dark:text-[#F4F7FF]">
+              <div className="rounded-[14px] bg-[#F4F7FC] dark:bg-[#0B1730] border border-[#DDE5F2] dark:border-[#1E3156] p-3">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF] mb-1">
+                  Para que serve?
+                </p>
+                <p className="text-[12.5px] text-[#60769D] dark:text-[#AFC0E2] leading-relaxed">
+                  Permite usar medidas caseiras na receita (como <strong>xícara</strong>, <strong>colher</strong>, <strong>pitada</strong> ou <strong>pote</strong>) e o Nexo calcula o custo real automaticamente.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Como preencher em 3 passos:
+                </p>
+                <ol className="space-y-1.5 text-[12.5px] text-[#475569] dark:text-[#CBD5E1] list-decimal pl-5">
+                  <li>
+                    <strong>Escolha o insumo</strong> no campo lá em cima (ex.: <em>Farinha de trigo</em>).
+                  </li>
+                  <li>
+                    <strong>Na esquerda (1 Medida / Nome):</strong> escreva só o nome da medida, sem colocar número (ex.: <em>Xícara de chá</em>).
+                  </li>
+                  <li>
+                    <strong>Na direita (Quantidade | Unidade):</strong> informe quanto pesa ou mede <strong>1 unidade</strong> dessa medida (ex.: <em>120 g</em>).
+                  </li>
+                </ol>
+              </div>
+
+              <div className="rounded-[14px] bg-[#FFF8EE] dark:bg-[#2A1E14] border border-[#F28C28]/40 p-3">
+                <p className="text-[11.5px] font-bold uppercase tracking-wider text-[#BA5200] dark:text-[#F28C28] mb-1">
+                  Exemplo prático
+                </p>
+                <p className="text-[12.5px] text-[#18223A] dark:text-[#F4F7FF] leading-relaxed">
+                  Cadastrou <strong className="text-[#F28C28]">1 Xícara de chá = 120 g</strong>.<br />
+                  Quando você colocar <strong>2 Xícara de chá</strong> na receita, o Nexo calcula o custo de <strong>240 g</strong> de farinha sozinho!
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-[#E2EAF5] dark:border-[#1E3156] flex justify-end bg-[#F8FAFD] dark:bg-[#0F1B35]">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setHelpOpen(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

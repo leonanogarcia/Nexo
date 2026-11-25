@@ -56,8 +56,10 @@ import {
   CapsuleInput,
   CapsuleQuantityUnit,
   RoundedDropdown,
+  HelpCircleIcon,
   NexoCheckbox,
   NexoToggleSwitch,
+  RefreshSyncIcon,
   TrashIcon,
   EditPencilIcon,
   PlusIcon,
@@ -77,7 +79,7 @@ export interface SettingsPageProps {
   onAiStatusChange?: (enabled: boolean) => void;
 }
 
-type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco' | 'sobre';
+type SettingsCategoryKey = 'geral' | 'ia' | 'metricas' | 'unidades' | 'banco' | 'atualizacoes' | 'sobre';
 
 // --- Clean Monochrome Vector Icons (Design System Nexo) ---
 
@@ -765,6 +767,7 @@ const SETTINGS_TABS: SettingsTabSpec[] = [
   { key: 'metricas', label: 'Métricas de Custo', icon: <TrendingCostsIcon className="w-[19px] h-[19px] shrink-0" /> },
   { key: 'unidades', label: 'Unidades de Medida', icon: <ScalesUnitsIcon className="w-[19px] h-[19px] shrink-0" /> },
   { key: 'banco', label: 'Banco de Dados & BI', icon: <DatabaseBiIcon className="w-[19px] h-[19px] shrink-0" /> },
+  { key: 'atualizacoes', label: 'Atualizações', icon: <RefreshSyncIcon className="w-[19px] h-[19px] shrink-0" /> },
   { key: 'sobre', label: 'Sobre', icon: <AboutInfoIcon className="w-[19px] h-[19px] shrink-0" /> },
 ];
 
@@ -810,6 +813,108 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   const [showSalesChannelsHelpModal, setShowSalesChannelsHelpModal] = useState(false);
   const [showUnitsHelpModal, setShowUnitsHelpModal] = useState(false);
   const [showDbBiHelpModal, setShowDbBiHelpModal] = useState(false);
+  const [showUpdateHelpModal, setShowUpdateHelpModal] = useState(false);
+
+  // Atualizações em Rede Local (NexoHub)
+  const [updateServerUrl, setUpdateServerUrl] = useState('');
+  const [updateAutoCheck, setUpdateAutoCheck] = useState(true);
+  const [updateCurrentVer, setUpdateCurrentVer] = useState('2.1.1');
+  const [updateCheckResult, setUpdateCheckResult] = useState<{
+    configured: boolean;
+    reachable: boolean;
+    has_update: boolean;
+    latest_version?: string;
+    message?: string;
+  } | null>(null);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [savingUpdateConfig, setSavingUpdateConfig] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/updates/config');
+        if (res.ok) {
+          const data = await res.json();
+          setUpdateServerUrl(data.server_url || '');
+          setUpdateAutoCheck(data.auto_check !== false);
+          if (data.current_version) setUpdateCurrentVer(data.current_version);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
+  const handleSaveUpdateConfig = async () => {
+    setSavingUpdateConfig(true);
+    try {
+      const res = await fetch('/api/updates/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          server_url: updateServerUrl.trim(),
+          auto_check: updateAutoCheck,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        onNotify(data.detail || 'Erro ao salvar configurações de atualização.', 'error');
+        return;
+      }
+      setUpdateServerUrl(data.server_url || '');
+      onNotify(data.message || 'Configurações de atualização salvas!', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao salvar configurações.', 'error');
+    } finally {
+      setSavingUpdateConfig(false);
+    }
+  };
+
+  const handleCheckUpdates = async (customUrl?: string) => {
+    setCheckingUpdates(true);
+    try {
+      const target = customUrl !== undefined ? customUrl : updateServerUrl.trim();
+      const q = target ? `?url=${encodeURIComponent(target)}` : '';
+      const res = await fetch(`/api/updates/check${q}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateCheckResult(data);
+        if (data.has_update) {
+          onNotify(`Nova versão ${data.latest_version} disponível!`, 'success');
+        } else if (data.reachable) {
+          onNotify(data.message || 'O Nexo já está atualizado.', 'success');
+        } else {
+          onNotify(data.message || 'Servidor não alcançado.', 'warning');
+        }
+      }
+    } catch {
+      onNotify('Falha ao verificar atualizações.', 'error');
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    setInstallingUpdate(true);
+    try {
+      const res = await fetch('/api/updates/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server_url: updateServerUrl.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        onNotify(data.detail || 'Não foi possível iniciar a atualização.', 'error');
+        setInstallingUpdate(false);
+        return;
+      }
+      onNotify(data.message || 'Atualizando o Nexo...', 'success');
+    } catch (e: any) {
+      onNotify(e.message || 'Erro ao iniciar atualização.', 'error');
+      setInstallingUpdate(false);
+    }
+  };
   const [savingAi, setSavingAi] = useState(false);
 
   // --- Categoria 3: Métricas de Custo & Jornada da Cozinha ---
@@ -2693,7 +2798,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                         className="p-1 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
                         title="Para que serve e como escolher o Modelo"
                       >
-                        <InfoCircleIcon className="w-[22px] h-[22px]" />
+                        <HelpCircleIcon className="w-[22px] h-[22px]" />
                       </button>
                       <div className="absolute right-0 top-[38px] h-[32px] px-4 rounded-full bg-[#101A33] dark:bg-[#2A3B5C] text-white font-bold text-[12px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         Como funciona o Modelo de IA
@@ -2724,7 +2829,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                     className="p-1 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
                     title="Como obter sua chave de API"
                   >
-                    <InfoCircleIcon className="w-[22px] h-[22px]" />
+                    <HelpCircleIcon className="w-[22px] h-[22px]" />
                   </button>
                   {/* Tooltip cápsula oficial no hover */}
                   <div className="absolute right-0 top-[38px] h-[32px] px-4 rounded-full bg-[#101A33] dark:bg-[#2A3B5C] text-white font-bold text-[12px] flex items-center justify-center whitespace-nowrap shadow-lg z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
@@ -2790,7 +2895,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
                           title="Como entender e usar as Métricas de Custo"
                         >
-                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                          <HelpCircleIcon className="w-[18px] h-[18px]" />
                         </button>
                       </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
@@ -2994,7 +3099,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
                           title="Como entender e usar os Custos Indiretos"
                         >
-                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                          <HelpCircleIcon className="w-[18px] h-[18px]" />
                         </button>
                       </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
@@ -3303,7 +3408,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                           className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
                           title="Como funcionam os Canais de Venda & Taxas"
                         >
-                          <InfoCircleIcon className="w-[18px] h-[18px]" />
+                          <HelpCircleIcon className="w-[18px] h-[18px]" />
                         </button>
                       </div>
                       <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
@@ -3951,7 +4056,128 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             </>
           )}
 
-          {/* ==================== CATEGORIA 6: SOBRE ==================== */}
+          {/* ==================== CATEGORIA 6: ATUALIZAÇÕES ==================== */}
+          {activeTab === 'atualizacoes' && (
+            <>
+              {/* Card 1: Status da Versão */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
+                <div className="flex items-center justify-between gap-3 flex-wrap border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#FFF0E6] dark:bg-[#2D1B10] flex items-center justify-center text-[#F28C28]">
+                      <RefreshSyncIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-[15px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                        Versão e Atualizações
+                      </h3>
+                      <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                        Versão instalada: <strong>v{updateCurrentVer || aboutInfo.version}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RoundedActionButton
+                      label={checkingUpdates ? 'Verificando...' : 'Verificar agora'}
+                      onClick={() => handleCheckUpdates()}
+                      disabled={checkingUpdates || installingUpdate}
+                      variant="secondary"
+                      height={34}
+                    />
+                    {updateCheckResult?.has_update && (
+                      <RoundedActionButton
+                        label={installingUpdate ? 'Baixando...' : `Instalar v${updateCheckResult.latest_version}`}
+                        onClick={handleInstallUpdate}
+                        disabled={installingUpdate}
+                        variant="primary"
+                        height={34}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {updateCheckResult ? (
+                  <div
+                    className={`rounded-[14px] p-3.5 border text-[12.5px] ${
+                      updateCheckResult.has_update
+                        ? 'bg-[#FFF8EE] dark:bg-[#2A1E14] border-[#F28C28]/50 text-[#BA5200] dark:text-[#F28C28]'
+                        : updateCheckResult.reachable
+                        ? 'bg-[#F0FDF4] dark:bg-[#122B1E] border-[#86EFAC] dark:border-[#166534] text-[#15803D] dark:text-[#4ADE80]'
+                        : 'bg-[#F8FAFC] dark:bg-[#0E1A30] border-[#DDE5F2] dark:border-[#24385E] text-[#60769D] dark:text-[#93A4C6]'
+                    }`}
+                  >
+                    <p className="font-bold">{updateCheckResult.message}</p>
+                    {updateCheckResult.has_update && (
+                      <p className="text-[11.5px] mt-1 opacity-90">
+                        Seus dados e receitas em <code>%LOCALAPPDATA%\Nexo</code> serão preservados automaticamente.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-[#60769D] dark:text-[#93A4C6]">
+                    Clique em <strong>Verificar agora</strong> para consultar se há uma nova versão disponível na rede configurada.
+                  </p>
+                )}
+              </div>
+
+              {/* Card 2: Configuração da Rede Local (NexoHub) */}
+              <div className="rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#E2EAF5] dark:border-[#24385E] p-5 shadow-sm space-y-4 transition-colors">
+                <div className="flex items-center justify-between gap-3 border-b border-[#F0F4FA] dark:border-[#1E3156] pb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-[14.5px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                      Servidor de Atualização (Rede Local)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowUpdateHelpModal(true)}
+                      className="p-0.5 rounded-full text-[#60769D] dark:text-[#AFC0E2] hover:text-[#BA5200] dark:hover:text-[#F28C28] transition-colors cursor-pointer focus:outline-none"
+                      title="Como configurar atualizações na rede local"
+                    >
+                      <HelpCircleIcon className="w-[18px] h-[18px]" />
+                    </button>
+                  </div>
+                  <NexoToggleSwitch
+                    checked={updateAutoCheck}
+                    onChange={setUpdateAutoCheck}
+                  />
+                </div>
+
+                <p className="text-[11.5px] text-[#60769D] dark:text-[#93A4C6]">
+                  Ative o botão acima para verificar automaticamente ao abrir o Nexo. Se o notebook servidor estiver desligado, o Nexo abre normalmente sem erro.
+                </p>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[11.5px] font-semibold text-[#60769D] dark:text-[#93A4C6] pl-1">
+                    URL do Servidor de Atualização (Opcional)
+                  </label>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="flex-1 min-w-[240px]">
+                      <CapsuleInput
+                        value={updateServerUrl}
+                        onChange={setUpdateServerUrl}
+                        placeholder="Ex: http://NOTEBOOK-PRINCIPAL:8765"
+                      />
+                    </div>
+                    <RoundedActionButton
+                      label="Testar conexão"
+                      onClick={() => handleCheckUpdates(updateServerUrl.trim())}
+                      disabled={checkingUpdates || !updateServerUrl.trim()}
+                      variant="secondary"
+                      height={34}
+                    />
+                    <RoundedActionButton
+                      label={savingUpdateConfig ? 'Salvando...' : 'Salvar'}
+                      onClick={handleSaveUpdateConfig}
+                      disabled={savingUpdateConfig}
+                      variant="primary"
+                      height={34}
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ==================== CATEGORIA 7: SOBRE ==================== */}
           {activeTab === 'sobre' && (
             <>
               {/* Identidade e Versão */}
@@ -4829,6 +5055,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <RoundedActionButton
                 label="Entendi"
                 onClick={() => setShowAiOverviewModal(false)}
+                variant="primary"
+                height={34}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUpdateHelpModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-[480px] rounded-[22px] bg-white dark:bg-[#111F3B] border border-[#DDE5F2] dark:border-[#24385E] shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-[#E2EAF5] dark:border-[#1E3156]">
+              <div className="flex items-center gap-2">
+                <HelpCircleIcon className="w-5 h-5 text-[#F28C28]" />
+                <h3 className="text-[16px] font-bold text-[#18223A] dark:text-[#F4F7FF]">
+                  Como funcionam as Atualizações
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUpdateHelpModal(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#687796] hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-3 text-[12.5px] text-[#475569] dark:text-[#CBD5E1] leading-relaxed">
+              <p>
+                Você pode conectar este Nexo a um computador da sua mesma rede Wi-Fi rodando o <strong>NexoHub</strong> (ex.: <code>http://NOME-DO-PC:8765</code>).
+              </p>
+              <ul className="list-disc pl-5 space-y-1.5">
+                <li>Quando o computador servidor estiver ligado na rede e tiver uma versão mais nova, o Nexo pergunta se deseja instalar na hora.</li>
+                <li>O banco de dados em <code>%LOCALAPPDATA%\Nexo</code> nunca é apagado durante a atualização.</li>
+                <li>Se o servidor estiver desligado ou o campo ficar vazio, o Nexo funciona normalmente sem travar.</li>
+              </ul>
+            </div>
+            <div className="px-6 py-3 border-t border-[#E2EAF5] dark:border-[#1E3156] flex justify-end bg-[#F8FAFD] dark:bg-[#0F1B35]">
+              <RoundedActionButton
+                label="Entendi"
+                onClick={() => setShowUpdateHelpModal(false)}
                 variant="primary"
                 height={34}
               />

@@ -732,6 +732,24 @@ namespace NexoSetup
         private PillButton btnCancel;
         private bool cleanInstallDir = false;
         private bool resetExistingDb = false;
+        private bool autoUpdateMode = false;
+
+        public static string GetInstalledLocationFromRegistry()
+        {
+            try {
+                foreach (RegistryKey baseKey in new RegistryKey[] { Registry.LocalMachine, Registry.CurrentUser }) {
+                    using (RegistryKey key = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Nexo")) {
+                        if (key != null) {
+                            object val = key.GetValue("InstallLocation");
+                            if (val != null && !string.IsNullOrWhiteSpace(val.ToString())) {
+                                return val.ToString();
+                            }
+                        }
+                    }
+                }
+            } catch {}
+            return "";
+        }
 
         public static string GetDefaultProgramFilesDir()
         {
@@ -750,8 +768,9 @@ namespace NexoSetup
             );
         }
 
-        public SetupForm()
+        public SetupForm(bool autoUpdate = false)
         {
+            this.autoUpdateMode = autoUpdate;
             this.Text = "Instalador do Nexo v__VERSION__ (x64)";
             this.Size = new Size(540, 496);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -1021,6 +1040,19 @@ namespace NexoSetup
             this.Controls.Add(btnInstall);
 
             ShowStep(0);
+            this.Shown += (s, e) => {
+                if (this.autoUpdateMode) {
+                    string existingDir = GetInstalledLocationFromRegistry();
+                    if (!string.IsNullOrWhiteSpace(existingDir) && Directory.Exists(existingDir)) {
+                        txtInstallDir.Text = existingDir;
+                    }
+                    chkLaunch.Checked = true;
+                    resetExistingDb = false;
+                    cleanInstallDir = false;
+                    ShowStep(3);
+                    BtnInstall_Click(this, EventArgs.Empty);
+                }
+            };
         }
 
         private void ShowStep(int step)
@@ -1199,6 +1231,13 @@ namespace NexoSetup
                     }
                     if (doCleanInstall && Directory.Exists(installDir)) {
                         try { Directory.Delete(installDir, true); } catch {}
+                    } else if (Directory.Exists(installDir)) {
+                        foreach (string oldSub in new string[] { "_internal", @"frontend\dist\assets" }) {
+                            string oldPath = Path.Combine(installDir, oldSub);
+                            if (Directory.Exists(oldPath)) {
+                                try { Directory.Delete(oldPath, true); } catch {}
+                            }
+                        }
                     }
                     Directory.CreateDirectory(installDir);
 
@@ -1362,11 +1401,13 @@ namespace NexoSetup
         }
 
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
+            bool isAutoUpdate = args != null && Array.Exists(args, a => string.Equals(a, "/AUTOUPDATE", StringComparison.OrdinalIgnoreCase));
             if (!IsAdmin()) {
                 try {
                     ProcessStartInfo psi = new ProcessStartInfo(Application.ExecutablePath);
+                    if (isAutoUpdate) psi.Arguments = "/AUTOUPDATE";
                     psi.Verb = "runas";
                     Process.Start(psi);
                 } catch {
@@ -1381,7 +1422,7 @@ namespace NexoSetup
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new SetupForm());
+            Application.Run(new SetupForm(isAutoUpdate));
         }
     }
 }
@@ -1525,6 +1566,14 @@ def main():
         spec_file.unlink()
     print(f'\n[SUCESSO] Instalador x64 gerado em: {setup_exe_path}')
     print(f'[SUCESSO] Desinstalador gerado em: {OUTPUT_DIR / "Uninstall_Nexo.exe"}')
+    hub_releases = Path(r'D:\Hub\NexoHub\releases')
+    if hub_releases.exists():
+        try:
+            dest_hub = hub_releases / setup_exe_path.name
+            shutil.copy2(setup_exe_path, dest_hub)
+            print(f'[SUCESSO] Publicado automaticamente no NexoHub: {dest_hub}')
+        except Exception as hub_err:
+            print(f'[AVISO] Nao foi possivel copiar para NexoHub: {hub_err}')
 
 
 if __name__ == '__main__':

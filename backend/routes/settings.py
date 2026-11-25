@@ -145,7 +145,7 @@ def get_system_status():
         "date_format": get_setting("date_format", "DD/MM/YYYY"),
         "time_format": get_setting("time_format", "24h"),
         "is_packaged": bool(getattr(sys, "frozen", False)),
-        "version": "v2.1.1",
+        "version": "v2.1.2",
     }
 
 
@@ -288,7 +288,7 @@ def get_all_settings():
         },
         "about": {
             "app_name": "Nexo",
-            "version": "2.1.1",
+            "version": "2.1.2",
             "release_date": "21/11/2026",
             "edition": "Local (SQLite)",
             "os_info": f"{platform.system()} {platform.release()}",
@@ -365,7 +365,7 @@ def test_ai_connection(payload: AiTestPayload):
     provider = payload.provider.strip()
     api_key = payload.api_key.strip().strip('"').strip("'")
     base_url = payload.base_url.strip().rstrip("/")
-    base_headers = {"User-Agent": "Nexo/2.1.1"}
+    base_headers = {"User-Agent": "Nexo/2.1.2"}
 
     if provider == "Google Gemini":
         if not api_key:
@@ -887,3 +887,195 @@ def update_setting(key: str, payload: SettingPayload):
     else:
         set_setting(key, str(val))
     return {"ok": True, "key": key, "value": val}
+
+
+# =====================================================================
+# Atualizações em Rede Local (NexoHub)
+# =====================================================================
+
+def _get_current_app_version() -> str:
+    try:
+        pkg = paths.BASE_DIR / "frontend" / "package.json"
+        if pkg.exists():
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+            v = str(data.get("version") or "").strip()
+            if v:
+                return v
+    except Exception:
+        pass
+    return "2.1.2"
+
+
+def _normalize_update_url(raw: str) -> str:
+    url = (raw or "").strip().rstrip("/")
+    if not url:
+        return ""
+    if not url.startswith(("http://", "https://")):
+        url = f"http://{url}"
+    return url
+
+
+def _parse_ver_tuple(v: str) -> tuple:
+    clean = str(v or "").strip().lstrip("vV")
+    parts = []
+    for p in clean.split("."):
+        try:
+            parts.append(int("".join(ch for ch in p if ch.isdigit()) or "0"))
+        except Exception:
+            parts.append(0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+class UpdateConfigPayload(BaseModel):
+    server_url: str = ""
+    auto_check: bool = True
+
+
+class UpdateInstallPayload(BaseModel):
+    server_url: Optional[str] = None
+
+
+@router.get("/api/updates/config")
+def get_update_config():
+    return {
+        "ok": True,
+        "server_url": get_setting("update_server_url", "") or "",
+        "auto_check": get_setting("update_auto_check", "1") in ("1", "true", "True"),
+        "current_version": _get_current_app_version(),
+    }
+
+
+@router.post("/api/updates/config")
+def save_update_config(payload: UpdateConfigPayload):
+    norm_url = _normalize_update_url(payload.server_url)
+    set_setting("update_server_url", norm_url)
+    set_setting("update_auto_check", "1" if payload.auto_check else "0")
+    return {
+        "ok": True,
+        "server_url": norm_url,
+        "auto_check": payload.auto_check,
+        "message": "Configurações de atualização salvas com sucesso.",
+    }
+
+
+@router.get("/api/updates/check")
+def check_for_updates(url: Optional[str] = Query(None)):
+    import urllib.request
+
+    current_version = _get_current_app_version()
+    target_url = _normalize_update_url(url if url is not None else (get_setting("update_server_url", "") or ""))
+    if not target_url:
+        return {
+            "ok": True,
+            "configured": False,
+            "reachable": False,
+            "has_update": False,
+            "current_version": current_version,
+            "message": "Servidor de atualização não configurado.",
+        }
+
+    manifest_url = f"{target_url}/manifest.json"
+    try:
+        req = urllib.request.Request(manifest_url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        latest_version = str(data.get("version") or "").strip()
+        filename = str(data.get("file") or "").strip()
+        sha256 = str(data.get("sha256") or "").strip()
+        size = int(data.get("size") or 0)
+        has_update = bool(latest_version and filename and _parse_ver_tuple(latest_version) > _parse_ver_tuple(current_version))
+        return {
+            "ok": True,
+            "configured": True,
+            "reachable": True,
+            "has_update": has_update,
+            "current_version": current_version,
+            "latest_version": latest_version,
+            "file": filename,
+            "sha256": sha256,
+            "size": size,
+            "message": (
+                f"Nova versão {latest_version} disponível!"
+                if has_update
+                else f"O Nexo já está na versão mais recente ({current_version})."
+            ),
+        }
+    except Exception:
+        return {
+            "ok": True,
+            "configured": True,
+            "reachable": False,
+            "has_update": False,
+            "current_version": current_version,
+            "message": "Servidor local offline ou inacessível no momento.",
+        }
+
+
+@router.post("/api/updates/install")
+def install_update(payload: Optional[UpdateInstallPayload] = None):
+    import hashlib
+    import subprocess
+    import tempfile
+    import threading
+    import urllib.request
+
+    raw_url = (payload.server_url if payload and payload.server_url else None) or get_setting("update_server_url", "") or ""
+    target_url = _normalize_update_url(raw_url)
+    if not target_url:
+        raise HTTPException(status_code=400, detail="URL do servidor de atualização não configurada.")
+
+    try:
+        with urllib.request.urlopen(f"{target_url}/manifest.json", timeout=3.0) as resp:
+            manifest = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Não foi possível conectar ao servidor de atualização: {e}")
+
+    filename = str(manifest.get("file") or "").strip()
+    expected_sha = str(manifest.get("sha256") or "").strip().lower()
+    if not filename or "/" in filename or "\\" in filename or ".." in filename or not filename.lower().endswith(".exe"):
+        raise HTTPException(status_code=400, detail="Manifesto de atualização inválido.")
+
+    temp_dir = Path(tempfile.gettempdir()) / "NexoUpdate"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    dest_exe = temp_dir / filename
+
+    try:
+        h = hashlib.sha256()
+        with urllib.request.urlopen(f"{target_url}/releases/{filename}", timeout=30.0) as resp, dest_exe.open("wb") as out:
+            while True:
+                chunk = resp.read(1024 * 512)
+                if not chunk:
+                    break
+                h.update(chunk)
+                out.write(chunk)
+        actual_sha = h.hexdigest().lower()
+    except Exception as e:
+        if dest_exe.exists():
+            try:
+                dest_exe.unlink()
+            except Exception:
+                pass
+        raise HTTPException(status_code=502, detail=f"Falha ao baixar o instalador: {e}")
+
+    if expected_sha and actual_sha != expected_sha:
+        try:
+            dest_exe.unlink()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail="Falha na verificação de integridade (SHA-256) do instalador.")
+
+    try:
+        flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        subprocess.Popen([str(dest_exe), "/AUTOUPDATE"], creationflags=flags, close_fds=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Não foi possível iniciar o instalador: {e}")
+
+    def _delayed_exit():
+        import time
+        time.sleep(0.6)
+        os._exit(0)
+
+    threading.Thread(target=_delayed_exit, daemon=True).start()
+    return {"ok": True, "message": "Instalador iniciado. O Nexo será atualizado e reaberto em instantes."}

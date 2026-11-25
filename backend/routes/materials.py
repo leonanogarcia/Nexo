@@ -222,7 +222,9 @@ def create_material(payload: MaterialCreatePayload):
         now_val = now_iso()
 
         with db() as c:
-            _check_material_duplicate_or_typo(c, name, brand, qty, unit)
+            _check_material_duplicate_or_typo(
+                c, name, brand, qty, unit, confirm_similar=bool(payload.confirm_similar)
+            )
             cur = c.execute(
                 """
                 INSERT INTO materials(code, name, purchase_qty, purchase_unit, purchase_value, brand, category, barcode, updated_at)
@@ -242,6 +244,11 @@ def create_material(payload: MaterialCreatePayload):
 
         snapshot_costs()
         return {"ok": True, "id": mid, "code": code, "message": "Insumo salvo com sucesso."}
+    except SimilarMaterialWarning as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "SIMILAR_MATERIAL_EXISTS", "message": str(e), "existing": e.existing},
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -286,7 +293,15 @@ def update_material(material_id: int, payload: MaterialUpdatePayload):
             raise ValueError('O campo "Data" é obrigatório.')
 
         with db() as chk_c:
-            _check_material_duplicate_or_typo(chk_c, name, brand, qty, unit, exclude_id=material_id)
+            _check_material_duplicate_or_typo(
+                chk_c,
+                name,
+                brand,
+                qty,
+                unit,
+                exclude_id=material_id,
+                confirm_similar=bool(payload.confirm_similar),
+            )
 
         after = {
             "name": name,
@@ -326,6 +341,11 @@ def update_material(material_id: int, payload: MaterialUpdatePayload):
 
         snapshot_costs()
         return {"ok": True, "id": material_id, "message": "Insumo salvo com sucesso."}
+    except SimilarMaterialWarning as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "SIMILAR_MATERIAL_EXISTS", "message": str(e), "existing": e.existing},
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
